@@ -678,8 +678,6 @@
       }
 
       function draw() {
-        ctx.save()
-        ctx.scale(SCALE, SCALE)
         const t = getTier(level)
         ctx.fillStyle = t.bg
         ctx.fillRect(0, 0, 600, 400)
@@ -809,7 +807,6 @@
           ctx.font = '16px sans-serif'
           ctx.fillText('Nivel ' + level + ' - ' + score + 'pts', 300, 220)
         }
-        ctx.restore()
       }
 
       document.addEventListener('keydown', (e) => {
