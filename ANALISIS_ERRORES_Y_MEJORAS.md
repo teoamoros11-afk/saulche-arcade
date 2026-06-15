@@ -332,7 +332,7 @@ h1 {
 ## 📊 Matriz de Prioridades
 
 | # | Error | Severidad | Impacto |
-|---|-------|-----------|---------|
+|---|-------|-----------|----------|
 | 1 | Toque diagonal invertido | 🔴 Alta | Gameplay roto |
 | 2 | roundRect falta | 🔴 Alta | Falla en navegadores antiguos |
 | 3 | Variables no inicializadas | 🟡 Media | Posibles crashes |
@@ -358,4 +358,3 @@ h1 {
 - [ ] Extraer audio a módulo compartido
 - [ ] Usar constantes para magic numbers
 - [ ] Completar prefijos CSS
-
