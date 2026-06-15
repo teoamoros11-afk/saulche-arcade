@@ -271,11 +271,11 @@
             name: 'La Playa',
             icon: '🟢',
             levels: 10,
-            enemySpeed: 1,
-            bombFreq: 90,
-            maxEnemies: 3,
-            enemyFireChance: 0.006,
-            specialChance: 0.1,
+            enemySpeed: 1.4,
+            bombFreq: 70,
+            maxEnemies: 4,
+            enemyFireChance: 0.012,
+            specialChance: 0.12,
             bgTop: '#87CEEB',
             bgBot: '#3AA8C1',
           },
@@ -283,11 +283,11 @@
             name: 'El Muelle',
             icon: '🟡',
             levels: 10,
-            enemySpeed: 1.6,
-            bombFreq: 75,
-            maxEnemies: 4,
-            enemyFireChance: 0.009,
-            specialChance: 0.15,
+            enemySpeed: 2.2,
+            bombFreq: 55,
+            maxEnemies: 5,
+            enemyFireChance: 0.018,
+            specialChance: 0.18,
             bgTop: '#FFB74D',
             bgBot: '#E65100',
           },
@@ -295,11 +295,11 @@
             name: 'El Acantilado',
             icon: '🔴',
             levels: 10,
-            enemySpeed: 2.3,
-            bombFreq: 60,
-            maxEnemies: 5,
-            enemyFireChance: 0.013,
-            specialChance: 0.2,
+            enemySpeed: 3.0,
+            bombFreq: 40,
+            maxEnemies: 6,
+            enemyFireChance: 0.025,
+            specialChance: 0.25,
             bgTop: '#BF360C',
             bgBot: '#4E342E',
           },
@@ -307,11 +307,11 @@
             name: 'La Tormenta',
             icon: '🟣',
             levels: 10,
-            enemySpeed: 3.2,
-            bombFreq: 45,
-            maxEnemies: 6,
-            enemyFireChance: 0.018,
-            specialChance: 0.3,
+            enemySpeed: 4.0,
+            bombFreq: 30,
+            maxEnemies: 7,
+            enemyFireChance: 0.035,
+            specialChance: 0.35,
             bgTop: '#311B92',
             bgBot: '#1A237E',
           },
@@ -339,6 +339,7 @@
             score: 0,
             level: 1,
             combo: 0,
+            comboTimer: 0,
             maxCombo: 0,
             state: 'playing', // playing, gameover, levelTransition, won
             transitionTimer: 0,
@@ -373,7 +374,7 @@
             y: game.waterSurfaceY - (isPlane ? 35 : 15),
             w: isPlane ? 44 : 36,
             h: isPlane ? 24 : 22,
-            speed: tier.enemySpeed + (game.level % 10) * 0.08 + (Math.random() * 0.5 - 0.25),
+            speed: tier.enemySpeed + (game.level % 10) * 0.12 + (Math.random() * 0.5 - 0.25),
             type: isPlane ? 'plane' : 'boat',
             fireTimer: 0,
             fireInterval: Math.max(
@@ -774,6 +775,16 @@
             ctx.fillStyle = '#FFD54F'
             ctx.font = `bold ${13 + Math.min(game.combo, 10)}px "Segoe UI", sans-serif`
             ctx.fillText(`${game.combo}x COMBO!`, VW / 2, 60 + Math.sin(t * 0.01) * 2)
+            // Combo decay bar
+            const barW = 60 + Math.min(game.combo, 10) * 4
+            const barH = 4
+            const barX = VW / 2 - barW / 2
+            const barY = 66 + Math.min(game.combo, 10)
+            const ratio = game.comboTimer / 180
+            ctx.fillStyle = 'rgba(0,0,0,0.3)'
+            ctx.fillRect(barX, barY, barW, barH)
+            ctx.fillStyle = ratio > 0.3 ? '#FFD54F' : '#FF5252'
+            ctx.fillRect(barX, barY, barW * ratio, barH)
           }
 
           ctx.restore()
@@ -927,14 +938,14 @@
           if (p.shootCooldown > 0) p.shootCooldown--
           if (keys['Space'] && p.shootCooldown === 0 && game.state === 'playing') {
             game.playerBullets.push({ x: p.x, y: p.y - p.h / 2, w: 6, h: 8, speed: 7 })
-            p.shootCooldown = 15
+            p.shootCooldown = 18
             playShoot()
           }
 
           // Enemy spawning
           const tier = getTier(game.level)
           const maxEnemies = tier.maxEnemies + Math.floor((game.level - 1) / 4)
-          if (game.enemies.length < maxEnemies && Math.random() < 0.008) {
+          if (game.enemies.length < maxEnemies && Math.random() < 0.012 + game.level * 0.001) {
             spawnEnemy()
           }
 
@@ -995,7 +1006,7 @@
               ) {
                 // hit player
                 p.lives--
-                p.invincible = 120
+                p.invincible = 80
                 game.screenShake = 15
                 game.combo = 0
                 for (let k = 0; k < 20; k++) {
@@ -1037,6 +1048,7 @@
                 game.enemies.splice(j, 1)
                 game.combo++
                 if (game.combo > game.maxCombo) game.maxCombo = game.combo
+                game.comboTimer = 180
                 const comboBonus = Math.floor(game.combo * 10)
                 game.score += 100 + comboBonus
                 game.screenShake = 8
@@ -1045,7 +1057,10 @@
                 break
               }
             }
-            if (hit || b.y < -10) {
+            if (hit) {
+              game.playerBullets.splice(i, 1)
+            } else if (b.y < -10) {
+              game.combo = 0
               game.playerBullets.splice(i, 1)
             }
           }
@@ -1058,6 +1073,14 @@
 
           // Screen shake
           if (game.screenShake > 0) game.screenShake--
+
+          // Combo decay
+          if (game.combo > 0 && game.comboTimer > 0) {
+            game.comboTimer--
+            if (game.comboTimer <= 0) {
+              game.combo = 0
+            }
+          }
 
           // Check level completed (kill all enemies, survive)
           if (
@@ -1215,7 +1238,7 @@
               h: 8,
               speed: 7,
             })
-            game.player.shootCooldown = 15
+            game.player.shootCooldown = 18
             playShoot()
           }
         })
