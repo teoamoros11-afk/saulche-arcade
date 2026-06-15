@@ -173,7 +173,10 @@
     <script>
       'use strict'
       const SAVE_KEY = 'snake_grizzy'
+      const MIN_CELL_SIZE = 10
+      const MAX_LEAF_INSTANCES = 50
       let actx = null
+      
       function getAudio() {
         if (!actx)
           try {
@@ -181,6 +184,7 @@
           } catch (e) {}
         return actx
       }
+      
       function sfx(f, d, t, v) {
         try {
           const a = getAudio()
@@ -197,19 +201,23 @@
           o.stop(a.currentTime + (d || 0.12))
         } catch (e) {}
       }
+      
       function sfxEat() {
         sfx(540, 0.1, 'sine', 0.12)
         sfx(680, 0.08, 'sine', 0.08)
       }
+      
       function sfxCrash() {
         sfx(140, 0.22, 'sawtooth', 0.15)
         sfx(80, 0.32, 'sawtooth', 0.1)
       }
+      
       function sfxWin() {
         sfx(523, 0.15, 'sine', 0.12)
         setTimeout(() => sfx(659, 0.15, 'sine', 0.1), 150)
         setTimeout(() => sfx(784, 0.2, 'sine', 0.1), 300)
       }
+      
       function sfxSave() {
         sfx(880, 0.08, 'sine', 0.08)
       }
@@ -267,7 +275,7 @@
       function resizeCanvas() {
         const rect = document.getElementById('gameArea').getBoundingClientRect()
         const size = Math.min(rect.width, rect.height)
-        CELL = Math.max(10, Math.floor(size / COLS))
+        CELL = Math.max(MIN_CELL_SIZE, Math.floor(size / COLS))
         canvas.width = CELL * COLS
         canvas.height = CELL * ROWS
         if (typeof food !== 'undefined' && food) draw()
@@ -278,7 +286,7 @@
       const TIERS = [
         { name: '\u{1F7E2} El Panal', range: [1, 10], speed: 180, color: '#4CAF50' },
         { name: '\u{1F7E1} El Bosque', range: [11, 20], speed: 140, color: '#FFC107' },
-        { name: '\u{1F534} La Caba\u00F1a', range: [21, 30], speed: 100, color: '#FF5722' },
+        { name: '\u{1F534} La Cabaña', range: [21, 30], speed: 100, color: '#FF5722' },
         { name: '\u{1F7E3} La Cueva', range: [31, 40], speed: 65, color: '#9C27B0' },
       ]
 
@@ -353,12 +361,18 @@
         win = false
         needed = getFoodNeeded(level)
         lemmings = getLemmings(level)
-        for (const l of lemmings)
-          for (const s of snake)
-            if (s.x === l.x && s.y === l.y) {
-              l.x = (l.x + 5) % COLS
-              l.y = (l.y + 5) % ROWS
-            }
+        // FIX #5: Agregar límite de iteraciones para evitar loop infinito
+        for (let i = 0; i < lemmings.length; i++) {
+          const l = lemmings[i]
+          let attempts = 0
+          while ((snake.some(s => s.x === l.x && s.y === l.y) ||
+                  lemmings.slice(0, i).some(ll => ll.x === l.x && ll.y === l.y)) && 
+                 attempts < 50) {
+            l.x = (l.x + 5) % COLS
+            l.y = (l.y + 5) % ROWS
+            attempts++
+          }
+        }
         spawnFood()
         updateUI()
       }
@@ -604,7 +618,7 @@
             ctx.font = 'bold ' + Math.max(22, CELL * 1.3) + 'px sans-serif'
             ctx.shadowColor = '#000'
             ctx.shadowBlur = 12
-            ctx.fillText('\u{1F3C6} \u00A1GANASTE!', W / 2, H * 0.35)
+            ctx.fillText('\u{1F3C6} ¡GANASTE!', W / 2, H * 0.35)
             ctx.shadowBlur = 0
             ctx.fillStyle = '#FFF8E1'
             ctx.font = Math.max(12, CELL * 0.6) + 'px sans-serif'
@@ -794,8 +808,9 @@
             if (dx > 0 && dir !== 'left') nextDir = 'right'
             else if (dx < 0 && dir !== 'right') nextDir = 'left'
           } else {
-            if (dy > 0 && dir !== 'up') nextDir = 'down'
-            else if (dy < 0 && dir !== 'down') nextDir = 'up'
+            // FIX #1: Corregir lógica de toque diagonal invertida
+            if (dy > 0 && dir !== 'up') nextDir = 'up'
+            else if (dy < 0 && dir !== 'down') nextDir = 'down'
           }
           e.preventDefault()
         },
