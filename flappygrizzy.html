@@ -420,8 +420,6 @@
       }
 
       function draw() {
-        ctx.save()
-        ctx.scale(SCALE, SCALE)
         // Sky gradient
         const sky = ctx.createLinearGradient(0, 0, 0, H)
         sky.addColorStop(0, '#4FC3F7')
@@ -481,7 +479,6 @@
           ctx.textAlign = 'center'
           ctx.fillText(score, W / 2, 32)
         }
-        ctx.restore()
       }
 
       function startGame() {
