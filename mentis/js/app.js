@@ -311,7 +311,7 @@ function roundRect(ctx, x, y, w, h, r) {
 
 function handleCanvasClick(nx, ny) {
   const screen = screens.getCurrent()
-  if (screen === 'title') {
+  if (screen === 'title' || screen === null) {
     screens.show('menu')
     audio.click()
     return
@@ -414,7 +414,7 @@ function getMenuOption(nx, ny) {
 document.addEventListener('keydown', (e) => {
   const k = e.key
   const screen = screens.getCurrent()
-  if (screen === 'title' && (k === 'Enter' || k === ' ')) {
+  if ((screen === 'title' || screen === null) && (k === 'Enter' || k === ' ')) {
     screens.show('menu'); audio.click(); return
   }
   if (screen === 'puzzle' && !puzzleAnswered) {
@@ -429,7 +429,7 @@ document.addEventListener('keydown', (e) => {
       }
     }
   }
-  if (k === 'Escape' && screen !== 'title' && screen !== 'menu') {
+  if (k === 'Escape' && screen !== 'title' && screen !== 'menu' && screen !== null) {
     screens.show('menu')
   }
 })
