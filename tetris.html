@@ -168,6 +168,22 @@
       </div>
     </div>
     <script>
+      if (!CanvasRenderingContext2D.prototype.roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+          if (typeof r === 'number') r = [r, r, r, r]
+          this.beginPath()
+          this.moveTo(x + r[0], y)
+          this.lineTo(x + w - r[1], y)
+          this.quadraticCurveTo(x + w, y, x + w, y + r[1])
+          this.lineTo(x + w, y + h - r[2])
+          this.quadraticCurveTo(x + w, y + h, x + w - r[2], y + h)
+          this.lineTo(x + r[3], y + h)
+          this.quadraticCurveTo(x, y + h, x, y + h - r[3])
+          this.lineTo(x, y + r[0])
+          this.quadraticCurveTo(x, y, x + r[0], y)
+          this.closePath()
+        }
+      }
       const SAVE = 'tetris_grizzy'
       const COLS = 10,
         ROWS = 20,
@@ -353,7 +369,20 @@
       const board = document.getElementById('board').getContext('2d')
       const nextC = document.getElementById('next').getContext('2d')
       const grizzyC = document.getElementById('grizzyCanvas').getContext('2d')
-      let grid, cur, curIdx, nxt, nxtIdx, px, py, score, level, lines, over, paused, loop, linesThis
+      let grid = null,
+        cur = null,
+        curIdx = 0,
+        nxt = null,
+        nxtIdx = 0,
+        px = 0,
+        py = 0,
+        score = 0,
+        level = 1,
+        lines = 0,
+        over = false,
+        paused = false,
+        loop = null,
+        linesThis = 0
 
       function newGame() {
         grid = Array(ROWS)
@@ -641,7 +670,6 @@
         c.fillStyle = 'rgba(255,255,255,0.3)'
         c.fillRect(35, 50, 3, 4)
       }
-      // polyfill roundRect
       // ===== LEAF PARTICLES =====
       const lc = document.getElementById('leafCanvas').getContext('2d')
       let leaves = []
