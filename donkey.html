@@ -210,6 +210,10 @@
         totalFloors
       let W, H, SCALE
       const G = 0.5
+      let transitioning = false
+      let transitionAlpha = 0
+      let transitionDir = 0
+      let prevTier = -1
 
       const TIERS = [
         { name: '🟢 El Bosque', range: [1, 10], floors: 5, barrelSpd: 2.5, spawnRate: 55 },
@@ -355,6 +359,57 @@
         return p
       }
 
+      // === MAP BUILDERS ===
+      function buildBosque(n) {
+        const p = [{ x: 0, y: H - 24, w: W, h: 24 }]
+        for (let i = 0; i < n; i++) {
+          const x = 30 + i * 55 + (i % 2 ? 15 : 0)
+          const y = H - 90 - i * 52
+          const w = 90 + Math.sin(i * 1.7) * 25
+          if (y < 30 || x + w > W - 10) break
+          p.push({ x, y, w, h: 14, label: 'Piso ' + (i + 1), style: 'tree' })
+        }
+        return p
+      }
+
+      function buildCabanha(n) {
+        const p = [{ x: 0, y: H - 24, w: W, h: 24 }]
+        for (let i = 0; i < n; i++) {
+          const x = (i % 2 === 0) ? 20 : W - 160
+          const y = H - 85 - i * 50
+          const w = 140
+          if (y < 30) break
+          p.push({ x, y, w, h: 16, label: 'Piso ' + (i + 1), style: 'cabin' })
+        }
+        return p
+      }
+
+      function buildCueva(n) {
+        const p = [{ x: 0, y: H - 24, w: W, h: 24 }]
+        for (let i = 0; i < n; i++) {
+          const x = 40 + (i % 3) * 80 + Math.sin(i * 2.1) * 30
+          const y = H - 95 - i * 48
+          const w = 100 + Math.cos(i * 1.3) * 30
+          if (y < 30 || x + w > W - 10) break
+          p.push({ x, y, w, h: 10, label: 'Piso ' + (i + 1), style: 'cave' })
+        }
+        return p
+      }
+
+      function buildArbol(n) {
+        const p = [{ x: 0, y: H - 24, w: W, h: 24 }]
+        for (let i = 0; i < n; i++) {
+          const x = 50 + i * 45 + Math.sin(i * 1.8) * 40
+          const y = H - 80 - i * 55
+          const w = 80 + Math.sin(i * 2.5) * 20
+          if (y < 25 || x + w > W - 5) break
+          p.push({ x, y, w, h: 11, label: 'Piso ' + (i + 1), style: 'branch' })
+        }
+        return p
+      }
+
+      const MAP_BUILDERS = [buildBosque, buildCabanha, buildCueva, buildArbol]
+
       function init() {
         resize()
         level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
@@ -368,7 +423,9 @@
       function startLevel() {
         const t = getTier(level)
         totalFloors = t.floors
-        platforms = buildStaircase(t.floors)
+        const tierIdx = TIERS.indexOf(t)
+        const builder = MAP_BUILDERS[tierIdx] || buildStaircase
+        platforms = builder(t.floors)
         player = { x: 30, y: H - 80, w: 28, h: 34, vy: 0, jump: false }
         barrels = []
         gameOver = false
@@ -377,6 +434,12 @@
         frame = 0
         timer = 0
         currFloor = 0
+        if (prevTier !== -1 && prevTier !== tierIdx) {
+          transitioning = true
+          transitionAlpha = 0
+          transitionDir = 1
+        }
+        prevTier = tierIdx
         updateUI()
       }
 
@@ -392,6 +455,22 @@
       }
 
       function update() {
+        if (transitioning) {
+          if (transitionDir === 1) {
+            transitionAlpha += 0.04
+            if (transitionAlpha >= 1) {
+              transitionAlpha = 1
+              transitionDir = -1
+            }
+          } else {
+            transitionAlpha -= 0.04
+            if (transitionAlpha <= 0) {
+              transitionAlpha = 0
+              transitioning = false
+            }
+          }
+          return
+        }
         if (gameOver) return
         if (win) {
           draw()
@@ -561,35 +640,168 @@
 
       function draw() {
         ctx.clearRect(0, 0, W, H)
-        // Sky gradient
-        const sky = ctx.createLinearGradient(0, 0, 0, H)
-        sky.addColorStop(0, '#1B3A2D')
-        sky.addColorStop(0.3, '#2D5016')
-        sky.addColorStop(0.6, '#4A2F1A')
-        sky.addColorStop(1, '#2D1B0E')
-        ctx.fillStyle = sky
-        ctx.fillRect(0, 0, W, H)
-        // Background trees
-        ctx.fillStyle = 'rgba(76,175,80,0.06)'
-        for (let i = 0; i < 15; i++) {
-          const tw = 20 + Math.sin(i * 2) * 10,
-            th = 80 + Math.sin(i * 3) * 30
+        const tierIdx = TIERS.indexOf(getTier(level))
+
+        // === TIER BACKGROUNDS ===
+        if (tierIdx === 0) {
+          // Bosque: forest gradient + trees
+          const sky = ctx.createLinearGradient(0, 0, 0, H)
+          sky.addColorStop(0, '#0a1f0a')
+          sky.addColorStop(0.4, '#1a3a1a')
+          sky.addColorStop(0.7, '#2d4a1a')
+          sky.addColorStop(1, '#1a2a0e')
+          ctx.fillStyle = sky
+          ctx.fillRect(0, 0, W, H)
+          ctx.fillStyle = 'rgba(34,80,34,0.15)'
+          for (let i = 0; i < 12; i++) {
+            const tw = 25 + Math.sin(i * 2.3) * 12
+            const th = 90 + Math.sin(i * 1.7) * 35
+            ctx.beginPath()
+            ctx.ellipse(i * 70 + 10, H - 24 - th / 2, tw, th / 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          // Trunks
+          ctx.fillStyle = 'rgba(93,64,55,0.12)'
+          for (let i = 0; i < 12; i++) {
+            ctx.fillRect(i * 70 + 6, H - 24 - 60, 6, 60)
+          }
+        } else if (tierIdx === 1) {
+          // Cabaña: warm wood interior
+          const sky = ctx.createLinearGradient(0, 0, 0, H)
+          sky.addColorStop(0, '#2a1a0a')
+          sky.addColorStop(0.5, '#3a2510')
+          sky.addColorStop(1, '#1a100a')
+          ctx.fillStyle = sky
+          ctx.fillRect(0, 0, W, H)
+          // Wood planks background
+          ctx.fillStyle = 'rgba(139,94,60,0.06)'
+          for (let y = 0; y < H; y += 30) {
+            ctx.fillRect(0, y, W, 1)
+          }
+          ctx.fillStyle = 'rgba(93,64,55,0.08)'
+          for (let x = 0; x < W; x += 60) {
+            ctx.fillRect(x, 0, 1, H)
+          }
+          // Lantern glow
+          ctx.fillStyle = 'rgba(255,200,50,0.04)'
           ctx.beginPath()
-          ctx.ellipse(i * 60 - 10, H - 24 - th, tw / 2, th / 2, 0, 0, Math.PI * 2)
+          ctx.arc(W / 2, 30, 120, 0, Math.PI * 2)
           ctx.fill()
+        } else if (tierIdx === 2) {
+          // Cueva: dark cave with crystals
+          const sky = ctx.createLinearGradient(0, 0, 0, H)
+          sky.addColorStop(0, '#0a0a1a')
+          sky.addColorStop(0.5, '#15152a')
+          sky.addColorStop(1, '#0a0a15')
+          ctx.fillStyle = sky
+          ctx.fillRect(0, 0, W, H)
+          // Stalactites
+          ctx.fillStyle = 'rgba(60,60,80,0.3)'
+          for (let i = 0; i < 10; i++) {
+            const sx = i * 85 + 20
+            const sh = 30 + Math.sin(i * 3.1) * 20
+            ctx.beginPath()
+            ctx.moveTo(sx, 0)
+            ctx.lineTo(sx + 8, 0)
+            ctx.lineTo(sx + 4, sh)
+            ctx.fill()
+          }
+          // Crystal glows
+          const crystalColors = ['rgba(100,200,255,0.08)', 'rgba(200,100,255,0.06)', 'rgba(100,255,200,0.07)']
+          for (let i = 0; i < 6; i++) {
+            ctx.fillStyle = crystalColors[i % 3]
+            ctx.beginPath()
+            ctx.arc(80 + i * 130, 100 + Math.sin(i * 2) * 60, 40, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        } else {
+          // Árbol Gigante: sky + canopy
+          const sky = ctx.createLinearGradient(0, 0, 0, H)
+          sky.addColorStop(0, '#1a2a4a')
+          sky.addColorStop(0.3, '#2a3a2a')
+          sky.addColorStop(0.7, '#1a3a1a')
+          sky.addColorStop(1, '#0a1a0a')
+          ctx.fillStyle = sky
+          ctx.fillRect(0, 0, W, H)
+          // Giant trunk
+          ctx.fillStyle = 'rgba(80,50,30,0.15)'
+          ctx.fillRect(W / 2 - 30, 0, 60, H)
+          ctx.fillStyle = 'rgba(60,40,25,0.12)'
+          ctx.fillRect(W / 2 - 35, 0, 5, H)
+          ctx.fillRect(W / 2 + 30, 0, 5, H)
+          // Canopy leaves
+          ctx.fillStyle = 'rgba(40,100,40,0.1)'
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath()
+            ctx.ellipse(
+              W / 2 + Math.sin(i * 1.5) * 200,
+              40 + Math.cos(i * 2) * 30,
+              60 + Math.sin(i) * 20,
+              25,
+              0, 0, Math.PI * 2
+            )
+            ctx.fill()
+          }
         }
-        // Platforms
+
+        // === PLATFORMS ===
         for (const p of platforms) {
-          if (p.label) {
-            ctx.fillStyle = '#5D4037'
+          if (p.style === 'tree') {
+            // Bosque: tree stump platforms
+            ctx.fillStyle = '#3a5a2a'
             ctx.fillRect(p.x, p.y, p.w, p.h)
-            ctx.fillStyle = '#795548'
+            ctx.fillStyle = '#4a6a3a'
             ctx.fillRect(p.x, p.y, p.w, 3)
-            ctx.fillStyle = 'rgba(139,94,60,0.4)'
-            for (let rx = p.x + 12; rx < p.x + p.w - 12; rx += 22) ctx.fillRect(rx, p.y - 1, 4, 3)
-            ctx.fillStyle = 'rgba(255,255,255,0.05)'
-            for (let lx = p.x + 18; lx < p.x + p.w - 18; lx += 14) ctx.fillRect(lx, p.y - 18, 3, 18)
+            ctx.fillStyle = '#2a4a1a'
+            for (let rx = p.x + 10; rx < p.x + p.w - 10; rx += 18) {
+              ctx.fillRect(rx, p.y + p.h - 2, 3, 5)
+            }
+          } else if (p.style === 'cabin') {
+            // Cabaña: wooden planks
+            ctx.fillStyle = '#5a3a20'
+            ctx.fillRect(p.x, p.y, p.w, p.h)
+            ctx.fillStyle = '#7a5030'
+            ctx.fillRect(p.x, p.y, p.w, 3)
+            ctx.fillStyle = '#4a2a15'
+            for (let lx = p.x; lx < p.x + p.w; lx += 20) {
+              ctx.fillRect(lx, p.y, 1, p.h)
+            }
+            ctx.fillStyle = 'rgba(255,200,50,0.15)'
+            ctx.fillRect(p.x + p.w / 2 - 2, p.y - 8, 4, 8)
+          } else if (p.style === 'cave') {
+            // Cueva: rocky platforms with crystals
+            ctx.fillStyle = '#3a3a50'
+            ctx.fillRect(p.x, p.y, p.w, p.h)
+            ctx.fillStyle = '#4a4a60'
+            ctx.fillRect(p.x, p.y, p.w, 3)
+            ctx.fillStyle = 'rgba(100,200,255,0.3)'
+            ctx.beginPath()
+            ctx.arc(p.x + p.w * 0.3, p.y - 4, 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = 'rgba(200,100,255,0.25)'
+            ctx.beginPath()
+            ctx.arc(p.x + p.w * 0.7, p.y - 3, 2.5, 0, Math.PI * 2)
+            ctx.fill()
+          } else if (p.style === 'branch') {
+            // Árbol: organic branch platforms
+            ctx.fillStyle = '#4a3020'
+            ctx.beginPath()
+            ctx.ellipse(p.x + p.w / 2, p.y + p.h / 2, p.w / 2, p.h / 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#5a4030'
+            ctx.beginPath()
+            ctx.ellipse(p.x + p.w / 2, p.y + 2, p.w / 2 - 2, 3, 0, 0, Math.PI * 2)
+            ctx.fill()
+            // Leaves
+            ctx.fillStyle = 'rgba(60,120,40,0.5)'
+            ctx.beginPath()
+            ctx.ellipse(p.x + 10, p.y - 5, 8, 5, -0.3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.ellipse(p.x + p.w - 10, p.y - 4, 7, 4, 0.3, 0, Math.PI * 2)
+            ctx.fill()
           } else {
+            // Ground or default
             ctx.fillStyle = '#3E2723'
             ctx.fillRect(p.x, p.y, p.w, p.h)
             ctx.fillStyle = '#5D4037'
@@ -741,6 +953,17 @@
           ctx.fillStyle = '#FFF8E1'
           ctx.font = '13px sans-serif'
           ctx.fillText('ENTER para reintentar', W / 2, 250)
+        }
+        // Tier transition overlay
+        if (transitioning) {
+          ctx.fillStyle = 'rgba(0,0,0,' + transitionAlpha + ')'
+          ctx.fillRect(0, 0, W, H)
+          if (transitionAlpha > 0.5) {
+            ctx.fillStyle = '#FFC107'
+            ctx.font = 'bold 22px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText(getTier(level).name, W / 2, H / 2)
+          }
         }
       }
 
