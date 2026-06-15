@@ -331,6 +331,10 @@
               lives: 3,
               invincible: 0,
               shootCooldown: 0,
+              ammo: 5,
+              maxAmmo: 5,
+              reloadTimer: 0,
+              reloadDelay: 30,
             },
             enemies: [],
             enemyBullets: [],
@@ -769,6 +773,25 @@
           for (let i = 0; i < game.player.lives; i++) livesStr += '🧸 '
           ctx.fillText(livesStr.trim(), VW - 12, 19)
 
+          // Ammo bar
+          const ammoBarW = 70
+          const ammoBarH = 6
+          const ammoBarX = VW - 12 - ammoBarW
+          const ammoBarY = 28
+          const ammoRatio = game.player.ammo / game.player.maxAmmo
+          const reloading = game.player.ammo < game.player.maxAmmo
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'
+          ctx.fillRect(ammoBarX, ammoBarY, ammoBarW, ammoBarH)
+          ctx.fillStyle = reloading ? '#4FC3F7' : '#FFD54F'
+          ctx.fillRect(ammoBarX, ammoBarY, ammoBarW * ammoRatio, ammoBarH)
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+          ctx.lineWidth = 0.5
+          ctx.strokeRect(ammoBarX, ammoBarY, ammoBarW, ammoBarH)
+          ctx.fillStyle = '#B0BEC5'
+          ctx.font = '9px "Segoe UI", sans-serif'
+          ctx.textAlign = 'right'
+          ctx.fillText(reloading ? 'RECARGANDO...' : 'MUNICIÓN', ammoBarX + ammoBarW, ammoBarY - 1)
+
           // Combo
           if (game.combo > 1) {
             ctx.textAlign = 'center'
@@ -936,9 +959,21 @@
 
           // Shoot
           if (p.shootCooldown > 0) p.shootCooldown--
-          if (keys['Space'] && p.shootCooldown === 0 && game.state === 'playing') {
+
+          // Reload
+          if (p.ammo < p.maxAmmo) {
+            p.reloadTimer++
+            if (p.reloadTimer >= p.reloadDelay) {
+              p.reloadTimer = 0
+              p.ammo++
+            }
+          }
+
+          if (keys['Space'] && p.shootCooldown === 0 && p.ammo > 0 && game.state === 'playing') {
             game.playerBullets.push({ x: p.x, y: p.y - p.h / 2, w: 6, h: 8, speed: 7 })
             p.shootCooldown = 18
+            p.ammo--
+            p.reloadTimer = 0
             playShoot()
           }
 
@@ -1230,7 +1265,7 @@
             return
           }
           // tap on top half = shoot
-          if (touchY < VH * 0.3 && game.player.shootCooldown === 0 && game.state === 'playing') {
+          if (touchY < VH * 0.3 && game.player.shootCooldown === 0 && game.player.ammo > 0 && game.state === 'playing') {
             game.playerBullets.push({
               x: game.player.x,
               y: game.player.y - game.player.h / 2,
@@ -1239,6 +1274,8 @@
               speed: 7,
             })
             game.player.shootCooldown = 18
+            game.player.ammo--
+            game.player.reloadTimer = 0
             playShoot()
           }
         })
