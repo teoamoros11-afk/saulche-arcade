@@ -1,6 +1,14 @@
 import { store } from '../core/Store.js'
 import { events } from '../core/EventBus.js'
 
+const XP_TABLE = [
+  0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700,
+  3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450,
+  11500, 12600, 13750, 14950, 16200, 17500, 18850, 20250, 21700, 23200,
+  24750, 26350, 28000, 29700, 31450, 33250, 35100, 37000, 38950, 40950,
+  43000, 45100, 47250, 49450, 51700, 54000, 56350, 58750, 61200, 63700,
+]
+
 export class HUD {
   constructor(container, towerManager) {
     this._el = null
@@ -62,6 +70,6 @@ export class HUD {
   }
 
   _xpForLevel(l) {
-    return l * 100 + (l - 1) * (l - 1) * 25
+    return XP_TABLE[Math.min(l, XP_TABLE.length - 1)]
   }
 }

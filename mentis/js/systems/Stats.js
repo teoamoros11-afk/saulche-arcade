@@ -6,7 +6,9 @@ export class StatsTracker {
     this._sessionStart = Date.now()
     this._combo = 0
     this._fastestSolve = 99
+    this._floorStars = 0
     events.on('puzzle:solved', (result) => this._onPuzzle(result))
+    events.on('tower:advance', () => this._onFloorComplete())
   }
 
   _onPuzzle({ correct, category, time, xp, stars }) {
@@ -14,15 +16,25 @@ export class StatsTracker {
     store.update('stats.totalTime', t => t + time)
     if (!correct) { this._combo = 0; return }
     this._combo++
+    this._floorStars += stars || 0
     store.update('stats', s => {
       s.puzzlesSolved++
       s.totalXP += xp || 0
       if (this._combo > (s.bestCombo || 0)) s.bestCombo = this._combo
       if (time < this._fastestSolve) { this._fastestSolve = time; s.fastestSolve = time }
-      if (stars >= 3) s.perfectFloors = (s.perfectFloors || 0) + 1
       if (category && s.byCategory[category] !== undefined) s.byCategory[category]++
       return s
     })
+  }
+
+  _onFloorComplete() {
+    if (this._floorStars >= 9) {
+      store.update('stats', s => {
+        s.perfectFloors = (s.perfectFloors || 0) + 1
+        return s
+      })
+    }
+    this._floorStars = 0
   }
 
   getSessionTime() {

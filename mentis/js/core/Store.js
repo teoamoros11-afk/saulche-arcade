@@ -35,13 +35,14 @@ export default class Store {
       target = target[p]
     }
     const prev = target[last]
-    if (prev === val) return
     target[last] = safeClone(val)
     this._notify(key, val, prev)
   }
   update(key, fn) {
     const curr = this.get(key)
-    this.set(key, fn(curr))
+    const newVal = fn(curr)
+    this._state[key] = safeClone(newVal)
+    this._notify(key, newVal, curr)
   }
   observe(key, fn) {
     if (!this._listeners.has(key)) this._listeners.set(key, new Set())

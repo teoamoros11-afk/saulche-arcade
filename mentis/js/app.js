@@ -25,6 +25,16 @@ const VW = 400, VH = 600
 canvas.width = VW
 canvas.height = VH
 
+const COLORS = {
+  textPrimary: '#ffffff',
+  textSecondary: '#a090b0',
+  textMuted: '#605070',
+  gold: '#ffd700',
+  bgDark: '#0a0a1a',
+  bgMid: '#0f0f2a',
+  bgLight: '#1a0a2e',
+}
+
 function resize() {
   const ww = window.innerWidth, wh = window.innerHeight
   const s = Math.min(ww / VW, wh / VH)
@@ -78,12 +88,6 @@ events.on('puzzle:solved', (result) => {
     solvedCount++
     const floor = store.get('tower.currentFloor')
     events.emit('tower:puzzleSolved', { floor, solvedCount, total: 3, stars: result.stars })
-    if (solvedCount >= 2) {
-      setTimeout(() => {
-        tower.advance()
-        loadFloor(store.get('tower.currentFloor'))
-      }, 1200)
-    }
   }
 })
 
@@ -120,8 +124,9 @@ function renderFloor() {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText(`${zone?.icon || '🏗️'} PISO ${f.num}: ${zone?.name || 'Torre'}`, VW / 2, 28)
-  ctx.fillStyle = 'var(--text-secondary)'
+  ctx.fillStyle = COLORS.textSecondary
   ctx.font = '12px sans-serif'
+  ctx.textAlign = 'center'
   ctx.fillText(`${CATEGORIES[f.category]?.icon || '🧩'} ${CATEGORIES[f.category]?.name || 'Mixto'} · Dificultad ${f.difficulty}/10`, VW / 2, 52)
   for (let i = 0; i < total; i++) {
     const bx = 16 + i * ((VW - 32) / 3 + 4)
@@ -136,7 +141,7 @@ function renderFloor() {
       ctx.lineWidth = 1
       ctx.stroke()
     }
-    ctx.fillStyle = isSolved ? '#4caf50' : 'var(--text-muted)'
+    ctx.fillStyle = isSolved ? '#4caf50' : COLORS.textMuted
     ctx.font = 'bold 12px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
@@ -151,7 +156,7 @@ function renderFloor() {
     ctx.fillText('⬆ ¡TOCA PARA SUBIR AL SIGUIENTE PISO! ⬆', VW / 2, 150)
     ctx.globalAlpha = 1
   } else if (solved < 2) {
-    ctx.fillStyle = 'var(--text-muted)'
+    ctx.fillStyle = COLORS.textMuted
     ctx.font = '11px sans-serif'
     ctx.fillText('Resuelve al menos 2 puzzles para avanzar', VW / 2, 150)
   }
@@ -165,7 +170,7 @@ function renderFloor() {
     ctx.strokeStyle = 'rgba(255,255,255,0.06)'
     ctx.lineWidth = 1
     ctx.stroke()
-    ctx.fillStyle = 'var(--text-primary)'
+    ctx.fillStyle = COLORS.textPrimary
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
@@ -197,26 +202,26 @@ function renderPuzzle(p, idx) {
   ctx.fillStyle = 'rgba(255,255,255,0.04)'
   roundRect(ctx, 10, 10, VW - 20, 70, 12)
   ctx.fill()
-  ctx.fillStyle = 'var(--text-muted)'
+  ctx.fillStyle = COLORS.textMuted
   ctx.font = '11px sans-serif'
   ctx.textAlign = 'left'
   ctx.textBaseline = 'top'
   ctx.fillText(`${cats.icon} ${cats.name} · Puzzle ${solvedCount + 1}/3`, 20, 18)
-  ctx.fillStyle = 'var(--text-secondary)'
+  ctx.fillStyle = COLORS.textSecondary
   ctx.font = '10px sans-serif'
   ctx.fillText(`Piso ${store.get('tower.currentFloor')}`, 20, 36)
   const timer = Math.floor((Date.now() - (p._startTime || Date.now())) / 1000)
-  ctx.fillStyle = timer > 20 ? '#ef5350' : 'var(--text-muted)'
+  ctx.fillStyle = timer > 20 ? '#ef5350' : COLORS.textMuted
   ctx.textAlign = 'right'
   ctx.fillText(`${timer}s`, VW - 20, 18)
   if (puzzleAnswered) {
-    ctx.fillStyle = 'var(--gold)'
+    ctx.fillStyle = COLORS.gold
     ctx.font = 'bold 13px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('✓ Continuando...', VW / 2, 55)
   }
   const lines = p.puzzle.text.split('\n')
-  ctx.fillStyle = 'var(--text-primary)'
+  ctx.fillStyle = COLORS.textPrimary
   ctx.font = '14px sans-serif'
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
@@ -246,7 +251,7 @@ function renderPuzzle(p, idx) {
     const bx = 14 + col * (bw + 6)
     const by = startY + row * (bh + 6)
     let bg = 'rgba(255,255,255,0.06)'
-    let tc = 'var(--text-primary)'
+    let tc = COLORS.textPrimary
     if (puzzleAnswered) {
       if (i === p.puzzle.answer) { bg = 'rgba(76,175,80,0.25)'; tc = '#4caf50' }
       else if (i === p._selected) { bg = 'rgba(239,83,80,0.25)'; tc = '#ef5350' }
@@ -269,7 +274,7 @@ function renderPuzzle(p, idx) {
     ctx.fillText(isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto', VW / 2, startY + rows * (bh + 6) + 30)
     const timeTaken = Math.floor((Date.now() - p._startTime) / 1000)
     if (isCorrect) {
-      ctx.fillStyle = 'var(--gold)'
+      ctx.fillStyle = COLORS.gold
       ctx.font = '11px sans-serif'
       ctx.fillText(`+${25 + Math.max(0, 15 - timeTaken) * 2} XP · ${timeTaken}s`, VW / 2, startY + rows * (bh + 6) + 52)
     }
@@ -352,10 +357,12 @@ function handleCanvasClick(nx, ny) {
           p.solved = true
           const cat = p.puzzle.data?.category
           const time = (Date.now() - p._startTime) / 1000
-          events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - Math.floor(time)) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1 })
+          const floor = store.get('tower.currentFloor')
+          events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - Math.floor(time)) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1, floor })
           particles.emitCorrect(VW / 2, VH / 2)
         } else {
-          events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: (Date.now() - p._startTime) / 1000, xp: 0, stars: 0 })
+          const floor = store.get('tower.currentFloor')
+          events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: (Date.now() - p._startTime) / 1000, xp: 0, stars: 0, floor })
           particles.emitWrong(VW / 2, VH / 2)
         }
       }
@@ -403,22 +410,6 @@ function getMenuOption(nx, ny) {
   }
   return null
 }
-
-canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect()
-  const nx = ((e.clientX - rect.left) / rect.width) * VW
-  const ny = ((e.clientY - rect.top) / rect.height) * VH
-  handleCanvasClick(nx, ny)
-})
-
-canvas.addEventListener('touchstart', (e) => {
-  e.preventDefault()
-  const t = e.changedTouches[0]
-  const rect = canvas.getBoundingClientRect()
-  const nx = ((t.clientX - rect.left) / rect.width) * VW
-  const ny = ((t.clientY - rect.top) / rect.height) * VH
-  handleCanvasClick(nx, ny)
-}, { passive: false })
 
 document.addEventListener('keydown', (e) => {
   const k = e.key
@@ -516,7 +507,7 @@ function renderMenu() {
     ctx.textBaseline = 'middle'
     ctx.fillText(b.text, bx + bw / 2, b.y + (b.h || 50) / 2 - (b.sub ? 6 : 0))
     if (b.sub) {
-      ctx.fillStyle = 'var(--text-muted)'
+    ctx.fillStyle = COLORS.textMuted
       ctx.font = '10px sans-serif'
       ctx.fillText(b.sub, bx + bw / 2, b.y + (b.h || 50) / 2 + 12)
     }
@@ -536,7 +527,7 @@ function renderAchievements() {
   const all = achievements.getAll()
   const unlocked = achievements.getUnlocked()
   ctx.fillText(`🏆 Logros (${unlocked.length}/${all.length})`, VW / 2, 30)
-  ctx.fillStyle = 'var(--text-muted)'
+  ctx.fillStyle = COLORS.textMuted
   ctx.font = '10px sans-serif'
   ctx.fillText('Toca cualquier parte para volver', VW / 2, 56)
   const startY = 75
@@ -548,7 +539,7 @@ function renderAchievements() {
     ctx.fillStyle = isUnlocked ? 'rgba(255,215,0,0.08)' : 'rgba(255,255,255,0.03)'
     roundRect(ctx, 10, y, VW - 20, 30, 6)
     ctx.fill()
-    ctx.fillStyle = isUnlocked ? '#ffd700' : 'var(--text-muted)'
+    ctx.fillStyle = isUnlocked ? '#ffd700' : COLORS.textMuted
     ctx.font = '14px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
@@ -558,7 +549,7 @@ function renderAchievements() {
     ctx.fillText(isUnlocked ? '✓' : `+${a.xp} XP`, VW - 18, y + 15)
   }
   if (all.length > 14) {
-    ctx.fillStyle = 'var(--text-muted)'
+    ctx.fillStyle = COLORS.textMuted
     ctx.font = '10px sans-serif'
     ctx.textAlign = 'center'
     ctx.fillText('... y más logros por descubrir', VW / 2, startY + 14 * 35 + 10)
@@ -573,7 +564,7 @@ function renderStats() {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('📊 Estadísticas', VW / 2, 30)
-  ctx.fillStyle = 'var(--text-muted)'
+  ctx.fillStyle = COLORS.textMuted
   ctx.font = '10px sans-serif'
   ctx.fillText('Toca para volver', VW / 2, 55)
   const st = store.get('stats')
@@ -595,18 +586,18 @@ function renderStats() {
     ctx.fillStyle = 'rgba(255,255,255,0.04)'
     roundRect(ctx, 20, y, VW - 40, 28, 6)
     ctx.fill()
-    ctx.fillStyle = 'var(--text-secondary)'
+    ctx.fillStyle = COLORS.textSecondary
     ctx.font = '12px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(items[i][0], 30, y + 14)
-    ctx.fillStyle = 'var(--text-primary)'
+    ctx.fillStyle = COLORS.textPrimary
     ctx.textAlign = 'right'
     ctx.font = 'bold 12px sans-serif'
     ctx.fillText(String(items[i][1]), VW - 28, y + 14)
   }
   const radarY = startY + items.length * 34 + 10
-  ctx.fillStyle = 'var(--text-muted)'
+  ctx.fillStyle = COLORS.textMuted
   ctx.font = '11px sans-serif'
   ctx.textAlign = 'center'
   ctx.fillText('Fortalezas por categoría', VW / 2, radarY)
@@ -626,7 +617,7 @@ function renderStats() {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillText(catLabels[key] || key, cx + 30, radarY + 40)
-    ctx.fillStyle = 'var(--text-secondary)'
+    ctx.fillStyle = COLORS.textSecondary
     ctx.font = '10px sans-serif'
     ctx.fillText(`${val}`, cx + 30, radarY + 62)
     cx += 68
@@ -641,7 +632,7 @@ function renderSettings() {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
   ctx.fillText('⚙️ Ajustes', VW / 2, 40)
-  ctx.fillStyle = 'var(--text-muted)'
+  ctx.fillStyle = COLORS.textMuted
   ctx.font = '10px sans-serif'
   ctx.fillText('Toca para alternar · Toca fuera para volver', VW / 2, 65)
   const settings = store.get('settings')
@@ -655,12 +646,12 @@ function renderSettings() {
     ctx.fillStyle = 'rgba(255,255,255,0.04)'
     roundRect(ctx, 20, y, VW - 40, 40, 8)
     ctx.fill()
-    ctx.fillStyle = 'var(--text-primary)'
+    ctx.fillStyle = COLORS.textPrimary
     ctx.font = '14px sans-serif'
     ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillText(items[i].label, 32, y + 20)
-    ctx.fillStyle = items[i].value ? '#4caf50' : 'var(--text-muted)'
+    ctx.fillStyle = items[i].value ? '#4caf50' : COLORS.textMuted
     ctx.textAlign = 'right'
     ctx.font = 'bold 13px sans-serif'
     ctx.fillText(items[i].value ? '✓ ON' : '○ OFF', VW - 30, y + 20)
@@ -681,17 +672,17 @@ function renderDaily() {
     ctx.fillStyle = '#ffd700'
     ctx.font = '14px sans-serif'
     ctx.fillText(`✓ Completado: ${prevScore.correct ? '✅' : '❌'}`, VW / 2, 80)
-    ctx.fillStyle = 'var(--text-muted)'
+    ctx.fillStyle = COLORS.textMuted
     ctx.font = '11px sans-serif'
     ctx.fillText(`Tiempo: ${Math.floor(prevScore.time)}s`, VW / 2, 105)
   } else {
-    ctx.fillStyle = 'var(--text-secondary)'
+    ctx.fillStyle = COLORS.textSecondary
     ctx.font = '13px sans-serif'
     ctx.fillText('Un puzzle especial para hoy', VW / 2, 80)
     ctx.fillStyle = 'rgba(255,255,255,0.04)'
     roundRect(ctx, 20, 110, VW - 40, 120, 10)
     ctx.fill()
-    ctx.fillStyle = 'var(--text-primary)'
+    ctx.fillStyle = COLORS.textPrimary
     ctx.font = '13px sans-serif'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
@@ -727,10 +718,7 @@ events.on('screen:change', (id) => {
   audio.click()
 })
 
-canvas.addEventListener('click', (e) => {
-  const rect = canvas.getBoundingClientRect()
-  const nx = ((e.clientX - rect.left) / rect.width) * VW
-  const ny = ((e.clientY - rect.top) / rect.height) * VH
+function handleInput(nx, ny) {
   const screen = screens.getCurrent()
   if (screen !== 'puzzle') handleCanvasClick(nx, ny)
   else if (!puzzleAnswered) handleCanvasClick(nx, ny)
@@ -743,18 +731,36 @@ canvas.addEventListener('click', (e) => {
         p.solved = true
         const cat = p.puzzle.data?.category
         const time = Math.floor((Date.now() - p._startTime) / 1000)
-        events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - time) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1 })
+        const floor = store.get('tower.currentFloor')
+        events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - time) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1, floor })
         particles.emitCorrect(VW / 2, VH / 2)
         audio.correct()
       } else {
-        events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: Math.floor((Date.now() - p._startTime) / 1000), xp: 0, stars: 0 })
+        const floor = store.get('tower.currentFloor')
+        events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: Math.floor((Date.now() - p._startTime) / 1000), xp: 0, stars: 0, floor })
         particles.emitWrong(VW / 2, VH / 2)
         audio.wrong()
       }
     }
     screens.show('floor')
   }
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect()
+  const nx = ((e.clientX - rect.left) / rect.width) * VW
+  const ny = ((e.clientY - rect.top) / rect.height) * VH
+  handleInput(nx, ny)
 })
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault()
+  const t = e.changedTouches[0]
+  const rect = canvas.getBoundingClientRect()
+  const nx = ((t.clientX - rect.left) / rect.width) * VW
+  const ny = ((t.clientY - rect.top) / rect.height) * VH
+  handleInput(nx, ny)
+}, { passive: false })
 
 loop.update = (dt) => {
   particles.update(dt)
