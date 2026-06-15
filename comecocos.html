@@ -353,16 +353,14 @@
       }
 
       function playerInit() {
-        player.x = 13.5 * CELL
+        player.x = 14 * CELL
         player.y = 23 * CELL
-        player.dir = 0
-        player.nextDir = 0
+        player.dir = -1
+        player.nextDir = 3
         player.speed = 1.8
         player.moving = false
         player.anim = 0
         player.mouth = 0
-        player.targetX = player.x
-        player.targetY = player.y
         player.alive = true
         player.smoothX = player.x
         player.smoothY = player.y
@@ -693,112 +691,76 @@
         g.smoothY += (g.y - g.smoothY) * 0.35
       }
 
+      function canMoveTo(c, r) {
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return false
+        const v = map[r][c]
+        return v !== W && v !== GD && v !== GH
+      }
+
       function movePlayer(dt) {
         if (!player.alive) return
         const s = player.speed * CELL * dt * 2.2
-        const cx = Math.floor(player.smoothX / CELL),
-          cy = Math.floor(player.smoothY / CELL)
-        const inCenter =
-          Math.abs(player.smoothX - (cx * CELL + CELL / 2)) < 4 &&
-          Math.abs(player.smoothY - (cy * CELL + CELL / 2)) < 4
-        if (inCenter) {
-          const dirs = [
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1],
-          ]
-          let canMove = false
-          const nd = player.nextDir
-          if (nd !== player.dir) {
-            const nr = cy + dirs[nd][0],
-              nc = cx + dirs[nd][1]
-            if (
-              nr >= 0 &&
-              nr < ROWS &&
-              nc >= 0 &&
-              nc < COLS &&
-              map[nr][nc] !== W &&
-              map[nr][nc] !== GD &&
-              map[nr][nc] !== GH
-            ) {
-              player.dir = nd
-              canMove = true
+
+        if (player.moving) {
+          const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+          const dr = dirs[player.dir]
+          player.smoothX += dr[1] * s
+          player.smoothY += dr[0] * s
+
+          const destC = Math.floor((player.smoothX + dr[1] * CELL * 0.4) / CELL)
+          const destR = Math.floor((player.smoothY + dr[0] * CELL * 0.4) / CELL)
+          const curC = Math.floor(player.smoothX / CELL)
+          const curR = Math.floor(player.smoothY / CELL)
+
+          const reachedCenter =
+            (dr[1] > 0 && player.smoothX >= destC * CELL) ||
+            (dr[1] < 0 && player.smoothX <= destC * CELL) ||
+            (dr[0] > 0 && player.smoothY >= destR * CELL) ||
+            (dr[0] < 0 && player.smoothY <= destR * CELL)
+
+          if (reachedCenter || !canMoveTo(destC, destR)) {
+            player.smoothX = curC * CELL
+            player.smoothY = curR * CELL
+            if (canMoveTo(curC + dr[1], curR + dr[0])) {
+              player.x = player.smoothX
+              player.y = player.smoothY
+              player.anim += dt * 8
+              checkPellet()
+              return
+            } else {
+              player.moving = false
+              player.dir = -1
             }
-          }
-          if (!canMove && player.dir >= 0) {
-            const nr = cy + dirs[player.dir][0],
-              nc = cx + dirs[player.dir][1]
-            if (
-              nr >= 0 &&
-              nr < ROWS &&
-              nc >= 0 &&
-              nc < COLS &&
-              map[nr][nc] !== W &&
-              map[nr][nc] !== GD &&
-              map[nr][nc] !== GH
-            ) {
-              canMove = true
-            }
-          }
-          if (canMove) player.moving = true
-          else player.moving = false
-          if (player.moving) {
-            player.smoothX = cx * CELL + CELL / 2
-            player.smoothY = cy * CELL + CELL / 2
-          }
-          const dirs2 = [
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1],
-          ]
-          const dr = dirs2[player.dir] || [0, 0]
-          const nx = player.smoothX + dr[1] * s,
-            ny = player.smoothY + dr[0] * s
-          const nc2 = Math.floor(nx / CELL),
-            nr2 = Math.floor(ny / CELL)
-          if (
-            nr2 >= 0 &&
-            nr2 < ROWS &&
-            nc2 >= 0 &&
-            nc2 < COLS &&
-            map[nr2][nc2] !== W &&
-            map[nr2][nc2] !== GD &&
-            map[nr2][nc2] !== GH
-          ) {
-            player.smoothX = nx
-            player.smoothY = ny
           }
         } else {
-          const dirs = [
-            [-1, 0],
-            [1, 0],
-            [0, -1],
-            [0, 1],
-          ]
-          const dr = dirs[player.dir] || [0, 0]
-          const nx = player.smoothX + dr[1] * s,
-            ny = player.smoothY + dr[0] * s
-          const nc = Math.floor(nx / CELL),
-            nr = Math.floor(ny / CELL)
-          if (
-            nr >= 0 &&
-            nr < ROWS &&
-            nc >= 0 &&
-            nc < COLS &&
-            map[nr][nc] !== W &&
-            map[nr][nc] !== GD &&
-            map[nr][nc] !== GH
-          ) {
-            player.smoothX = nx
-            player.smoothY = ny
-          } else {
-            player.smoothX = cx * CELL + CELL / 2
-            player.smoothY = cy * CELL + CELL / 2
-            player.moving = false
+          const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+          const c = Math.round(player.smoothX / CELL)
+          const r = Math.round(player.smoothY / CELL)
+
+          if (player.nextDir >= 0 && player.nextDir <= 3) {
+            const nd = dirs[player.nextDir]
+            if (canMoveTo(c + nd[1], r + nd[0])) {
+              player.dir = player.nextDir
+              player.moving = true
+              player.smoothX = c * CELL
+              player.smoothY = r * CELL
+              player.x = player.smoothX
+              player.y = player.smoothY
+              player.anim += dt * 8
+              checkPellet()
+              return
+            }
+          }
+          if (player.dir >= 0 && player.dir <= 3) {
+            const cd = dirs[player.dir]
+            if (canMoveTo(c + cd[1], r + cd[0])) {
+              player.moving = true
+              player.smoothX = c * CELL
+              player.smoothY = r * CELL
+            }
           }
         }
+
         player.x = player.smoothX
         player.y = player.smoothY
         player.anim += dt * 8
