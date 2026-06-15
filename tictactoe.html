@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>🐻 Grizzy vs 🐭 Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        user-select: none;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #2d1b0e;
+        font-family: 'Segoe UI', sans-serif;
+        color: #fff;
+        flex-direction: column;
+      }
+      .leaf {
+        position: fixed;
+        pointer-events: none;
+        z-index: 0;
+        opacity: 0.5;
+        animation: fall linear infinite;
+      }
+      @keyframes fall {
+        0% {
+          transform: translateY(-10vh) rotate(0deg);
+          opacity: 0.6;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      #app {
+        position: relative;
+        z-index: 1;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8vmin;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        padding: 2vmin;
+      }
+      h1 {
+        font-size: clamp(16px, 4vmin, 32px);
+        color: #ffc107;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0.3vmin;
+        letter-spacing: 1px;
+      }
+      .info {
+        display: flex;
+        gap: 2vmin;
+        font-size: clamp(11px, 2.2vmin, 16px);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .info span {
+        background: rgba(0, 0, 0, 0.35);
+        padding: 0.4vmin 1.5vmin;
+        border-radius: 1vmin;
+        border: 1px solid rgba(255, 193, 7, 0.15);
+      }
+      .tier {
+        font-size: clamp(11px, 2.2vmin, 16px);
+        padding: 0.3vmin 1.5vmin;
+        border-radius: 1vmin;
+        display: inline-block;
+        font-weight: bold;
+      }
+      .status {
+        font-size: clamp(12px, 2.5vmin, 18px);
+        min-height: 2.5vmin;
+        margin: 0.2vmin 0;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8vmin;
+        width: min(54vmin, 360px);
+        height: min(54vmin, 360px);
+        background: #1b3a2d;
+        padding: 0.8vmin;
+        border-radius: 1.5vmin;
+        box-shadow:
+          0 0 4vmin rgba(0, 0, 0, 0.5),
+          inset 0 0 1vmin rgba(0, 0, 0, 0.2);
+        flex-shrink: 0;
+      }
+      .cell {
+        border: 0.3vmin solid #5d4037;
+        border-radius: 1vmin;
+        background: #2d1b0e;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        box-shadow: inset 0 0 1vmin rgba(0, 0, 0, 0.4);
+      }
+      .cell:hover {
+        background: #3e2723;
+        border-color: #6d4f2f;
+      }
+      .cell.win {
+        background: #4caf50 !important;
+        border-color: #4caf50 !important;
+        animation: pulse 0.4s ease-in-out 5;
+        box-shadow: 0 0 2vmin rgba(76, 175, 80, 0.6);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.06);
+        }
+      }
+      .controls {
+        display: flex;
+        gap: 1.5vmin;
+        margin-top: 0.5vmin;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .btn {
+        padding: 0.8vmin 2.5vmin;
+        font-size: clamp(11px, 2vmin, 14px);
+        border: none;
+        border-radius: 1vmin;
+        background: #ffc107;
+        color: #1a1a1a;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+      .btn:hover {
+        background: #ffd54f;
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .back {
+        color: #ffc107;
+        text-decoration: none;
+        font-size: clamp(11px, 2vmin, 14px);
+        padding: 0.5vmin 1vmin;
+        transition: all 0.2s;
+      }
+      .back:hover {
+        text-decoration: underline;
+        color: #ffd54f;
+      }
+      @media (max-width: 400px) {
+        .board {
+          width: 90vw;
+          height: 90vw;
+          gap: 1vw;
+          padding: 1vw;
+        }
+        .cell {
+          border-radius: 1.5vw;
+          border-width: 0.5vw;
+        }
+        .btn {
+          padding: 2vw 4vw;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="leaves"></div>
+    <div id="app">
+      <h1>🐻 Grizzy vs 🐭 Lemmings</h1>
+      <div class="info">
+        <span>🐻 Grizzy: <strong id="pw">0</strong></span>
+        <span>🐭 Lemmings: <strong id="aw">0</strong></span>
+        <span>🎯 Nivel <strong id="level">1</strong>/40</span>
+      </div>
+      <div class="tier" id="tierName">🟢 El Bosque</div>
+      <div class="status" id="status">🐻 Grizzy empieza</div>
+      <div class="board" id="board"></div>
+      <div class="controls">
+        <button class="btn" id="restartBtn">🔄 Reiniciar</button>
+        <a href="index.html" class="back">← Volver</a>
+      </div>
+    </div>
+    <script>
+      const SAVE = 'tictactoe_grizzy'
+
+      const GRIZZY_SVG =
+        '<svg viewBox="0 0 100 100" width="72%" height="72%">' +
+        '<circle cx="28" cy="28" r="13" fill="#8B5E3C"/><circle cx="28" cy="28" r="6" fill="#6D4F2F"/>' +
+        '<circle cx="72" cy="28" r="13" fill="#8B5E3C"/><circle cx="72" cy="28" r="6" fill="#6D4F2F"/>' +
+        '<circle cx="50" cy="55" r="32" fill="#8B5E3C"/>' +
+        '<ellipse cx="50" cy="62" rx="18" ry="13" fill="#D4A574"/>' +
+        '<circle cx="38" cy="50" r="4.5" fill="#1a1a1a"/><circle cx="62" cy="50" r="4.5" fill="#1a1a1a"/>' +
+        '<circle cx="40" cy="48" r="1.8" fill="#fff"/><circle cx="64" cy="48" r="1.8" fill="#fff"/>' +
+        '<ellipse cx="50" cy="60" rx="5" ry="3.5" fill="#1a1a1a"/>' +
+        '<path d="M44 66 Q50 71 56 66" fill="none" stroke="#1a1a1a" stroke-width="1.5" stroke-linecap="round"/></svg>'
+
+      const LEMMING_SVG =
+        '<svg viewBox="0 0 100 100" width="68%" height="68%">' +
+        '<ellipse cx="50" cy="58" rx="26" ry="28" fill="#7E8A9E"/>' +
+        '<ellipse cx="50" cy="45" rx="24" ry="20" fill="#8A96A8"/>' +
+        '<circle cx="28" cy="30" r="8" fill="#7E8A9E"/><circle cx="28" cy="30" r="4" fill="#FFB6C1"/>' +
+        '<circle cx="72" cy="30" r="8" fill="#7E8A9E"/><circle cx="72" cy="30" r="4" fill="#FFB6C1"/>' +
+        '<circle cx="40" cy="43" r="4" fill="#1a1a1a"/><circle cx="60" cy="43" r="4" fill="#1a1a1a"/>' +
+        '<circle cx="41" cy="41" r="1.5" fill="#fff"/><circle cx="61" cy="41" r="1.5" fill="#fff"/>' +
+        '<ellipse cx="50" cy="51" rx="3.5" ry="2.5" fill="#FF6B35"/>' +
+        '<rect x="46" y="54" width="4" height="5" rx="1" fill="#fff"/><rect x="51" y="54" width="4" height="5" rx="1" fill="#fff"/>' +
+        '<line x1="24" y1="49" x2="38" y2="51" stroke="#5a5a5a" stroke-width="1" stroke-linecap="round"/>' +
+        '<line x1="24" y1="53" x2="38" y2="53" stroke="#5a5a5a" stroke-width="1" stroke-linecap="round"/>' +
+        '<line x1="76" y1="49" x2="62" y2="51" stroke="#5a5a5a" stroke-width="1" stroke-linecap="round"/>' +
+        '<line x1="76" y1="53" x2="62" y2="53" stroke="#5a5a5a" stroke-width="1" stroke-linecap="round"/></svg>'
+
+      function sfx(freq, type, dur, vol) {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)()
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = freq
+          osc.type = type || 'sine'
+          gain.gain.setValueAtTime(vol || 0.1, ctx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.12))
+          osc.start()
+          osc.stop(ctx.currentTime + (dur || 0.12))
+        } catch (e) {}
+      }
+
+      ;(function createLeaves() {
+        const c = document.getElementById('leaves')
+        const chars = ['🍃', '🍂', '🍁']
+        for (let i = 0; i < 18; i++) {
+          const e = document.createElement('div')
+          e.className = 'leaf'
+          e.textContent = chars[i % 3]
+          e.style.left = Math.random() * 100 + '%'
+          e.style.animationDuration = 10 + Math.random() * 15 + 's'
+          e.style.animationDelay = Math.random() * 12 + 's'
+          e.style.fontSize = 2 + Math.random() * 3 + 'vmin'
+          c.appendChild(e)
+        }
+      })()
+
+      function leafBurst() {
+        const chars = ['🍃', '🍂', '🍁', '🌿']
+        const rect = document.getElementById('board').getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        for (let i = 0; i < 18; i++) {
+          const e = document.createElement('div')
+          e.textContent = chars[i % 4]
+          e.style.cssText =
+            'position:fixed;left:' +
+            cx +
+            'px;top:' +
+            cy +
+            'px;font-size:3vmin;pointer-events:none;z-index:10;transition:all 0.8s ease-out'
+          document.body.appendChild(e)
+          const angle = Math.random() * 2 * Math.PI
+          const dist = 60 + Math.random() * 140
+          requestAnimationFrame(() => {
+            e.style.transform =
+              'translate(' + Math.cos(angle) * dist + 'px,' + Math.sin(angle) * dist + 'px)'
+            e.style.opacity = '0'
+          })
+          setTimeout(() => e.remove(), 900)
+        }
+      }
+
+      let board, curP, over, level, pw, aw
+      const WIN = [
+        [0, 1, 2],
+        [3, 4, 5],
+        [6, 7, 8],
+        [0, 3, 6],
+        [1, 4, 7],
+        [2, 5, 8],
+        [0, 4, 8],
+        [2, 4, 6],
+      ]
+      const TIERS = [
+        { name: '🟢 El Bosque', range: [1, 10], err: 0.45 },
+        { name: '🟡 La Cabaña', range: [11, 20], err: 0.25 },
+        { name: '🔴 La Montaña', range: [21, 30], err: 0.1 },
+        { name: '🟣 El Volcán', range: [31, 40], err: 0.0 },
+      ]
+
+      function getTier(lv) {
+        for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+        return TIERS[3]
+      }
+
+      function init() {
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+        pw = 0
+        aw = 0
+        newGame()
+      }
+
+      function newGame() {
+        board = Array(9).fill(null)
+        curP = 'X'
+        over = false
+        document.getElementById('tierName').textContent = getTier(level).name
+        document.getElementById('status').textContent = '🐻 Grizzy — Nivel ' + level
+        updateUI()
+        render()
+      }
+
+      function updateUI() {
+        document.getElementById('pw').textContent = pw
+        document.getElementById('aw').textContent = aw
+        document.getElementById('level').textContent = level
+      }
+
+      function render() {
+        const el = document.getElementById('board')
+        el.innerHTML = ''
+        board.forEach((v, i) => {
+          const c = document.createElement('button')
+          c.className = 'cell'
+          if (v === 'X') c.innerHTML = GRIZZY_SVG
+          else if (v === 'O') c.innerHTML = LEMMING_SVG
+          if (v === null) c.addEventListener('click', () => playerMove(i))
+          el.appendChild(c)
+        })
+      }
+
+      function playerMove(i) {
+        if (board[i] || over || curP !== 'X') return
+        board[i] = 'X'
+        sfx(330, 'sine', 0.1)
+        render()
+        if (checkEnd()) return
+        curP = 'O'
+        document.getElementById('status').textContent = '🐭 Lemmings piensa...'
+        setTimeout(aiMove, 300 + Math.random() * 250)
+      }
+
+      function aiMove() {
+        if (over) return
+        const empty = board.map((v, i) => (v === null ? i : null)).filter((v) => v !== null)
+        if (empty.length === 0) return
+        const t = getTier(level)
+        if (Math.random() < t.err) {
+          board[empty[Math.floor(Math.random() * empty.length)]] = 'O'
+        } else {
+          board[bestMove()] = 'O'
+        }
+        sfx(220, 'sine', 0.1)
+        render()
+        if (checkEnd()) return
+        curP = 'X'
+        document.getElementById('status').textContent = '🐻 Grizzy — Nivel ' + level
+      }
+
+      function bestMove() {
+        for (const c of WIN) {
+          const v = c.map((i) => board[i])
+          if (v.filter((x) => x === 'O').length === 2 && v.includes(null)) return c[v.indexOf(null)]
+        }
+        for (const c of WIN) {
+          const v = c.map((i) => board[i])
+          if (v.filter((x) => x === 'X').length === 2 && v.includes(null)) return c[v.indexOf(null)]
+        }
+        if (board[4] === null) return 4
+        const corners = [0, 2, 6, 8].filter((i) => board[i] === null)
+        if (corners.length > 0) return corners[Math.floor(Math.random() * corners.length)]
+        return board.map((v, i) => (v === null ? i : null)).filter((v) => v !== null)[0]
+      }
+
+      function checkEnd() {
+        for (const c of WIN) {
+          const v = c.map((i) => board[i])
+          if (v.every((x) => x === 'X')) {
+            end('win', c)
+            return true
+          }
+          if (v.every((x) => x === 'O')) {
+            end('lose', c)
+            return true
+          }
+        }
+        if (board.every((v) => v !== null)) {
+          end('draw')
+          return true
+        }
+        return false
+      }
+
+      function end(result, wc) {
+        over = true
+        if (result === 'win') {
+          pw++
+          document.getElementById('pw').textContent = pw
+          document.getElementById('status').textContent = '🎉 ¡Grizzy ganó nivel ' + level + '!'
+          if (wc) {
+            const cells = document.getElementById('board').children
+            wc.forEach((i) => cells[i] && cells[i].classList.add('win'))
+          }
+          sfx(523, 'sine', 0.15)
+          setTimeout(() => sfx(659, 'sine', 0.15), 150)
+          setTimeout(() => sfx(784, 'sine', 0.2), 300)
+          leafBurst()
+          if (level >= 40) {
+            document.getElementById('status').textContent = '🏆 ¡Completaste todos los niveles!'
+            sfx(660, 'sine', 0.15)
+            setTimeout(() => sfx(880, 'sine', 0.15), 150)
+            setTimeout(() => sfx(1100, 'sine', 0.2), 300)
+          } else {
+            if (level >= (parseInt(localStorage.getItem(SAVE)) || 0))
+              localStorage.setItem(SAVE, level + 1)
+            level++
+            updateUI()
+            setTimeout(newGame, 1600)
+          }
+        } else if (result === 'lose') {
+          aw++
+          document.getElementById('aw').textContent = aw
+          document.getElementById('status').textContent = '😔 Lemmings ganó — Enter para revancha'
+          sfx(110, 'sawtooth', 0.25)
+        } else {
+          document.getElementById('status').textContent = '🤝 Empate — Enter para revancha'
+          sfx(150, 'sine', 0.15)
+        }
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && over) newGame()
+      })
+      document.getElementById('restartBtn').addEventListener('click', init)
+      init()
+    </script>
+  </body>
+</html>

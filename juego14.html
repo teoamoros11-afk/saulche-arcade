@@ -1,0 +1,1254 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cocina Express - Grizzy Chef</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Segoe UI', Arial, sans-serif;
+      }
+      #game {
+        width: 100vw;
+        height: 100vh;
+        background: #fff8e1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+      }
+      #game.hidden {
+        display: none;
+      }
+
+      /* WALL */
+      .wall {
+        position: absolute;
+        inset: 0;
+        background:
+          linear-gradient(#fff8e1, #fff8e1 55%, #a67c52 55%, #a67c52 58%, #fff8e1 58%),
+          repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 60px,
+            rgba(200, 200, 200, 0.3) 60px,
+            rgba(200, 200, 200, 0.3) 62px
+          );
+        z-index: 0;
+      }
+      .wall::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(
+          0deg,
+          transparent,
+          transparent 50px,
+          rgba(220, 220, 220, 0.2) 50px,
+          rgba(220, 220, 220, 0.2) 52px
+        );
+      }
+
+      /* SHELF */
+      .shelf {
+        position: absolute;
+        top: 55%;
+        left: 5%;
+        right: 5%;
+        height: 6px;
+        background: #8b6914;
+        border-radius: 3px;
+        z-index: 1;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
+      }
+
+      /* SCREENS */
+      .screen {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        transition: opacity 0.5s;
+        padding: 20px;
+      }
+      .screen.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .screen-bg {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: -1;
+      }
+
+      /* TITLE */
+      .title {
+        font-size: clamp(2rem, 8vw, 5rem);
+        font-weight: 900;
+        color: #5d4037;
+        text-shadow:
+          3px 3px 0 #ffb74d,
+          6px 6px 0 rgba(0, 0, 0, 0.2);
+        text-align: center;
+        line-height: 1.1;
+      }
+      .subtitle {
+        font-size: clamp(1rem, 3vw, 1.8rem);
+        color: #795548;
+        margin: 10px 0 25px;
+      }
+
+      /* GRIZZY LOGO */
+      .grizzy-logo {
+        width: clamp(80px, 20vw, 160px);
+        height: clamp(80px, 20vw, 160px);
+        background: #8d6e63;
+        border-radius: 50%;
+        position: relative;
+        margin-bottom: 20px;
+      }
+      .grizzy-logo::before {
+        content: '';
+        position: absolute;
+        top: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 25px;
+        background: white;
+        border-radius: 6px 6px 0 0;
+        border: 2px solid #ddd;
+      }
+      .grizzy-logo::after {
+        content: '🐻';
+        font-size: clamp(40px, 10vw, 80px);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+
+      /* BUTTONS */
+      .btn {
+        padding: 14px 40px;
+        font-size: clamp(1rem, 2.5vw, 1.5rem);
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+      }
+      .btn:hover {
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .btn-primary {
+        background: linear-gradient(135deg, #ff6f00, #ff8f00);
+        box-shadow: 0 4px 15px rgba(255, 111, 0, 0.4);
+      }
+      .btn-secondary {
+        background: linear-gradient(135deg, #5d4037, #795548);
+        box-shadow: 0 4px 15px rgba(93, 64, 55, 0.4);
+      }
+
+      /* HUD */
+      .hud {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        padding: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        pointer-events: none;
+      }
+      .hud > * {
+        pointer-events: auto;
+      }
+      .hud-left,
+      .hud-right {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .hud-level {
+        font-size: clamp(0.8rem, 2vw, 1.2rem);
+        font-weight: 700;
+        color: #5d4037;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 4px 12px;
+        border-radius: 8px;
+      }
+      .hud-score {
+        font-size: clamp(0.8rem, 2vw, 1.2rem);
+        font-weight: 700;
+        color: #ff6f00;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 4px 12px;
+        border-radius: 8px;
+      }
+      .hud-recipe {
+        font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+        color: #795548;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 4px 12px;
+        border-radius: 8px;
+        max-width: 200px;
+        text-align: center;
+      }
+
+      /* PROGRESS BAR */
+      .progress-wrap {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 8px;
+        background: rgba(0, 0, 0, 0.1);
+        z-index: 20;
+      }
+      .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #ff6f00, #ffb74d);
+        transition: width 0.5s ease;
+        border-radius: 0 4px 4px 0;
+      }
+
+      /* GAME AREA */
+      .game-area {
+        position: absolute;
+        bottom: 15%;
+        left: 5%;
+        right: 5%;
+        top: 12%;
+        z-index: 5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* RECIPE DISPLAY */
+      .recipe-box {
+        background: rgba(255, 255, 255, 0.9);
+        border: 3px solid #a67c52;
+        border-radius: 16px;
+        padding: clamp(10px, 2vw, 20px);
+        max-width: 600px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+      }
+      .recipe-name {
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        font-weight: 800;
+        color: #5d4037;
+        margin-bottom: 5px;
+      }
+      .recipe-instruction {
+        font-size: clamp(0.9rem, 2vw, 1.2rem);
+        color: #795548;
+        margin-bottom: 10px;
+      }
+      .recipe-steps {
+        display: flex;
+        gap: 8px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin: 8px 0;
+      }
+      .step-dot {
+        width: clamp(30px, 6vw, 50px);
+        height: clamp(30px, 6vw, 50px);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(0.6rem, 1.2vw, 0.8rem);
+        font-weight: 700;
+        color: #fff;
+        transition: all 0.3s;
+        position: relative;
+      }
+      .step-dot.pending {
+        background: #bdbdbd;
+      }
+      .step-dot.active {
+        background: #ff6f00;
+        transform: scale(1.15);
+        box-shadow: 0 0 15px rgba(255, 111, 0, 0.5);
+        animation: pulse 1s infinite;
+      }
+      .step-dot.done {
+        background: #4caf50;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          box-shadow: 0 0 10px rgba(255, 111, 0, 0.4);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(255, 111, 0, 0.8);
+        }
+      }
+
+      /* STEP ACTION AREA */
+      .stage {
+        position: absolute;
+        bottom: 35%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: clamp(15px, 4vw, 40px);
+        align-items: center;
+        justify-content: center;
+        z-index: 6;
+      }
+      .stage.hidden {
+        display: none;
+      }
+
+      /* INTERACTIVE ELEMENTS */
+      .interactive {
+        width: clamp(70px, 16vw, 130px);
+        height: clamp(70px, 16vw, 130px);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.85);
+        border: 3px solid #a67c52;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: clamp(0.6rem, 1.2vw, 0.8rem);
+        font-weight: 600;
+        color: #5d4037;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      .interactive:hover {
+        transform: scale(1.08);
+        border-color: #ff6f00;
+        box-shadow: 0 6px 20px rgba(255, 111, 0, 0.3);
+      }
+      .interactive:active {
+        transform: scale(0.92);
+      }
+      .interactive .icon {
+        font-size: clamp(28px, 6vw, 55px);
+        line-height: 1;
+      }
+      .interactive .label {
+        position: absolute;
+        bottom: -22px;
+        font-size: clamp(0.6rem, 1vw, 0.75rem);
+        color: #795548;
+        white-space: nowrap;
+      }
+
+      /* LEMMING */
+      .lemming {
+        position: absolute;
+        z-index: 8;
+        width: clamp(40px, 8vw, 65px);
+        height: clamp(40px, 8vw, 65px);
+        background: #7e8a9e;
+        border-radius: 50% 50% 45% 45%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: clamp(18px, 4vw, 32px);
+        cursor: pointer;
+        transition: transform 0.3s;
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        animation: lemming-walk 0.8s ease-in-out alternate infinite;
+      }
+      .lemming::before {
+        content: '';
+        position: absolute;
+        top: -6px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 65%;
+        height: 10px;
+        background: #fff;
+        border-radius: 4px 4px 0 0;
+        border: 1px solid #ddd;
+      }
+      .lemming::after {
+        content: '🐭';
+        font-size: clamp(16px, 3.5vw, 28px);
+      }
+      .lemming.scared {
+        animation: lemming-flee 0.4s forwards;
+      }
+      @keyframes lemming-walk {
+        from {
+          transform: translateY(0);
+        }
+        to {
+          transform: translateY(-5px);
+        }
+      }
+      @keyframes lemming-flee {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: scale(1.3) translateY(-20px);
+        }
+        100% {
+          transform: scale(0);
+          opacity: 0;
+        }
+      }
+
+      /* ANIMATIONS */
+      @keyframes cut-anim {
+        0% {
+          transform: rotate(0);
+        }
+        25% {
+          transform: rotate(-15deg);
+        }
+        50% {
+          transform: rotate(0);
+        }
+        75% {
+          transform: rotate(15deg);
+        }
+        100% {
+          transform: rotate(0);
+        }
+      }
+      @keyframes mix-anim {
+        0% {
+          transform: rotate(0);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+      @keyframes cook-anim {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        25% {
+          transform: scale(1.05) translateY(-3px);
+        }
+        50% {
+          transform: scale(1) translateY(0);
+        }
+        75% {
+          transform: scale(1.05) translateY(-2px);
+        }
+      }
+      @keyframes float-up {
+        0% {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        100% {
+          opacity: 0;
+          transform: translateY(-80px);
+        }
+      }
+      @keyframes confetti-fall {
+        0% {
+          transform: translateY(-10vh) rotate(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      @keyframes bounce-in {
+        0% {
+          transform: scale(0);
+        }
+        50% {
+          transform: scale(1.2);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+
+      .anim-cut {
+        animation: cut-anim 0.4s ease;
+      }
+      .anim-mix {
+        animation: mix-anim 0.6s linear;
+      }
+      .anim-cook {
+        animation: cook-anim 0.5s ease;
+      }
+
+      .points-pop {
+        position: absolute;
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        font-weight: 900;
+        color: #ff6f00;
+        pointer-events: none;
+        z-index: 30;
+        animation: float-up 0.8s forwards;
+      }
+
+      /* CONFETTI */
+      .confetti {
+        position: fixed;
+        width: 10px;
+        height: 10px;
+        z-index: 100;
+        animation: confetti-fall 2s ease-out forwards;
+        pointer-events: none;
+      }
+
+      /* CELEBRATION */
+      .celebration {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        background: rgba(0, 0, 0, 0.7);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s;
+      }
+      .celebration.show {
+        opacity: 1;
+        pointer-events: auto;
+      }
+      .celebration-box {
+        background: #fff;
+        border-radius: 24px;
+        padding: clamp(20px, 4vw, 50px);
+        text-align: center;
+        max-width: 500px;
+        width: 90%;
+        animation: bounce-in 0.5s ease;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+      .celebration h2 {
+        font-size: clamp(1.5rem, 4vw, 2.8rem);
+        color: #ff6f00;
+        margin-bottom: 5px;
+      }
+      .celebration .chef-icon {
+        font-size: clamp(50px, 12vw, 100px);
+        margin: 10px 0;
+      }
+      .celebration p {
+        font-size: clamp(1rem, 2vw, 1.3rem);
+        color: #5d4037;
+        margin: 5px 0;
+      }
+      .celebration .btn {
+        margin-top: 15px;
+      }
+
+      /* MESSAGE */
+      .message-toast {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 40;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        padding: 16px 32px;
+        border-radius: 12px;
+        font-size: clamp(1rem, 2.5vw, 1.5rem);
+        font-weight: 700;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .message-toast.show {
+        opacity: 1;
+      }
+
+      /* COUNTERTOP DECOR */
+      .counter-deco {
+        position: absolute;
+        bottom: 12%;
+        left: 0;
+        right: 0;
+        height: 8%;
+        background: linear-gradient(180deg, #a67c52, #8b6914);
+        z-index: 3;
+        border-top: 3px solid #6d4c21;
+      }
+      .counter-deco::before {
+        content: '';
+        position: absolute;
+        top: -8px;
+        left: 0;
+        right: 0;
+        height: 8px;
+        background: repeating-linear-gradient(
+          90deg,
+          #a67c52,
+          #a67c52 20px,
+          #8b6914 20px,
+          #8b6914 40px
+        );
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 480px) {
+        .hud {
+          padding: 5px;
+        }
+        .hud-level,
+        .hud-score,
+        .hud-recipe {
+          font-size: 0.65rem;
+          padding: 2px 8px;
+        }
+        .game-area {
+          top: 15%;
+        }
+      }
+      @media (min-width: 768px) {
+        .game-area {
+          bottom: 18%;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="game">
+      <div class="wall"></div>
+      <div class="shelf"></div>
+      <div class="counter-deco"></div>
+
+      <!-- START SCREEN -->
+      <div id="startScreen" class="screen">
+        <div class="screen-bg"></div>
+        <div class="grizzy-logo"></div>
+        <div class="title">Cocina Express</div>
+        <div class="subtitle">¡Grizzy Chef & los Lemmings!</div>
+        <button class="btn btn-primary" onclick="startGame()">¡COMENZAR!</button>
+        <p style="margin-top: 15px; color: #8d6e63; font-size: clamp(0.7rem, 1.5vw, 0.9rem)">
+          Nivel <span id="savedLevelDisplay">1</span> guardado
+        </p>
+        <p style="color: #a67c52; font-size: clamp(0.6rem, 1.2vw, 0.8rem); margin-top: 4px">
+          Corta · Mezcla · Cocina · Espanta lemmings
+        </p>
+      </div>
+
+      <!-- RECIPE INTRO SCREEN -->
+      <div id="recipeScreen" class="screen hidden">
+        <div class="screen-bg"></div>
+        <div class="recipe-box">
+          <div class="recipe-name" id="recipeName"></div>
+          <div style="font-size: clamp(2rem, 6vw, 4rem); margin: 10px 0" id="recipeEmoji"></div>
+          <div class="recipe-instruction" id="recipeInstruction"></div>
+          <div class="recipe-steps" id="recipeSteps"></div>
+          <p style="color: #a67c52; font-size: clamp(0.7rem, 1.2vw, 0.85rem); margin: 8px 0">
+            Pasos: <span id="stepCount"></span>
+          </p>
+          <button class="btn btn-primary" onclick="startLevel()">¡A COCINAR!</button>
+        </div>
+      </div>
+
+      <!-- HUD -->
+      <div class="hud">
+        <div class="hud-left">
+          <div class="hud-level">🍳 Nivel <span id="levelDisplay">1</span></div>
+          <div class="hud-recipe" id="hudRecipe">Receta</div>
+        </div>
+        <div class="hud-right">
+          <div class="hud-score">⭐ <span id="scoreDisplay">0</span></div>
+        </div>
+      </div>
+
+      <!-- PROGRESS BAR -->
+      <div class="progress-wrap">
+        <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+      </div>
+
+      <!-- GAME AREA -->
+      <div class="game-area" id="gameArea">
+        <div
+          id="currentActionText"
+          style="
+            font-size: clamp(1rem, 2.5vw, 1.6rem);
+            font-weight: 700;
+            color: #5d4037;
+            margin-bottom: 10px;
+            text-align: center;
+          "
+        ></div>
+      </div>
+
+      <!-- STAGE -->
+      <div class="stage" id="stage"></div>
+
+      <!-- CELEBRATION -->
+      <div class="celebration" id="celebration">
+        <div class="celebration-box">
+          <div class="chef-icon">🧑‍🍳</div>
+          <h2 id="celebTitle">¡Receta Completa!</h2>
+          <p id="celebMsg">Has preparado el plato perfectamente.</p>
+          <p
+            style="color: #ff6f00; font-size: clamp(1.2rem, 3vw, 2rem); font-weight: 800"
+            id="celebScore"
+          >
+            +0 pts
+          </p>
+          <button class="btn btn-primary" id="celebBtn">Siguiente nivel</button>
+        </div>
+      </div>
+
+      <!-- TOAST -->
+      <div class="message-toast" id="toast"></div>
+    </div>
+
+    <script>
+      // ====== RECIPES ======
+      const STEP_TYPES = {
+        CORTAR: { emoji: '🔪', label: 'CORTAR', anim: 'anim-cut', sound: 'cut' },
+        MEZCLAR: { emoji: '🥣', label: 'MEZCLAR', anim: 'anim-mix', sound: 'mix' },
+        COCINAR: { emoji: '🔥', label: 'COCINAR', anim: 'anim-cook', sound: 'cook' },
+      }
+
+      const RECIPES = [
+        { name: 'Sandwich Clásico', emoji: '🥪', steps: ['CORTAR', 'MEZCLAR'] },
+        { name: 'Pizza Margarita', emoji: '🍕', steps: ['CORTAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Pastel de Chocolate', emoji: '🍰', steps: ['MEZCLAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Sopa de Verduras', emoji: '🥣', steps: ['CORTAR', 'CORTAR', 'COCINAR'] },
+        { name: 'Ensalada Fresca', emoji: '🥗', steps: ['CORTAR', 'MEZCLAR'] },
+        { name: 'Galletas de Avena', emoji: '🍪', steps: ['MEZCLAR', 'COCINAR', 'COCINAR'] },
+        { name: 'Pasta Alfredo', emoji: '🍝', steps: ['CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Tacos de Pollo', emoji: '🌮', steps: ['CORTAR', 'CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Hamburguesa', emoji: '🍔', steps: ['CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Hot Dog', emoji: '🌭', steps: ['CORTAR', 'COCINAR'] },
+        { name: 'Ensalada César', emoji: '🥬', steps: ['CORTAR', 'MEZCLAR', 'MEZCLAR'] },
+        { name: 'Sushi Roll', emoji: '🍣', steps: ['CORTAR', 'CORTAR', 'MEZCLAR'] },
+        {
+          name: 'Tarta de Manzana',
+          emoji: '🥧',
+          steps: ['CORTAR', 'MEZCLAR', 'COCINAR', 'COCINAR'],
+        },
+        { name: 'Omelette', emoji: '🍳', steps: ['CORTAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Panqueques', emoji: '🥞', steps: ['MEZCLAR', 'COCINAR', 'COCINAR'] },
+        { name: 'Lasagna', emoji: '🍝', steps: ['CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Burrito', emoji: '🌯', steps: ['CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Helado Sundae', emoji: '🍨', steps: ['CORTAR', 'MEZCLAR'] },
+        { name: 'Pollo Frito', emoji: '🍗', steps: ['CORTAR', 'MEZCLAR', 'COCINAR', 'COCINAR'] },
+        { name: 'Fideos con Salsa', emoji: '🍜', steps: ['CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Risotto', emoji: '🍚', steps: ['CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Tiramisú', emoji: '🍮', steps: ['MEZCLAR', 'MEZCLAR', 'COCINAR'] },
+        {
+          name: 'Paella',
+          emoji: '🥘',
+          steps: ['CORTAR', 'CORTAR', 'COCINAR', 'COCINAR', 'MEZCLAR'],
+        },
+        {
+          name: 'Curry de Verduras',
+          emoji: '🍛',
+          steps: ['CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'],
+        },
+        { name: 'Pescado al Horno', emoji: '🐟', steps: ['CORTAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Brochetas', emoji: '🥙', steps: ['CORTAR', 'CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Crema de Calabaza', emoji: '🎃', steps: ['CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Muffins Arándano', emoji: '🧁', steps: ['MEZCLAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Ramen', emoji: '🍜', steps: ['CORTAR', 'COCINAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Ceviche', emoji: '🦐', steps: ['CORTAR', 'CORTAR', 'MEZCLAR'] },
+        { name: 'Pavita Asada', emoji: '🦃', steps: ['MEZCLAR', 'COCINAR', 'COCINAR', 'COCINAR'] },
+        {
+          name: 'Macarrones Queso',
+          emoji: '🧀',
+          steps: ['CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'],
+        },
+        { name: 'Brownies', emoji: '🍫', steps: ['MEZCLAR', 'COCINAR', 'COCINAR'] },
+        { name: 'Falafel', emoji: '🧆', steps: ['CORTAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Pudín de Pan', emoji: '🍞', steps: ['CORTAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Sopa de Tomate', emoji: '🍅', steps: ['CORTAR', 'CORTAR', 'COCINAR', 'MEZCLAR'] },
+        { name: 'Arepas', emoji: '🫓', steps: ['MEZCLAR', 'COCINAR', 'COCINAR'] },
+        { name: 'Chilaquiles', emoji: '🇲🇽', steps: ['CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'] },
+        { name: 'Strudel', emoji: '🥐', steps: ['CORTAR', 'MEZCLAR', 'COCINAR', 'COCINAR'] },
+        {
+          name: 'Feijoada',
+          emoji: '🥩',
+          steps: ['CORTAR', 'CORTAR', 'COCINAR', 'MEZCLAR', 'COCINAR'],
+        },
+      ]
+
+      // ====== STATE ======
+      let state = {
+        level: 0,
+        score: 0,
+        currentStep: 0,
+        totalSteps: 0,
+        recipe: null,
+        lemmingTimer: null,
+        gameActive: false,
+        stepsCompleted: 0,
+      }
+
+      let audioCtx = null
+
+      // ====== SOUNDS (Web Audio) ======
+      function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      }
+
+      function playSound(type) {
+        try {
+          initAudio()
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          gain.connect(audioCtx.destination)
+          osc.connect(gain)
+          gain.gain.value = 0.15
+          const t = audioCtx.currentTime
+          if (type === 'cut') {
+            osc.type = 'sawtooth'
+            osc.frequency.setValueAtTime(800, t)
+            osc.frequency.setValueAtTime(300, t + 0.1)
+            gain.gain.setValueAtTime(0.15, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.15)
+            osc.start(t)
+            osc.stop(t + 0.15)
+          } else if (type === 'mix') {
+            osc.type = 'sine'
+            osc.frequency.setValueAtTime(400, t)
+            osc.frequency.setValueAtTime(600, t + 0.15)
+            osc.frequency.setValueAtTime(400, t + 0.3)
+            gain.gain.setValueAtTime(0.12, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.4)
+            osc.start(t)
+            osc.stop(t + 0.4)
+          } else if (type === 'cook') {
+            osc.type = 'triangle'
+            osc.frequency.setValueAtTime(200, t)
+            osc.frequency.linearRampToValueAtTime(500, t + 0.2)
+            osc.frequency.linearRampToValueAtTime(300, t + 0.4)
+            gain.gain.setValueAtTime(0.12, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.5)
+            osc.start(t)
+            osc.stop(t + 0.5)
+          } else if (type === 'scare') {
+            osc.type = 'square'
+            osc.frequency.setValueAtTime(1000, t)
+            osc.frequency.setValueAtTime(200, t + 0.08)
+            osc.frequency.setValueAtTime(1200, t + 0.16)
+            osc.frequency.setValueAtTime(100, t + 0.24)
+            gain.gain.setValueAtTime(0.1, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.3)
+            osc.start(t)
+            osc.stop(t + 0.3)
+          } else if (type === 'complete') {
+            osc.type = 'sine'
+            osc.frequency.setValueAtTime(523, t)
+            osc.frequency.setValueAtTime(659, t + 0.15)
+            osc.frequency.setValueAtTime(784, t + 0.3)
+            osc.frequency.setValueAtTime(1047, t + 0.45)
+            gain.gain.setValueAtTime(0.12, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.7)
+            osc.start(t)
+            osc.stop(t + 0.7)
+          } else {
+            osc.type = 'sine'
+            osc.frequency.setValueAtTime(500, t)
+            gain.gain.setValueAtTime(0.1, t)
+            gain.gain.exponentialRampToValueAtTime(0.01, t + 0.2)
+            osc.start(t)
+            osc.stop(t + 0.2)
+          }
+        } catch (e) {
+          /* silent fail */
+        }
+      }
+
+      // ====== SAVE / LOAD ======
+      function saveProgress() {
+        try {
+          localStorage.setItem(
+            'grizzy_kitchen',
+            JSON.stringify({ level: state.level, score: state.score }),
+          )
+        } catch (e) {}
+      }
+
+      function loadProgress() {
+        try {
+          const d = JSON.parse(localStorage.getItem('grizzy_kitchen'))
+          if (d && typeof d.level === 'number') {
+            state.level = d.level
+            state.score = d.score || 0
+          }
+        } catch (e) {}
+      }
+
+      // ====== DOM REFS ======
+      const $ = (id) => document.getElementById(id)
+      const startScreen = $('startScreen')
+      const recipeScreen = $('recipeScreen')
+      const levelDisplay = $('levelDisplay')
+      const scoreDisplay = $('scoreDisplay')
+      const hudRecipe = $('hudRecipe')
+      const progressBar = $('progressBar')
+      const gameArea = $('gameArea')
+      const stage = $('stage')
+      const currentActionText = $('currentActionText')
+      const recipeName = $('recipeName')
+      const recipeEmoji = $('recipeEmoji')
+      const recipeInstruction = $('recipeInstruction')
+      const recipeSteps = $('recipeSteps')
+      const stepCount = $('stepCount')
+      const celebration = $('celebration')
+      const celebTitle = $('celebTitle')
+      const celebMsg = $('celebMsg')
+      const celebScore = $('celebScore')
+      const celebBtn = $('celebBtn')
+      const toast = $('toast')
+
+      // ====== TOAST ======
+      let toastTimeout = null
+      function showToast(msg, duration) {
+        toast.textContent = msg
+        toast.classList.add('show')
+        clearTimeout(toastTimeout)
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), duration || 1500)
+      }
+
+      // ====== CONFETTI ======
+      function spawnConfetti(count) {
+        const colors = ['#FF6F00', '#FFB74D', '#4CAF50', '#E53935', '#42A5F5', '#AB47BC', '#FFEE58']
+        for (let i = 0; i < (count || 40); i++) {
+          const el = document.createElement('div')
+          el.className = 'confetti'
+          el.style.left = Math.random() * 100 + '%'
+          el.style.top = '-10px'
+          el.style.background = colors[Math.floor(Math.random() * colors.length)]
+          el.style.width = 6 + Math.random() * 8 + 'px'
+          el.style.height = 6 + Math.random() * 8 + 'px'
+          el.style.borderRadius = Math.random() > 0.5 ? '50%' : '0'
+          el.style.animationDuration = 1.5 + Math.random() * 1.5 + 's'
+          el.style.animationDelay = Math.random() * 0.8 + 's'
+          document.body.appendChild(el)
+          setTimeout(() => el.remove(), 4000)
+        }
+      }
+
+      // ====== SHOW STAGE ======
+      function renderStep(steps, currentIdx) {
+        const step = steps[currentIdx]
+        if (!step) return
+        const info = STEP_TYPES[step]
+        stage.innerHTML = ''
+        stage.classList.remove('hidden')
+
+        const el = document.createElement('div')
+        el.className = 'interactive'
+        el.innerHTML = `<div class="icon">${info.emoji}</div><div class="label">${info.label}</div>`
+        el.addEventListener('click', () => handleStepClick(el, step))
+        stage.appendChild(el)
+
+        // Ingredient visual
+        const ing = document.createElement('div')
+        ing.className = 'interactive'
+        const ings = { CORTAR: '🥕', MEZCLAR: '🥣', COCINAR: '🍲' }
+        ing.innerHTML = `<div class="icon">${ings[step] || '🍽️'}</div><div class="label">Ingrediente</div>`
+        ing.style.opacity = '0.7'
+        ing.style.pointerEvents = 'none'
+        stage.appendChild(ing)
+
+        currentActionText.textContent = `${info.emoji} ${info.label} — ¡Haz clic en el ${info.label.toLowerCase()}!`
+      }
+
+      function handleStepClick(el, step) {
+        if (!state.gameActive) return
+        const info = STEP_TYPES[step]
+        el.classList.add(info.anim)
+        playSound(info.sound)
+        showPoints(el)
+        setTimeout(() => el.classList.remove(info.anim), 600)
+        advanceStep()
+      }
+
+      function showPoints(el) {
+        const rect = el.getBoundingClientRect()
+        const pop = document.createElement('div')
+        pop.className = 'points-pop'
+        pop.textContent = '+10 🎯'
+        pop.style.left = rect.left + rect.width / 2 - 30 + 'px'
+        pop.style.top = rect.top - 10 + 'px'
+        document.body.appendChild(pop)
+        setTimeout(() => pop.remove(), 900)
+      }
+
+      function advanceStep() {
+        state.score += 10
+        state.stepsCompleted++
+        state.currentStep++
+        updateHUD()
+        updateProgress()
+        saveProgress()
+
+        if (state.currentStep >= state.totalSteps) {
+          completeRecipe()
+          return
+        }
+        renderStep(state.recipe.steps, state.currentStep)
+      }
+
+      function updateProgress() {
+        const pct = state.totalSteps > 0 ? (state.currentStep / state.totalSteps) * 100 : 0
+        progressBar.style.width = Math.min(pct, 100) + '%'
+      }
+
+      // ====== LEMMINGS ======
+      let lemmingsOnScreen = []
+
+      function spawnLemming() {
+        if (!state.gameActive || state.currentStep >= state.totalSteps) return
+        if (lemmingsOnScreen.length >= 2) return
+
+        const lm = document.createElement('div')
+        lm.className = 'lemming'
+        lm.textContent = ''
+        const side = Math.random() > 0.5 ? 'left' : 'right'
+        const topPos = 20 + Math.random() * 40
+        lm.style.top = topPos + '%'
+        lm.style[side] = '-60px'
+        lm.style.position = 'absolute'
+        lm.dataset.side = side
+        document.getElementById('game').appendChild(lm)
+
+        // Animate in
+        const targetX = 10 + Math.random() * 60
+        lm.style.transition = side + ' 1s ease'
+        requestAnimationFrame(() => {
+          lm.style[side] = targetX + '%'
+        })
+
+        lm.addEventListener('click', (e) => {
+          e.stopPropagation()
+          scareLemming(lm)
+        })
+
+        // Auto-steal after 5s if not scared
+        const stealTimer = setTimeout(
+          () => {
+            if (lm.parentNode && !lm.classList.contains('scared')) {
+              stealIngredient(lm)
+            }
+          },
+          5000 + Math.random() * 3000,
+        )
+
+        lm.dataset.stealTimer = stealTimer
+        lemmingsOnScreen.push(lm)
+      }
+
+      function scareLemming(lm) {
+        if (lm.classList.contains('scared')) return
+        lm.classList.add('scared')
+        clearTimeout(parseInt(lm.dataset.stealTimer))
+        playSound('scare')
+        showPoints(lm)
+        state.score += 5
+        updateHUD()
+        saveProgress()
+        setTimeout(() => {
+          if (lm.parentNode) lm.remove()
+        }, 500)
+        lemmingsOnScreen = lemmingsOnScreen.filter((l) => l !== lm)
+      }
+
+      function stealIngredient(lm) {
+        if (!state.gameActive) return
+        lm.classList.add('scared')
+        clearTimeout(parseInt(lm.dataset.stealTimer))
+        showToast('¡Un lemming robó un ingrediente! Repite el paso ⚠️', 2000)
+        // Go back one step
+        if (state.currentStep > 0) {
+          state.currentStep--
+          state.stepsCompleted = Math.max(0, state.stepsCompleted - 1)
+          state.score = Math.max(0, state.score - 5)
+          updateHUD()
+          updateProgress()
+          renderStep(state.recipe.steps, state.currentStep)
+        }
+        setTimeout(() => {
+          if (lm.parentNode) lm.remove()
+        }, 500)
+        lemmingsOnScreen = lemmingsOnScreen.filter((l) => l !== lm)
+      }
+
+      function startLemmingCycle() {
+        stopLemmingCycle()
+        function spawnLoop() {
+          if (!state.gameActive) return
+          spawnLemming()
+          state.lemmingTimer = setTimeout(spawnLoop, 4000 + Math.random() * 4000)
+        }
+        state.lemmingTimer = setTimeout(spawnLoop, 3000)
+      }
+
+      function stopLemmingCycle() {
+        clearTimeout(state.lemmingTimer)
+        lemmingsOnScreen.forEach((lm) => {
+          clearTimeout(parseInt(lm.dataset.stealTimer || '0'))
+          if (lm.parentNode) lm.remove()
+        })
+        lemmingsOnScreen = []
+      }
+
+      // ====== COMPLETE RECIPE ======
+      function completeRecipe() {
+        state.gameActive = false
+        stopLemmingCycle()
+        playSound('complete')
+        spawnConfetti(50)
+
+        const bonus = state.totalSteps * 5
+        state.score += bonus
+        updateHUD()
+        saveProgress()
+
+        celebration.classList.add('show')
+        celebTitle.textContent = '¡Receta Completa! 🎉'
+        celebMsg.textContent = `Has preparado ${state.recipe.name} perfectamente.`
+        celebScore.textContent = `+${state.stepsCompleted * 10 + bonus} pts`
+
+        if (state.level >= RECIPES.length) {
+          celebBtn.textContent = '🏆 ¡Ganaste! Jugar de nuevo'
+          celebBtn.onclick = () => {
+            state.level = 0
+            state.score = 0
+            saveProgress()
+            celebration.classList.remove('show')
+            showStartScreen()
+          }
+        } else {
+          celebBtn.textContent = 'Siguiente nivel →'
+          celebBtn.onclick = () => {
+            celebration.classList.remove('show')
+            showRecipe(++state.level)
+          }
+        }
+      }
+
+      // ====== START / LEVELS ======
+      function startGame() {
+        initAudio()
+        loadProgress()
+        if (state.level >= RECIPES.length) state.level = 0
+        showRecipe(state.level)
+      }
+
+      function showStartScreen() {
+        startScreen.classList.remove('hidden')
+        recipeScreen.classList.add('hidden')
+        celebration.classList.remove('show')
+        stage.classList.add('hidden')
+        gameArea.style.display = 'flex'
+        stopLemmingCycle()
+        state.gameActive = false
+        document.getElementById('savedLevelDisplay').textContent = state.level + 1
+      }
+
+      function showRecipe(level) {
+        if (level >= RECIPES.length) {
+          completeRecipe()
+          return
+        }
+        state.level = level
+        state.recipe = RECIPES[level]
+        state.totalSteps = state.recipe.steps.length
+        state.currentStep = 0
+        state.stepsCompleted = 0
+
+        startScreen.classList.add('hidden')
+        recipeScreen.classList.remove('hidden')
+        celebration.classList.remove('show')
+        stage.classList.add('hidden')
+        gameArea.style.display = 'flex'
+        stopLemmingCycle()
+        state.gameActive = false
+
+        recipeName.textContent = `${state.recipe.emoji} ${state.recipe.name}`
+        recipeEmoji.textContent = state.recipe.emoji
+        recipeInstruction.textContent = `Nivel ${level + 1} — Sigue los pasos para preparar esta receta`
+        stepCount.textContent = state.totalSteps
+
+        recipeSteps.innerHTML = ''
+        state.recipe.steps.forEach((s, i) => {
+          const dot = document.createElement('div')
+          dot.className = 'step-dot pending'
+          dot.textContent = STEP_TYPES[s].emoji
+          dot.title = s
+          recipeSteps.appendChild(dot)
+        })
+
+        saveProgress()
+      }
+
+      function startLevel() {
+        recipeScreen.classList.add('hidden')
+        state.gameActive = true
+        levelDisplay.textContent = state.level + 1
+        hudRecipe.textContent = state.recipe.name
+        updateHUD()
+        progressBar.style.width = '0%'
+        renderStep(state.recipe.steps, 0)
+        startLemmingCycle()
+        // update dots in recipe intro
+        updateHUD()
+      }
+
+      function updateHUD() {
+        levelDisplay.textContent = state.level + 1
+        scoreDisplay.textContent = state.score
+      }
+
+      // ====== INIT ======
+      loadProgress()
+      document.getElementById('savedLevelDisplay').textContent = state.level + 1
+      showStartScreen()
+    </script>
+  </body>
+</html>

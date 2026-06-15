@@ -1,0 +1,34 @@
+.puzzle-area{width:100%;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:10px 0}
+.puzzle-question{font-size:18px;line-height:1.6;text-align:center;max-width:480px;color:var(--text-primary);margin-bottom:8px}
+.puzzle-question .highlight{color:var(--gold);font-weight:700}
+.puzzle-question .emoji{font-size:24px}
+.puzzle-canvas-wrap{position:relative;border-radius:var(--radius-md);overflow:hidden;background:var(--bg-primary);border:1px solid var(--border-glass)}
+.puzzle-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:480px}
+.puzzle-option{display:flex;align-items:center;justify-content:center;padding:14px 8px;border-radius:var(--radius-md);background:var(--bg-glass);border:1px solid var(--border-glass);font-size:15px;font-weight:600;transition:all var(--transition-fast);cursor:pointer;text-align:center;min-height:52px}
+.puzzle-option:hover{background:var(--bg-glass-hover);border-color:var(--border-active);transform:translateY(-1px)}
+.puzzle-option.selected{background:var(--blue-glow);border-color:var(--blue)}
+.puzzle-option.correct{background:var(--green-glow);border-color:var(--green);animation:pulse 0.4s ease}
+.puzzle-option.wrong{background:var(--red-glow);border-color:var(--red);animation:shake 0.4s ease}
+.puzzle-option:active{transform:scale(0.97)}
+.puzzle-option .label{color:var(--text-muted);margin-right:8px;font-size:12px}
+.puzzle-hint{font-size:13px;color:var(--text-muted);text-align:center;padding:10px 16px;border-radius:var(--radius-md);background:var(--bg-glass);max-width:480px;width:100%;margin-top:8px}
+.puzzle-hint .hint-number{display:inline-block;padding:1px 8px;border-radius:10px;background:var(--purple-glow);color:var(--purple);font-size:11px;margin-right:6px}
+.puzzle-maze{display:grid;gap:1px;background:var(--text-muted);border-radius:var(--radius-sm);overflow:hidden}
+.maze-cell{width:100%;aspect-ratio:1;transition:background var(--transition-fast)}
+.maze-wall{background:var(--bg-primary)}
+.maze-path{background:var(--bg-tertiary)}
+.maze-player{background:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+.maze-goal{background:var(--green);box-shadow:0 0 8px var(--green-glow)}
+.maze-visited{background:rgba(124,77,255,0.3)}
+.grid-puzzle{display:grid;gap:2px;border-radius:var(--radius-sm);overflow:hidden}
+.grid-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border-radius:2px;transition:all var(--transition-fast);cursor:pointer}
+.grid-cell:hover{transform:scale(1.05)}
+.grid-cell.selected{box-shadow:0 0 0 2px var(--gold);z-index:1}
+.grid-cell.flipped{background:var(--bg-tertiary);border:1px solid var(--border-glass)}
+.grid-cell.matched{background:var(--green-glow);border-color:var(--green);opacity:0.6}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.puzzle-enter{animation:fadeIn 0.4s ease forwards}
+.puzzle-enter:nth-child(2){animation-delay:0.1s}
+.puzzle-enter:nth-child(3){animation-delay:0.2s}

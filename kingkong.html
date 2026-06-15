@@ -1,0 +1,841 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Grizzy Kong</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: #2d1b0e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
+        color: #fff8e1;
+        flex-direction: column;
+      }
+      #wrap {
+        position: relative;
+        width: min(100vw, calc(100vh * 1.5));
+        height: min(100vh, calc(100vw / 1.5));
+        overflow: hidden;
+      }
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        border: 2px solid #ff9800;
+        border-radius: 8px;
+      }
+      #hud {
+        position: absolute;
+        top: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 8px;
+        font-size: clamp(10px, 1.2vmin, 14px);
+        z-index: 10;
+        pointer-events: none;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      #hud span {
+        background: rgba(45, 27, 14, 0.85);
+        padding: 2px 8px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        backdrop-filter: blur(4px);
+      }
+      #t {
+        color: #ffc107;
+        font-size: clamp(9px, 1vmin, 12px);
+        background: rgba(255, 193, 7, 0.12);
+        padding: 1px 6px;
+        border-radius: 5px;
+        display: inline-block;
+      }
+      #pb {
+        position: absolute;
+        bottom: clamp(24px, 4vmin, 36px);
+        left: 50%;
+        transform: translateX(-50%);
+        width: 40%;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+        z-index: 10;
+      }
+      #pb div {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #ffc107);
+        transition: width 0.3s;
+        width: 0%;
+      }
+      #btns {
+        position: absolute;
+        bottom: 4px;
+        right: 8px;
+        z-index: 10;
+        display: flex;
+        gap: 6px;
+      }
+      .btn {
+        padding: 4px 14px;
+        font-size: clamp(10px, 1.2vmin, 13px);
+        border: none;
+        border-radius: 8px;
+        background: rgba(139, 94, 60, 0.8);
+        color: #fff8e1;
+        cursor: pointer;
+        font-weight: bold;
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        backdrop-filter: blur(4px);
+        text-decoration: none;
+        display: inline-block;
+      }
+      .btn:hover {
+        background: rgba(255, 152, 0, 0.6);
+      }
+      #controls {
+        position: absolute;
+        bottom: clamp(30px, 5vmin, 42px);
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: clamp(8px, 0.9vmin, 11px);
+        opacity: 0.5;
+        z-index: 10;
+        pointer-events: none;
+        white-space: nowrap;
+      }
+    </style>
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="game"></canvas>
+      <div id="hud">
+        <span>🏆 <span id="sc">0</span></span>
+        <span>❤️ <span id="lv">3</span></span>
+        <span>🍌 <span id="bn">0</span>/<span id="nd">3</span></span>
+        <span>Nv <span id="lvl">1</span>/40</span>
+        <span id="t">🟢 La Arboleda</span>
+      </div>
+      <div id="pb"><div id="pr"></div></div>
+      <div id="controls">← → Mover &nbsp; ↑ Saltar &nbsp; 🍌 Recoge plátanos</div>
+      <div id="btns">
+        <button class="btn" id="rb">🔄</button>
+        <a href="index.html" class="btn">←</a>
+      </div>
+    </div>
+    <script>
+      // sfx from shared module
+      let pfx = [],
+        flT = 0,
+        svT = 0
+      function part(x, y, c) {
+        for (let i = 0; i < 8; i++)
+          pfx.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 6 - 3,
+            life: 20,
+            c: c || '#FFC107',
+            r: 2 + Math.random() * 4,
+          })
+      }
+      function drP(ctx) {
+        for (let i = pfx.length - 1; i >= 0; i--) {
+          const p = pfx[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.2
+          p.life--
+          if (p.life <= 0) pfx.splice(i, 1)
+          else {
+            ctx.save()
+            ctx.globalAlpha = p.life / 20
+            ctx.fillStyle = p.c
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.restore()
+          }
+        }
+      }
+      function doF() {
+        flT = 10
+        sfx(120)
+      }
+      function svI() {
+        svT = 60
+        sfx(660)
+      }
+
+      const SAVE = 'kingkong_grizzy'
+      const canvas = document.getElementById('game'),
+        ctx = canvas.getContext('2d')
+      let player,
+        barrels,
+        bats,
+        platforms,
+        bananas,
+        score,
+        lives,
+        level,
+        gameOver,
+        keys,
+        frame,
+        timer,
+        bananaCount,
+        needed,
+        levelWin
+      let W, H, SCALE
+      const G = 0.5,
+        GROUND = 350
+
+      const TIERS = [
+        { name: '🟢 La Arboleda', range: [1, 10], bg: '#1B3A2D', platC: '#5D4037' },
+        { name: '🟡 El Campamento', range: [11, 20], bg: '#4A2F1A', platC: '#795548' },
+        { name: '🔴 La Montaña', range: [21, 30], bg: '#2D1B0E', platC: '#4E342E' },
+        { name: '🟣 El Volcán', range: [31, 40], bg: '#1A0A0A', platC: '#3E2723' },
+      ]
+
+      function getTier(lv) {
+        for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+        return TIERS[3]
+      }
+
+      function resize() {
+        const wrap = document.getElementById('wrap')
+        const r = 1.5
+        W = 600
+        H = 400
+        let w = window.innerWidth,
+          h = window.innerHeight
+        if (w / h > r) {
+          w = h * r
+        } else {
+          h = w / r
+        }
+        wrap.style.width = w + 'px'
+        wrap.style.height = h + 'px'
+        SCALE = w / W
+        canvas.width = W
+        canvas.height = H
+      }
+      window.addEventListener('resize', resize)
+
+      function drawGrizzy(x, y, w, h, faceR) {
+        // Body
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2.2, h / 2.3, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Belly
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2 + 2, w / 3.5, h / 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Ears
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.arc(x + w * 0.22, y + h * 0.08, w * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * 0.78, y + h * 0.08, w * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        // Eyes
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(x + w * 0.28, y + h * 0.27, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * 0.72, y + h * 0.27, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(x + w * (faceR ? 0.3 : 0.26), y + h * 0.29, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * (faceR ? 0.74 : 0.7), y + h * 0.29, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Nose
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h * 0.42, w * 0.06, w * 0.04, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Mouth (smile)
+        ctx.strokeStyle = '#3E2723'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(x + w / 2, y + h * 0.5, w * 0.06, 0.15, Math.PI - 0.15)
+        ctx.stroke()
+        // Small hat
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(x + w * 0.15, y - h * 0.02, w * 0.7, h * 0.06)
+        ctx.fillStyle = '#FFC107'
+        ctx.fillRect(x + w * 0.3, y - h * 0.08, w * 0.4, h * 0.06)
+      }
+
+      function drawLemming(x, y, w, h, dir) {
+        // Body
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2.2, h / 2.2, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#B0BEC5'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2 + 1, w / 3.5, h / 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Ears
+        ctx.fillStyle = '#90A4AE'
+        ctx.beginPath()
+        ctx.arc(x + w * 0.2, y + h * 0.1, w * 0.09, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * 0.8, y + h * 0.1, w * 0.09, 0, Math.PI * 2)
+        ctx.fill()
+        // Eyes
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(x + w * 0.3, y + h * 0.35, w * 0.035, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * 0.7, y + h * 0.35, w * 0.035, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(x + w * (dir > 0 ? 0.32 : 0.28), y + h * 0.33, w * 0.015, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + w * (dir > 0 ? 0.72 : 0.68), y + h * 0.33, w * 0.015, 0, Math.PI * 2)
+        ctx.fill()
+        // Nose
+        ctx.fillStyle = '#FFB74D'
+        ctx.beginPath()
+        ctx.arc(x + w / 2, y + h * 0.48, w * 0.035, 0, Math.PI * 2)
+        ctx.fill()
+        // Teeth
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(x + w * 0.42, y + h * 0.52, w * 0.05, h * 0.07)
+        ctx.fillRect(x + w * 0.53, y + h * 0.52, w * 0.05, h * 0.07)
+        // Wings (for flying lemmings)
+        ctx.fillStyle = 'rgba(144,164,174,0.5)'
+        ctx.beginPath()
+        ctx.moveTo(x - w * 0.1, y + h * 0.2)
+        ctx.lineTo(x - w * 0.35, y + h * 0.05)
+        ctx.lineTo(x - w * 0.1, y + h * 0.35)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.moveTo(x + w * 1.1, y + h * 0.2)
+        ctx.lineTo(x + w * 1.35, y + h * 0.05)
+        ctx.lineTo(x + w * 1.1, y + h * 0.35)
+        ctx.fill()
+      }
+
+      function getLayout(lv) {
+        const tier = Math.floor((lv - 1) / 10)
+        const base = [
+          [
+            { x: 0, y: GROUND, w: 600, h: 12 },
+            { x: 140, y: 290, w: 100, h: 10 },
+            { x: 340, y: 240, w: 110, h: 10 },
+            { x: 60, y: 200, w: 90, h: 10 },
+            { x: 400, y: 170, w: 120, h: 10 },
+          ],
+          [
+            { x: 0, y: GROUND, w: 600, h: 12 },
+            { x: 80, y: 300, w: 80, h: 10 },
+            { x: 250, y: 260, w: 90, h: 10 },
+            { x: 440, y: 280, w: 80, h: 10 },
+            { x: 160, y: 210, w: 90, h: 10 },
+            { x: 370, y: 180, w: 80, h: 10 },
+          ],
+          [
+            { x: 0, y: GROUND, w: 600, h: 12 },
+            { x: 50, y: 310, w: 70, h: 10 },
+            { x: 200, y: 270, w: 70, h: 10 },
+            { x: 370, y: 290, w: 70, h: 10 },
+            { x: 120, y: 220, w: 70, h: 10 },
+            { x: 300, y: 200, w: 70, h: 10 },
+            { x: 460, y: 170, w: 70, h: 10 },
+          ],
+          [
+            { x: 0, y: GROUND, w: 600, h: 12 },
+            { x: 30, y: 320, w: 60, h: 10 },
+            { x: 170, y: 280, w: 60, h: 10 },
+            { x: 340, y: 300, w: 60, h: 10 },
+            { x: 490, y: 260, w: 60, h: 10 },
+            { x: 100, y: 230, w: 60, h: 10 },
+            { x: 280, y: 200, w: 60, h: 10 },
+            { x: 440, y: 170, w: 60, h: 10 },
+          ],
+        ]
+        return base[tier]
+      }
+
+      function getBarrelSpeed(lv) {
+        if (lv <= 10) return 3
+        if (lv <= 20) return 4
+        if (lv <= 30) return 5.5
+        return 7
+      }
+      function getSpawnRate(lv) {
+        if (lv <= 10) return 40
+        if (lv <= 20) return 30
+        if (lv <= 30) return 20
+        return 12
+      }
+      function getBananasNeeded(lv) {
+        if (lv <= 10) return 3
+        if (lv <= 20) return 5
+        if (lv <= 30) return 7
+        return 10
+      }
+      function batSpeed(lv) {
+        if (lv > 30) return 4.5
+        if (lv > 20) return 3.5
+        return 2.5
+      }
+      function getBatsPerLevel(lv) {
+        if (lv <= 10) return 120
+        if (lv <= 20) return 100
+        if (lv <= 30) return 80
+        return 60
+      }
+
+      let loop
+      function init() {
+        resize()
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+        lives = 3
+        score = 0
+        startLevel()
+        if (loop) clearInterval(loop)
+        loop = setInterval(tick, 1000 / 60)
+      }
+
+      function startLevel() {
+        player = { x: 50, y: 300, w: 28, h: 36, vy: 0, jump: false }
+        barrels = []
+        bats = []
+        gameOver = false
+        levelWin = false
+        keys = {}
+        frame = 0
+        timer = 0
+        bananaCount = 0
+        needed = getBananasNeeded(level)
+        platforms = getLayout(level)
+        bananas = []
+        let placed = 0
+        const perPlat = Math.max(1, Math.floor(needed / (platforms.length - 1)))
+        for (let i = 1; i < platforms.length && placed < needed; i++) {
+          for (let j = 0; j < perPlat && placed < needed; j++) {
+            const p = platforms[i]
+            bananas.push({
+              x: p.x + 12 + Math.random() * (p.w - 24),
+              y: p.y - 16,
+              w: 10,
+              h: 10,
+              col: false,
+            })
+            placed++
+          }
+        }
+        while (placed < needed) {
+          bananas.push({ x: 50 + Math.random() * 500, y: GROUND - 16, w: 10, h: 10, col: false })
+          placed++
+        }
+        updateUI()
+      }
+
+      function updateUI() {
+        let got = 0
+        for (const b of bananas) if (b.col) got++
+        bananaCount = got
+        document.getElementById('sc').textContent = score
+        document.getElementById('lv').textContent = lives
+        document.getElementById('bn').textContent = Math.min(got, needed)
+        document.getElementById('nd').textContent = needed
+        document.getElementById('lvl').textContent = level
+        document.getElementById('t').textContent = getTier(level).name
+        document.getElementById('pr').style.width = Math.min(100, (got / needed) * 100) + '%'
+      }
+
+      function update() {
+        if (gameOver) return
+        if (levelWin) {
+          draw()
+          return
+        }
+        if (keys['ArrowLeft']) player.x -= 4
+        if (keys['ArrowRight']) player.x += 4
+        if ((keys['ArrowUp'] || keys[' ']) && !player.jump) {
+          player.vy = -10
+          player.jump = true
+        }
+        player.vy += G
+        player.y += player.vy
+        player.jump = true
+        for (const p of platforms) {
+          if (
+            player.x + player.w > p.x &&
+            player.x < p.x + p.w &&
+            player.y + player.h > p.y &&
+            player.y + player.h <= p.y + p.h + player.vy + 3 &&
+            player.vy >= 0
+          ) {
+            player.y = p.y - player.h
+            player.vy = 0
+            player.jump = false
+          }
+        }
+        if (player.x < 0) player.x = 0
+        if (player.x > 600 - player.w) player.x = 600 - player.w
+        if (player.y > 400) {
+          hit()
+          return
+        }
+        for (const b of bananas) {
+          if (b.col) continue
+          if (
+            player.x < b.x + b.w &&
+            player.x + player.w > b.x &&
+            player.y < b.y + b.h &&
+            player.y + player.h > b.y
+          ) {
+            b.col = true
+            score += 20
+            sfx(440)
+            part(b.x + b.w / 2, b.y + b.h / 2, '#FFC107')
+            updateUI()
+            if (bananaCount >= needed) {
+              levelWin = true
+              sfx(660)
+              setTimeout(() => sfx(880), 150)
+              setTimeout(() => sfx(1100), 300)
+              updateUI()
+            }
+          }
+        }
+        frame++
+        timer++
+        if (timer >= getSpawnRate(level)) {
+          const upper = platforms.filter((p) => p.y < 300)
+          if (upper.length > 0) {
+            const p = upper[Math.floor(Math.random() * upper.length)]
+            const dir = Math.random() > 0.5 ? 1 : -1
+            const bx = dir > 0 ? p.x - 5 : p.x + p.w + 5
+            barrels.push({
+              x: bx,
+              y: p.y - 14,
+              w: 16,
+              h: 16,
+              vx: dir * getBarrelSpeed(level),
+              vy: 0,
+            })
+          } else {
+            barrels.push({ x: 580, y: 150, w: 16, h: 16, vx: -getBarrelSpeed(level), vy: 0 })
+          }
+          timer = 0
+          if (level > 15 && Math.random() < 0.3) {
+            const p2 = upper[Math.floor(Math.random() * upper.length)]
+            const d2 = Math.random() > 0.5 ? 1 : -1
+            barrels.push({
+              x: d2 > 0 ? p2.x - 5 : p2.x + p2.w + 5,
+              y: p2.y - 14,
+              w: 16,
+              h: 16,
+              vx: d2 * getBarrelSpeed(level),
+              vy: 0,
+            })
+          }
+        }
+        if (frame % getBatsPerLevel(level) === 0) {
+          const side = Math.random() > 0.5 ? -1 : 1
+          bats.push({
+            x: side > 0 ? 0 : 600,
+            y: 60 + Math.random() * 200,
+            w: 22,
+            h: 18,
+            vx: side * batSpeed(level),
+            vy: 0,
+            flap: 0,
+          })
+          if (level > 20 && Math.random() < 0.4) {
+            const s2 = Math.random() > 0.5 ? -1 : 1
+            bats.push({
+              x: s2 > 0 ? 0 : 600,
+              y: 60 + Math.random() * 200,
+              w: 22,
+              h: 18,
+              vx: s2 * batSpeed(level),
+              vy: 0,
+              flap: 0,
+            })
+          }
+        }
+        for (let i = barrels.length - 1; i >= 0; i--) {
+          const b = barrels[i]
+          b.vy += G * 0.5
+          b.x += b.vx
+          b.y += b.vy
+          for (const p of platforms) {
+            if (
+              b.x + b.w > p.x &&
+              b.x < p.x + p.w &&
+              b.y + b.h > p.y &&
+              b.y + b.h <= p.y + p.h + b.vy + 5 &&
+              b.vy >= 0
+            ) {
+              b.y = p.y - b.h
+              b.vy = 0
+            }
+          }
+          if (b.x < 5) {
+            b.vx = -b.vx
+            b.x = 6
+          }
+          if (b.x + b.w > W - 5) {
+            b.vx = -b.vx
+            b.x = W - b.w - 6
+          }
+          if (
+            player.x < b.x + b.w &&
+            player.x + player.w > b.x &&
+            player.y < b.y + b.h &&
+            player.y + player.h > b.y
+          ) {
+            hit()
+            barrels.splice(i, 1)
+            continue
+          }
+          if (b.x < -80 || b.x > 680 || b.y > 430) barrels.splice(i, 1)
+        }
+        for (let i = bats.length - 1; i >= 0; i--) {
+          const b = bats[i]
+          b.flap += 0.15
+          b.y += Math.sin(frame * 0.05 + i) * 1.5
+          b.x += b.vx
+          if (
+            player.x < b.x + b.w &&
+            player.x + player.w > b.x &&
+            player.y < b.y + b.h &&
+            player.y + player.h > b.y
+          ) {
+            hit()
+            bats.splice(i, 1)
+            continue
+          }
+          if (b.x < -60 || b.x > 660) bats.splice(i, 1)
+        }
+      }
+
+      function hit() {
+        lives--
+        updateUI()
+        if (lives <= 0) {
+          gameOver = true
+          sfx(110)
+          draw()
+          return
+        }
+        player.x = 50
+        player.y = 300
+        player.vy = 0
+        doF()
+      }
+
+      function advance() {
+        if (level < 40) {
+          if (level >= (parseInt(localStorage.getItem(SAVE)) || 0))
+            localStorage.setItem(SAVE, level + 1)
+          svI()
+          level++
+          score += 50
+          startLevel()
+        }
+      }
+
+      function draw() {
+        ctx.save()
+        ctx.scale(SCALE, SCALE)
+        const t = getTier(level)
+        ctx.fillStyle = t.bg
+        ctx.fillRect(0, 0, 600, 400)
+        // Background trees
+        ctx.fillStyle = 'rgba(76,175,80,0.04)'
+        for (let i = 0; i < 10; i++) {
+          const bw = 25 + Math.sin(i * 2) * 12,
+            bh = 50 + Math.sin(i * 3) * 25
+          ctx.beginPath()
+          ctx.ellipse(i * 70 - 10, GROUND - bh, bw / 2, bh / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        // Sun glow
+        const grd = ctx.createRadialGradient(500, 30, 10, 500, 30, 200)
+        grd.addColorStop(0, 'rgba(255,193,7,0.15)')
+        grd.addColorStop(1, 'rgba(255,193,7,0)')
+        ctx.fillStyle = grd
+        ctx.beginPath()
+        ctx.arc(500, 30, 200, 0, Math.PI * 2)
+        ctx.fill()
+        // Platforms
+        for (const p of platforms) {
+          ctx.fillStyle = t.platC
+          ctx.fillRect(p.x, p.y, p.w, p.h)
+          ctx.fillStyle = 'rgba(255,248,225,0.08)'
+          ctx.fillRect(p.x, p.y, p.w, 2)
+          ctx.fillStyle = 'rgba(139,94,60,0.3)'
+          for (let rx = p.x + 8; rx < p.x + p.w - 8; rx += 18) ctx.fillRect(rx, p.y - 1, 3, 2)
+        }
+        // Bananas
+        for (const b of bananas) {
+          if (b.col) continue
+          ctx.fillStyle = '#FFC107'
+          ctx.beginPath()
+          ctx.arc(b.x + 3, b.y + 5, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(b.x + 8, b.y + 5, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FF9800'
+          ctx.fillRect(b.x + 2, b.y + 3, 2, 2)
+          ctx.fillRect(b.x + 7, b.y + 3, 2, 2)
+        }
+        // Barrels as lemmings
+        for (const b of barrels) {
+          const dir = b.vx > 0 ? 1 : -1
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w / 2.2, b.h / 2.2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#B0BEC5'
+          ctx.beginPath()
+          ctx.ellipse(b.x + b.w / 2, b.y + b.h / 2 + 1, b.w / 3.5, b.h / 3.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#90A4AE'
+          ctx.beginPath()
+          ctx.arc(b.x + b.w * 0.2, b.y + b.h * 0.1, b.w * 0.09, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(b.x + b.w * 0.8, b.y + b.h * 0.1, b.w * 0.09, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#222'
+          ctx.fillRect(b.x + b.w * 0.28, b.y + b.h * 0.28, 3, 3)
+          ctx.fillRect(b.x + b.w * 0.62, b.y + b.h * 0.28, 3, 3)
+          ctx.fillStyle = '#FFB74D'
+          ctx.beginPath()
+          ctx.arc(b.x + b.w / 2, b.y + b.h * 0.48, b.w * 0.035, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(b.x + b.w * 0.4, b.y + b.h * 0.52, 2, 3)
+          ctx.fillRect(b.x + b.w * 0.53, b.y + b.h * 0.52, 2, 3)
+          // Dizzy spiral
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(b.x + b.w / 2, b.y + b.h / 2, b.w / 2 - 3, frame * 0.1, frame * 0.1 + 1.5)
+          ctx.stroke()
+        }
+        // Bats as flying lemmings
+        for (const b of bats) {
+          drawLemming(b.x, b.y, b.w, b.h, b.vx > 0 ? 1 : -1)
+        }
+        // Player as Grizzy
+        const faceR = keys['ArrowRight'] || (!keys['ArrowLeft'] && true)
+        drawGrizzy(player.x, player.y, player.w, player.h, faceR)
+        drP(ctx)
+        if (flT > 0) {
+          flT--
+          ctx.fillStyle = 'rgba(229,57,53,' + flT / 20 + ')'
+          ctx.fillRect(0, 0, W, H)
+        }
+        if (svT > 0) {
+          svT--
+          ctx.fillStyle = '#4CAF50'
+          ctx.font = 'bold 14px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('✅ Guardado', W / 2, 20)
+        }
+        if (levelWin) {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'
+          ctx.fillRect(0, 0, 600, 400)
+          ctx.textAlign = 'center'
+          if (level >= 40) {
+            ctx.fillStyle = '#FFC107'
+            ctx.font = 'bold 34px sans-serif'
+            ctx.fillText('🎉 ¡GRIZZY GANÓ!', 300, 180)
+            ctx.fillStyle = '#FFF8E1'
+            ctx.font = '16px sans-serif'
+            ctx.fillText('Completaste todos los niveles', 300, 220)
+          } else {
+            ctx.fillStyle = '#4CAF50'
+            ctx.font = 'bold 28px sans-serif'
+            ctx.fillText('🎉 NIVEL ' + level + ' COMPLETO', 300, 170)
+            ctx.fillStyle = '#FFC107'
+            ctx.font = '14px sans-serif'
+            ctx.fillText('ENTER para continuar', 300, 210)
+          }
+        }
+        if (gameOver) {
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'
+          ctx.fillRect(0, 0, 600, 400)
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#E53935'
+          ctx.font = 'bold 38px sans-serif'
+          ctx.fillText('GAME OVER', 300, 180)
+          ctx.fillStyle = '#FFC107'
+          ctx.font = '16px sans-serif'
+          ctx.fillText('Nivel ' + level + ' - ' + score + 'pts', 300, 220)
+        }
+        ctx.restore()
+      }
+
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === 'ArrowUp' || e.key === ' ') e.preventDefault()
+        if ((levelWin || gameOver) && e.key === 'Enter') {
+          if (levelWin && level < 40) advance()
+          else if (gameOver) {
+            clearInterval(loop)
+            init()
+          } else if (levelWin && level >= 40) init()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+      })
+      document.getElementById('rb').addEventListener('click', () => {
+        clearInterval(loop)
+        init()
+      })
+      window.addEventListener('resize', resize)
+      function tick() {
+        update()
+        draw()
+      }
+      init()
+    </script>
+  </body>
+</html>

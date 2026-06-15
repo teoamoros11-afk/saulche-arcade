@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Globos al Cielo - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        touch-action: none;
+        user-select: none;
+      }
+      #gameWrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #gameCanvas {
+        display: block;
+        background: #87ceeb;
+        image-rendering: pixelated;
+        cursor: pointer;
+      }
+      #uiOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+      #scoreDisplay {
+        position: absolute;
+        top: clamp(8px, 2vw, 16px);
+        left: clamp(8px, 2vw, 16px);
+        color: #fff;
+        font-size: clamp(16px, 4vw, 28px);
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        z-index: 10;
+      }
+      #timerDisplay {
+        position: absolute;
+        top: clamp(8px, 2vw, 16px);
+        right: clamp(8px, 2vw, 16px);
+        color: #fff;
+        font-size: clamp(16px, 4vw, 28px);
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        z-index: 10;
+      }
+      #levelDisplay {
+        position: absolute;
+        top: clamp(36px, 8vw, 56px);
+        left: clamp(8px, 2vw, 16px);
+        color: #ffd700;
+        font-size: clamp(12px, 3vw, 20px);
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        z-index: 10;
+      }
+      #messageOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.55);
+        z-index: 20;
+        pointer-events: auto;
+        padding: 20px;
+      }
+      #messageOverlay.hidden {
+        display: none;
+        pointer-events: none;
+      }
+      #messageOverlay h1 {
+        color: #ffd700;
+        font-size: clamp(28px, 6vw, 52px);
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.8);
+        margin-bottom: 8px;
+        text-align: center;
+      }
+      #messageOverlay h2 {
+        color: #fff;
+        font-size: clamp(18px, 4vw, 32px);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        margin-bottom: 6px;
+        text-align: center;
+      }
+      #messageOverlay p {
+        color: #eee;
+        font-size: clamp(14px, 3vw, 22px);
+        margin: 4px 0;
+        text-align: center;
+      }
+      #messageOverlay .best {
+        color: #ffd700;
+        font-size: clamp(13px, 2.5vw, 18px);
+      }
+      #messageOverlay button {
+        margin-top: 16px;
+        padding: clamp(10px, 2vw, 16px) clamp(24px, 5vw, 48px);
+        font-size: clamp(18px, 4vw, 30px);
+        font-weight: bold;
+        background: #ff8c00;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        pointer-events: auto;
+        box-shadow: 0 4px 0 #cc7000;
+        transition: transform 0.1s;
+        touch-action: manipulation;
+      }
+      #messageOverlay button:hover {
+        transform: translateY(-2px);
+      }
+      #messageOverlay button:active {
+        transform: translateY(4px);
+        box-shadow: none;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameWrapper">
+      <canvas id="gameCanvas"></canvas>
+      <div id="scoreDisplay">Puntos: 0</div>
+      <div id="timerDisplay">Tiempo: 45</div>
+      <div id="levelDisplay">Nivel 1</div>
+      <div id="messageOverlay">
+        <h1 id="msgTitle">Globos al Cielo</h1>
+        <h2 id="msgSub">Grizzy &amp; the Lemmings</h2>
+        <p id="msgBody">¡Toca los globos antes de que escapen!</p>
+        <p class="best" id="msgBest"></p>
+        <button id="msgBtn">JUGAR</button>
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const scoreEl = document.getElementById('scoreDisplay')
+      const timerEl = document.getElementById('timerDisplay')
+      const levelEl = document.getElementById('levelDisplay')
+      const overlay = document.getElementById('messageOverlay')
+      const msgTitle = document.getElementById('msgTitle')
+      const msgSub = document.getElementById('msgSub')
+      const msgBody = document.getElementById('msgBody')
+      const msgBest = document.getElementById('msgBest')
+      const msgBtn = document.getElementById('msgBtn')
+
+      const VW = 400,
+        VH = 600
+      let scale = 1,
+        offX = 0,
+        offY = 0
+
+      function resize() {
+        const wrapper = document.getElementById('gameWrapper')
+        const ww = wrapper.clientWidth,
+          wh = wrapper.clientHeight
+        const sx = ww / VW,
+          sy = wh / VH
+        scale = Math.min(sx, sy)
+        const cw = VW * scale,
+          ch = VH * scale
+        canvas.style.width = cw + 'px'
+        canvas.style.height = ch + 'px'
+        canvas.width = VW
+        canvas.height = VH
+        offX = (ww - cw) / 2
+        offY = (wh - ch) / 2
+        canvas.style.marginLeft = offX + 'px'
+        canvas.style.marginTop = offY + 'px'
+      }
+      window.addEventListener('resize', resize)
+
+      function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect()
+        const cx = (e.clientX || e.touches[0].clientX) - rect.left
+        const cy = (e.clientY || e.touches[0].clientY) - rect.top
+        return { x: cx / scale, y: cy / scale }
+      }
+
+      const COLORS = ['#E84848', '#4894E8', '#48C848', '#E8D848']
+      const COLOR_NAMES = ['rojo', 'azul', 'verde', 'amarillo']
+      const GOLD = '#FFD700'
+      const LEMMING = '#7E8A9E'
+
+      class Balloon {
+        constructor() {
+          this.r = 20
+          this.speed = 0
+          this.x = 0
+          this.y = 0
+          this.color = ''
+          this.isGold = false
+          this.isLemming = false
+          this.popped = false
+          this.stringWobble = 0
+        }
+        init(level) {
+          const lv = Math.min(level, 40)
+          const baseSpeed = 0.6 + lv * 0.08
+          this.speed = baseSpeed + Math.random() * 0.4
+          this.r = 18 + Math.random() * 6
+          this.x = 30 + Math.random() * (VW - 60)
+          this.y = VH + this.r + 10
+          this.stringWobble = Math.random() * Math.PI * 2
+          this.isGold = false
+          this.isLemming = false
+          const r = Math.random()
+          if (r < 0.12) {
+            this.isLemming = true
+            this.color = LEMMING
+          } else {
+            const ci = Math.floor(Math.random() * COLORS.length)
+            this.color = COLORS[ci]
+          }
+        }
+        makeGold() {
+          this.isGold = true
+          this.color = GOLD
+        }
+        update(dt) {
+          this.y -= this.speed
+          this.stringWobble += dt * 3
+        }
+        draw(ctx) {
+          if (this.popped) return
+          const x = this.x,
+            y = this.y,
+            r = this.r
+          ctx.save()
+          if (this.isLemming) {
+            const cx = x,
+              cy = y - r * 0.75
+            const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r)
+            grad.addColorStop(0, '#9AACB8')
+            grad.addColorStop(1, this.color)
+            ctx.fillStyle = grad
+          } else {
+            const cx = x - r * 0.25,
+              cy = y - r * 0.3
+            const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, r)
+            if (this.isGold) {
+              grad.addColorStop(0, '#FFF8DC')
+              grad.addColorStop(0.5, '#FFD700')
+              grad.addColorStop(1, '#B8860B')
+            } else {
+              const c = this.color
+              grad.addColorStop(0, lighten(c, 60))
+              grad.addColorStop(0.5, c)
+              grad.addColorStop(1, darken(c, 40))
+            }
+            ctx.fillStyle = grad
+          }
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+          if (this.isLemming) {
+            ctx.fillStyle = '#fff'
+            ctx.beginPath()
+            ctx.arc(x - 6, y - 10, 4, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(x + 6, y - 10, 4, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#222'
+            ctx.beginPath()
+            ctx.arc(x - 5, y - 10, 2, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(x + 7, y - 10, 2, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#222'
+            ctx.lineWidth = 1.2
+            ctx.beginPath()
+            ctx.arc(x - 6, y - 9, 4, 0, Math.PI, false)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.arc(x + 6, y - 9, 4, 0, Math.PI, false)
+            ctx.stroke()
+            ctx.fillStyle = '#fff'
+            ctx.beginPath()
+            ctx.ellipse(x, y + 2, 5, 4, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#222'
+            ctx.beginPath()
+            ctx.arc(x - 2, y + 2, 1.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(x + 2, y + 2, 1.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#fff'
+            ctx.beginPath()
+            ctx.arc(x - 3, y + 2, 0.8, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(x + 1, y + 2, 0.8, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#E8D0B0'
+            ctx.beginPath()
+            ctx.arc(x - 4, y + 10, 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(x + 4, y + 10, 3, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#222'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(x - 8, y + 14)
+            ctx.lineTo(x, y + 8)
+            ctx.stroke()
+            ctx.beginPath()
+            ctx.moveTo(x + 8, y + 14)
+            ctx.lineTo(x, y + 8)
+            ctx.stroke()
+            ctx.font = 'bold 7px sans-serif'
+            ctx.fillStyle = '#222'
+            ctx.textAlign = 'center'
+            ctx.fillText(':(', x, y + 8)
+          } else {
+            ctx.strokeStyle = 'rgba(255,255,255,0.5)'
+            ctx.lineWidth = 1.5
+            ctx.beginPath()
+            ctx.arc(x - 4, y - 7, 6, 0, Math.PI * 1.5)
+            ctx.stroke()
+          }
+          const sx2 = Math.sin(this.stringWobble) * 2
+          ctx.strokeStyle = '#666'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(x, y + r)
+          ctx.quadraticCurveTo(x + sx2 + 4, y + r + 16, x + sx2, y + r + 26)
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color) {
+          this.x = x
+          this.y = y
+          this.vx = (Math.random() - 0.5) * 6
+          this.vy = (Math.random() - 0.5) * 6 - 2
+          this.life = 1
+          this.decay = 0.02 + Math.random() * 0.02
+          this.color = color
+          this.r = 2 + Math.random() * 3
+        }
+        update() {
+          this.x += this.vx
+          this.y += this.vy
+          this.vy += 0.15
+          this.life -= this.decay
+        }
+        draw(ctx) {
+          if (this.life <= 0) return
+          ctx.globalAlpha = this.life
+          ctx.fillStyle = this.color
+          ctx.beginPath()
+          ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+      }
+
+      let balloons = []
+      let particles = []
+      let score = 0
+      let timeLeft = 45
+      let level = 1
+      let gameState = 'menu'
+      let balloonSpawnTimer = 0
+      let balloonSpawnInterval = 60
+      let goldenCounter = 0
+      let lastTime = 0
+      let animId = null
+      let bestScore = parseInt(localStorage.getItem('grizzy_balloons_best')) || 0
+      let comboCount = 0
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      let audioCtx = null
+
+      function initAudio() {
+        if (!audioCtx) audioCtx = new AudioCtx()
+      }
+
+      function playTone(freq, dur, type = 'sine', vol = 0.3) {
+        try {
+          initAudio()
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          osc.type = type
+          osc.frequency.value = freq
+          gain.gain.setValueAtTime(vol, audioCtx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+          osc.connect(gain)
+          gain.connect(audioCtx.destination)
+          osc.start()
+          osc.stop(audioCtx.currentTime + dur)
+        } catch (e) {}
+      }
+
+      function playPop() {
+        playTone(600, 0.08, 'square', 0.2)
+        setTimeout(() => playTone(800, 0.06, 'square', 0.15), 40)
+      }
+      function playBonus() {
+        playTone(523, 0.1)
+        setTimeout(() => playTone(659, 0.1), 100)
+        setTimeout(() => playTone(784, 0.15), 200)
+      }
+      function playLemming() {
+        playTone(200, 0.3, 'sawtooth', 0.25)
+        setTimeout(() => playTone(150, 0.4, 'sawtooth', 0.2), 150)
+      }
+      function playGameOver() {
+        playTone(400, 0.2, 'sine')
+        setTimeout(() => playTone(350, 0.2), 200)
+        setTimeout(() => playTone(300, 0.3), 400)
+        setTimeout(() => playTone(250, 0.4), 600)
+      }
+
+      function lighten(hex, pct) {
+        const num = parseInt(hex.slice(1), 16)
+        const r = Math.min(255, (num >> 16) + pct)
+        const g = Math.min(255, ((num >> 8) & 0xff) + pct)
+        const b = Math.min(255, (num & 0xff) + pct)
+        return `rgb(${r},${g},${b})`
+      }
+      function darken(hex, pct) {
+        const num = parseInt(hex.slice(1), 16)
+        const r = Math.max(0, (num >> 16) - pct)
+        const g = Math.max(0, ((num >> 8) & 0xff) - pct)
+        const b = Math.max(0, (num & 0xff) - pct)
+        return `rgb(${r},${g},${b})`
+      }
+
+      const clouds = [
+        { x: 50, y: 60, w: 80, h: 30 },
+        { x: 200, y: 40, w: 100, h: 35 },
+        { x: 340, y: 70, w: 70, h: 25 },
+        { x: 10, y: 130, w: 90, h: 28 },
+        { x: 280, y: 120, w: 85, h: 30 },
+        { x: 150, y: 100, w: 60, h: 22 },
+      ]
+
+      function drawClouds() {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'
+        for (const c of clouds) {
+          const cx = c.x,
+            cy = c.y
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, c.w / 2, c.h / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx - c.w * 0.25, cy + 5, c.w * 0.35, c.h * 0.4, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx + c.w * 0.25, cy + 3, c.w * 0.3, c.h * 0.45, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      function drawGrizzy() {
+        const gx = 40,
+          gy = VH - 90
+        ctx.save()
+        ctx.translate(gx, gy)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, -8, 24, 20, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A0724E'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 28, 22, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.ellipse(-12, -4, 8, 10, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(12, -4, 8, 10, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-8, -12, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(8, -12, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-7, -13, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(9, -13, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#333'
+        ctx.beginPath()
+        ctx.ellipse(0, -4, 5, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#333'
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.arc(-2, -6, 2.5, 0, Math.PI, false)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(2, -6, 2.5, 0, Math.PI, false)
+        ctx.stroke()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.ellipse(-10, 4, 6, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(10, 4, 6, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#5A3520'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(20, 0)
+        ctx.lineTo(52, -30)
+        ctx.stroke()
+        ctx.strokeStyle = '#5A3520'
+        ctx.lineWidth = 2.5
+        ctx.beginPath()
+        ctx.moveTo(-28, 18)
+        ctx.lineTo(-40, 30)
+        ctx.lineTo(-36, 34)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(28, 18)
+        ctx.lineTo(40, 30)
+        ctx.lineTo(36, 34)
+        ctx.stroke()
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'
+        ctx.beginPath()
+        ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(200,200,200,0.5)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.ellipse(0, 18, 22, 8, 0, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      function spawnBalloon() {
+        const b = new Balloon()
+        b.init(level)
+        if (goldenCounter >= 4) {
+          b.makeGold()
+          goldenCounter = 0
+        } else goldenCounter++
+        balloons.push(b)
+      }
+
+      function spawnParticles(x, y, color, count = 12) {
+        for (let i = 0; i < count; i++) particles.push(new Particle(x, y, color))
+      }
+
+      function checkBalloonClick(px, py) {
+        if (gameState !== 'playing') return
+        for (let i = balloons.length - 1; i >= 0; i--) {
+          const b = balloons[i]
+          if (b.popped) continue
+          const dx = px - b.x,
+            dy = py - b.y
+          if (dx * dx + dy * dy <= b.r * b.r) {
+            b.popped = true
+            if (b.isLemming) {
+              timeLeft = Math.max(0, timeLeft - 5)
+              playLemming()
+              spawnParticles(b.x, b.y, LEMMING, 18)
+              comboCount = 0
+            } else if (b.isGold) {
+              score += 30
+              playBonus()
+              spawnParticles(b.x, b.y, GOLD, 20)
+              comboCount++
+            } else {
+              const bonus = comboCount >= 3 ? 5 : 0
+              score += 10 + bonus
+              playPop()
+              spawnParticles(b.x, b.y, b.color, 12)
+              comboCount++
+            }
+            updateUI()
+            return
+          }
+        }
+      }
+
+      function updateUI() {
+        scoreEl.textContent = 'Puntos: ' + score
+        timerEl.textContent = 'Tiempo: ' + Math.ceil(timeLeft)
+        levelEl.textContent = 'Nivel ' + level
+      }
+
+      function getLevelConfig(lv) {
+        const clamped = Math.min(lv, 40)
+        return {
+          interval: Math.max(12, 60 - clamped * 1.2),
+          maxBalloons: Math.min(3 + Math.floor(clamped / 5), 10),
+          speedMult: 1 + clamped * 0.025,
+        }
+      }
+
+      function resetGame() {
+        balloons = []
+        particles = []
+        score = 0
+        timeLeft = 45
+        level = 1
+        goldenCounter = 0
+        comboCount = 0
+        balloonSpawnTimer = 0
+        updateUI()
+      }
+
+      function startGame() {
+        resetGame()
+        gameState = 'playing'
+        overlay.classList.add('hidden')
+        lastTime = performance.now()
+        if (animId) cancelAnimationFrame(animId)
+        animate(lastTime)
+      }
+
+      function endGame() {
+        gameState = 'gameover'
+        playGameOver()
+        const prev = bestScore
+        if (score > bestScore) {
+          bestScore = score
+          localStorage.setItem('grizzy_balloons_best', bestScore)
+        }
+        overlay.classList.remove('hidden')
+        msgTitle.textContent = '¡FIN DEL JUEGO!'
+        msgSub.textContent = 'Grizzy está agotado...'
+        msgBody.textContent =
+          'Puntuación: ' + score + ' puntos' + (score > prev ? ' ¡NUEVO RÉCORD!' : '')
+        msgBest.textContent = 'Mejor puntuación: ' + bestScore
+        msgBtn.textContent = 'REVANCHA'
+      }
+
+      function showMenu() {
+        gameState = 'menu'
+        overlay.classList.remove('hidden')
+        msgTitle.textContent = 'Globos al Cielo'
+        msgSub.textContent = 'Grizzy & the Lemmings'
+        msgBody.textContent = '¡Toca los globos antes de que escapen!'
+        msgBest.textContent = 'Mejor puntuación: ' + bestScore
+        msgBtn.textContent = 'JUGAR'
+        resize()
+        drawFrame()
+      }
+
+      function drawFrame() {
+        ctx.clearRect(0, 0, VW, VH)
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, VH)
+        skyGrad.addColorStop(0, '#5BA3D9')
+        skyGrad.addColorStop(0.5, '#87CEEB')
+        skyGrad.addColorStop(1, '#B0E0E6')
+        ctx.fillStyle = skyGrad
+        ctx.fillRect(0, 0, VW, VH)
+        drawClouds()
+        for (const b of balloons) b.draw(ctx)
+        for (const p of particles) p.draw(ctx)
+        if (gameState === 'playing' || gameState === 'gameover') drawGrizzy()
+        if (gameState === 'menu' || gameState === 'gameover') {
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'
+          ctx.fillRect(0, 0, VW, VH)
+        }
+      }
+
+      function animate(now) {
+        if (gameState !== 'playing') return
+        const dt = Math.min((now - lastTime) / 16.667, 3)
+        lastTime = now
+        timeLeft -= dt / 60
+        if (timeLeft <= 0) {
+          timeLeft = 0
+          updateUI()
+          endGame()
+          return
+        }
+        const cfg = getLevelConfig(level)
+        balloonSpawnTimer += dt
+        if (
+          balloonSpawnTimer >= cfg.interval &&
+          balloons.filter((b) => !b.popped).length < cfg.maxBalloons
+        ) {
+          spawnBalloon()
+          balloonSpawnTimer = 0
+        }
+        let activeCount = 0
+        for (const b of balloons) {
+          if (!b.popped) {
+            b.update(dt)
+            activeCount++
+          }
+        }
+        let allCleared = true
+        for (let i = balloons.length - 1; i >= 0; i--) {
+          const b = balloons[i]
+          if (!b.popped && b.y < -b.r - 20) {
+            b.popped = true
+          }
+          if (b.popped) {
+            if (b.y < -b.r - 40 || b.lifeRemoved) balloons.splice(i, 1)
+            else allCleared = false
+          } else allCleared = false
+        }
+        for (let i = particles.length - 1; i >= 0; i--) {
+          particles[i].update()
+          if (particles[i].life <= 0) particles.splice(i, 1)
+        }
+        comboCount = Math.max(0, comboCount - 0.02)
+        if (score > 0 && score >= level * 50 && level < 40) {
+          level++
+          goldenCounter = 0
+          updateUI()
+        }
+        updateUI()
+        drawFrame()
+        animId = requestAnimationFrame(animate)
+      }
+
+      canvas.addEventListener('click', (e) => {
+        const pos = getCanvasPos(e)
+        if (gameState === 'playing') checkBalloonClick(pos.x, pos.y)
+      })
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          const pos = getCanvasPos(e)
+          if (gameState === 'playing') checkBalloonClick(pos.x, pos.y)
+        },
+        { passive: false },
+      )
+      msgBtn.addEventListener('click', () => {
+        if (gameState === 'menu' || gameState === 'gameover') startGame()
+      })
+      msgBtn.addEventListener('touchend', (e) => {
+        e.preventDefault()
+        if (gameState === 'menu' || gameState === 'gameover') startGame()
+      })
+
+      resize()
+      showMenu()
+    </script>
+  </body>
+</html>

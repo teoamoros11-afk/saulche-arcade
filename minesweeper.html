@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>💣 Buscaminas — Las Minas de Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        user-select: none;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #2d1b0e;
+        font-family: 'Segoe UI', sans-serif;
+        color: #fff;
+        flex-direction: column;
+      }
+      #app {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.6vmin;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        padding: 1.5vmin;
+      }
+      h1 {
+        font-size: clamp(14px, 3.5vmin, 26px);
+        color: #ffc107;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0.2vmin;
+      }
+      .info {
+        display: flex;
+        gap: 1.5vmin;
+        font-size: clamp(10px, 2vmin, 14px);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .info span {
+        background: rgba(0, 0, 0, 0.35);
+        padding: 0.3vmin 1.2vmin;
+        border-radius: 1vmin;
+        border: 1px solid rgba(255, 193, 7, 0.15);
+      }
+      .tier {
+        font-size: clamp(10px, 2vmin, 14px);
+        padding: 0.2vmin 1.2vmin;
+        border-radius: 1vmin;
+        display: inline-block;
+        font-weight: bold;
+      }
+      .status {
+        font-size: clamp(11px, 2.2vmin, 16px);
+        min-height: 2.2vmin;
+        margin: 0.1vmin 0;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .board {
+        background: #1b3a2d;
+        padding: 0.5vmin;
+        border-radius: 1vmin;
+        box-shadow: 0 0 3vmin rgba(0, 0, 0, 0.4);
+        display: inline-grid;
+        gap: 0.2vmin;
+        flex-shrink: 0;
+      }
+      .cell {
+        width: min(7vmin, 40px);
+        height: min(7vmin, 40px);
+        border: none;
+        border-radius: 0.3vmin;
+        font-size: clamp(8px, 1.6vmin, 13px);
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.1s;
+        padding: 0;
+      }
+      .cell.hidden {
+        background: #4a3a2a;
+        color: #fff;
+        border: 1px solid #5a4a3a;
+      }
+      .cell.hidden:hover {
+        background: #5a4a3a;
+      }
+      .cell.revealed {
+        background: #2d1b0e;
+        border: 1px solid #3d2b1e;
+      }
+      .cell.flag {
+        background: #ffc107 !important;
+        color: #1a1a1a;
+        border: 1px solid #ffd54f;
+      }
+      .cell.flag:hover {
+        background: #ffd54f !important;
+      }
+      .controls {
+        display: flex;
+        gap: 1.5vmin;
+        margin-top: 0.3vmin;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .btn {
+        padding: 0.6vmin 2.5vmin;
+        font-size: clamp(10px, 1.8vmin, 13px);
+        border: none;
+        border-radius: 1vmin;
+        background: #ffc107;
+        color: #1a1a1a;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+      .btn:hover {
+        background: #ffd54f;
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .back {
+        color: #ffc107;
+        text-decoration: none;
+        font-size: clamp(10px, 1.8vmin, 13px);
+        padding: 0.3vmin 1vmin;
+        transition: all 0.2s;
+      }
+      .back:hover {
+        text-decoration: underline;
+        color: #ffd54f;
+      }
+      @media (max-width: 400px) {
+        .cell {
+          width: 9vw;
+          height: 9vw;
+          font-size: 2.5vw;
+        }
+        .board {
+          gap: 0.4vw;
+          padding: 1vw;
+        }
+        .btn {
+          padding: 2vw 4vw;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <h1>💣 Las Minas de Lemmings</h1>
+      <div class="info">
+        <span>💣 Minas: <strong id="mines">0</strong></span>
+        <span>🚩 Banderas: <strong id="flags">0</strong></span>
+        <span>🎯 Nivel <strong id="level">1</strong>/40</span>
+      </div>
+      <div class="tier" id="tierName">🟢 9x9</div>
+      <div class="status" id="status">Destapa casillas sin minas 🐾</div>
+      <div id="board" class="board"></div>
+      <div class="controls">
+        <button class="btn" id="restartBtn">🔄 Reiniciar</button>
+        <a href="index.html" class="back">← Volver</a>
+      </div>
+    </div>
+    <script>
+      const SAVE = 'mines_grizzy'
+
+      const MINE_SVG =
+        '<svg viewBox="0 0 100 100" width="80%" height="80%">' +
+        '<ellipse cx="50" cy="55" rx="24" ry="26" fill="#7E8A9E"/>' +
+        '<ellipse cx="50" cy="43" rx="22" ry="18" fill="#8A96A8"/>' +
+        '<circle cx="30" cy="28" r="7" fill="#7E8A9E"/><circle cx="30" cy="28" r="3.5" fill="#FFB6C1"/>' +
+        '<circle cx="70" cy="28" r="7" fill="#7E8A9E"/><circle cx="70" cy="28" r="3.5" fill="#FFB6C1"/>' +
+        '<circle cx="40" cy="41" r="4.5" fill="#E53935"/><circle cx="60" cy="41" r="4.5" fill="#E53935"/>' +
+        '<circle cx="41" cy="39" r="1.5" fill="#FF8A80"/><circle cx="61" cy="39" r="1.5" fill="#FF8A80"/>' +
+        '<ellipse cx="50" cy="49" rx="3" ry="2" fill="#FF6B35"/>' +
+        '<rect x="46" y="52" width="3.5" height="5" rx="1" fill="#fff"/><rect x="50.5" y="52" width="3.5" height="5" rx="1" fill="#fff"/></svg>'
+
+      function sfx(freq, type, dur, vol) {
+        try {
+          var ctx = new (window.AudioContext || window.webkitAudioContext)()
+          var osc = ctx.createOscillator()
+          var gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = freq
+          osc.type = type || 'sine'
+          gain.gain.setValueAtTime(vol || 0.12, ctx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.15))
+          osc.start()
+          osc.stop(ctx.currentTime + (dur || 0.15))
+        } catch (e) {}
+      }
+
+      var grid,
+        revealed,
+        flags,
+        rows,
+        cols,
+        mines,
+        level,
+        over,
+        win,
+        boardEl = document.getElementById('board')
+
+      var TIERS = [
+        { name: '🟢 9x9', range: [1, 10], size: 9, mBase: 10, mAdd: 0 },
+        { name: '🟡 11x11', range: [11, 20], size: 11, mBase: 20, mAdd: 1 },
+        { name: '🔴 13x13', range: [21, 30], size: 13, mBase: 32, mAdd: 1 },
+        { name: '🟣 16x16', range: [31, 40], size: 16, mBase: 50, mAdd: 2 },
+      ]
+
+      function getTier(lv) {
+        for (var t = 0; t < TIERS.length; t++)
+          if (lv >= TIERS[t].range[0] && lv <= TIERS[t].range[1]) return TIERS[t]
+        return TIERS[3]
+      }
+
+      function getMines(t, lv) {
+        return t.mBase + Math.floor((lv - t.range[0]) * t.mAdd) + Math.floor(lv * 0.4)
+      }
+
+      function init() {
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+        startLevel()
+      }
+
+      function startLevel() {
+        var t = getTier(level)
+        rows = t.size
+        cols = t.size
+        mines = Math.min(rows * cols - 5, getMines(t, level))
+        grid = Array(rows)
+          .fill()
+          .map(function () {
+            return Array(cols).fill(0)
+          })
+        revealed = Array(rows)
+          .fill()
+          .map(function () {
+            return Array(cols).fill(false)
+          })
+        flags = Array(rows)
+          .fill()
+          .map(function () {
+            return Array(cols).fill(false)
+          })
+        over = false
+        win = false
+        placeMines()
+        updateUI()
+        render()
+        document.getElementById('status').textContent =
+          'Nivel ' + level + ' — Destapa las casillas 🐾'
+      }
+
+      function placeMines() {
+        var p = 0
+        while (p < mines) {
+          var r = Math.floor(Math.random() * rows),
+            c = Math.floor(Math.random() * cols)
+          if (grid[r][c] !== -1) {
+            grid[r][c] = -1
+            p++
+          }
+        }
+        for (var r = 0; r < rows; r++)
+          for (var c = 0; c < cols; c++)
+            if (grid[r][c] !== -1) {
+              var cnt = 0
+              for (var dr = -1; dr <= 1; dr++)
+                for (var dc = -1; dc <= 1; dc++)
+                  if (
+                    r + dr >= 0 &&
+                    r + dr < rows &&
+                    c + dc >= 0 &&
+                    c + dc < cols &&
+                    grid[r + dr][c + dc] === -1
+                  )
+                    cnt++
+              grid[r][c] = cnt
+            }
+      }
+
+      function updateUI() {
+        var fc = 0
+        for (var r = 0; r < rows; r++) for (var c = 0; c < cols; c++) if (flags[r][c]) fc++
+        document.getElementById('mines').textContent = mines
+        document.getElementById('flags').textContent = fc
+        document.getElementById('level').textContent = level
+        document.getElementById('tierName').textContent = getTier(level).name
+      }
+
+      function reveal(r, c) {
+        if (over || revealed[r][c] || flags[r][c]) return
+        sfx(220, 'sine', 0.1, 0.08)
+        revealed[r][c] = true
+        if (grid[r][c] === -1) {
+          over = true
+          sfx(80, 'sawtooth', 0.4, 0.15)
+          mineExplosion(r, c)
+          for (var a = 0; a < rows; a++)
+            for (var b = 0; b < cols; b++) if (grid[a][b] === -1) revealed[a][b] = true
+          document.getElementById('status').textContent =
+            '💥 Explotó una mina! — Enter para reintentar'
+          render()
+          return
+        }
+        if (grid[r][c] === 0)
+          for (var dr = -1; dr <= 1; dr++)
+            for (var dc = -1; dc <= 1; dc++)
+              if (r + dr >= 0 && r + dr < rows && c + dc >= 0 && c + dc < cols)
+                reveal(r + dr, c + dc)
+        checkWin()
+        render()
+      }
+
+      function mineExplosion(r, c) {
+        var chars = ['💥', '🔥', '💫', '⭐']
+        var boardRect = boardEl.getBoundingClientRect()
+        var cellSize = boardRect.width / cols
+        var cx = boardRect.left + c * cellSize + cellSize / 2
+        var cy = boardRect.top + r * cellSize + cellSize / 2
+        for (var i = 0; i < 18; i++) {
+          var e = document.createElement('div')
+          e.textContent = chars[i % 4]
+          e.style.cssText =
+            'position:fixed;left:' +
+            cx +
+            'px;top:' +
+            cy +
+            'px;font-size:2.5vmin;pointer-events:none;z-index:10;transition:all 0.6s ease-out'
+          document.body.appendChild(e)
+          var angle = Math.random() * 2 * Math.PI
+          var dist = 30 + Math.random() * 100
+          ;(function (el, ang, dst) {
+            requestAnimationFrame(function () {
+              el.style.transform =
+                'translate(' +
+                Math.cos(ang) * dst +
+                'px,' +
+                Math.sin(ang) * dst +
+                'px) rotate(' +
+                Math.random() * 360 +
+                'deg)'
+              el.style.opacity = '0'
+            })
+          })(e, angle, dist)
+          setTimeout(function () {
+            e.remove()
+          }, 700)
+        }
+      }
+
+      function checkWin() {
+        var safe = 0
+        for (var r = 0; r < rows; r++)
+          for (var c = 0; c < cols; c++) if (!revealed[r][c] && grid[r][c] !== -1) safe++
+        if (safe === 0) {
+          win = true
+          over = true
+          if (level < 40 && level >= (parseInt(localStorage.getItem(SAVE)) || 0)) {
+            localStorage.setItem(SAVE, level + 1)
+          }
+          sfx(660, 'sine', 0.15)
+          setTimeout(function () {
+            sfx(880, 'sine', 0.15)
+          }, 150)
+          setTimeout(function () {
+            sfx(1100, 'sine', 0.2)
+          }, 300)
+          document.getElementById('status').textContent = '🎉 Nivel ' + level + ' completado!'
+          render()
+        }
+      }
+
+      function toggleFlag(r, c) {
+        if (over || revealed[r][c]) return
+        flags[r][c] = !flags[r][c]
+        sfx(330, 'sine', 0.08, 0.06)
+        updateUI()
+        render()
+      }
+
+      var NUM_COLORS = [
+        '',
+        '#4CAF50',
+        '#FF9800',
+        '#E53935',
+        '#9C27B0',
+        '#FFC107',
+        '#00BCD4',
+        '#795548',
+        '#607D8B',
+      ]
+
+      function render() {
+        var boardSize = Math.min(window.innerWidth * 0.85, window.innerHeight * 0.55, 520)
+        boardEl.style.width = boardSize + 'px'
+        boardEl.style.gridTemplateColumns = 'repeat(' + cols + ',1fr)'
+        boardEl.innerHTML = ''
+        for (var r = 0; r < rows; r++)
+          for (var c = 0; c < cols; c++) {
+            var cell = document.createElement('button')
+            cell.className = 'cell'
+            if (revealed[r][c]) {
+              cell.classList.add('revealed')
+              if (grid[r][c] === -1) {
+                cell.innerHTML = MINE_SVG
+              } else if (grid[r][c] > 0) {
+                cell.textContent = grid[r][c]
+                cell.style.color = NUM_COLORS[grid[r][c]] || '#fff'
+              }
+            } else if (flags[r][c]) {
+              cell.classList.add('flag')
+              cell.textContent = '🚩'
+            } else {
+              cell.classList.add('hidden')
+            }
+            if (!over) {
+              cell.addEventListener(
+                'click',
+                (function (rr, cc) {
+                  return function () {
+                    reveal(rr, cc)
+                  }
+                })(r, c),
+              )
+            }
+            cell.addEventListener(
+              'contextmenu',
+              (function (rr, cc) {
+                return function (e) {
+                  e.preventDefault()
+                  toggleFlag(rr, cc)
+                }
+              })(r, c),
+            )
+            boardEl.appendChild(cell)
+          }
+        if (over && win && level < 40) {
+          var hint = document.createElement('div')
+          hint.style.cssText =
+            'grid-column:1/-1;margin-top:4px;font-size:clamp(10px,1.8vmin,14px);color:#4CAF50'
+          hint.textContent = '✓ Enter para siguiente nivel'
+          boardEl.appendChild(hint)
+        }
+      }
+
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && over) {
+          if (win && level < 40) {
+            level++
+            startLevel()
+          } else startLevel()
+        }
+      })
+      document.getElementById('restartBtn').addEventListener('click', init)
+      init()
+    </script>
+  </body>
+</html>

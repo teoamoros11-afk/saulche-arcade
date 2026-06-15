@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cerebro Brillante - Grizzy</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a2e;touch-action:none;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+canvas{display:block;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)}
+</style>
+<script src="js/audio.js"></script>
+<script src="js/save.js"></script>
+<script src="js/canvas.js"></script>
+<script src="js/particles.js"></script>
+<script src="js/grizzy.js"></script>
+<script src="js/back.js"></script>
+</head>
+<body>
+<script>
+const VW=400,VH=600
+const c=document.createElement('canvas')
+c.width=VW;c.height=VH
+const ctx=c.getContext('2d')
+document.body.appendChild(c)
+
+function resize(){
+const ww=window.innerWidth,wh=window.innerHeight
+const s=Math.min(ww/VW,wh/VH)
+c.style.width=Math.round(VW*s)+'px';c.style.height=Math.round(VH*s)+'px'
+}
+window.addEventListener('resize',resize)
+resize()
+
+let level=1,score=0,best=0,lives=3,questionIdx=0,timer=0,phase='menu'
+let curQ=null,selected=-1,combo=0
+const SAVE='grizzy_brain'
+best=parseInt(localStorage.getItem(SAVE+'_best'))||0
+
+function q(txt,opts,ans){return{text:txt,options:opts,answer:ans}}
+
+function genQ(lv){
+const pool=[]
+const add=(f)=>{pool.push(f)}
+for(let i=0;i<8;i++){
+const a=1+Math.floor(Math.random()*(5+lv*2))
+const b=1+Math.floor(Math.random()*(5+lv*2))
+const big=Math.max(a,b),small=Math.min(a,b)
+switch(lv<=2?['+','-','p'][Math.floor(Math.random()*3)]:lv<=4?['+','-','x','p'][Math.floor(Math.random()*4)]:lv<=6?['+','-','x','/','p','l'][Math.floor(Math.random()*6)]:['+','-','x','/','p','l','w'][Math.floor(Math.random()*7)]){
+case'+':{
+const r=a+b;const opts=[r]
+while(opts.length<4){const d=r+Math.floor(Math.random()*10-5);if(d>=0&&!opts.includes(d))opts.push(d)}
+const ansIdx=opts.indexOf(r)
+add(q(a+'+'+b+' = ?',opts.sort(()=>Math.random()-0.5),opts.indexOf(r)))
+}break
+case'-':{
+const r=big-small;const opts=[r]
+while(opts.length<4){const d=r+Math.floor(Math.random()*10-5);if(d>=0&&!opts.includes(d))opts.push(d)}
+add(q(big+' - '+small+' = ?',opts.sort(()=>Math.random()-0.5),opts.indexOf(r)))
+}break
+case'x':{
+const r=a*b;const opts=[r]
+while(opts.length<4){const d=r+Math.floor(Math.random()*20-10);if(d>=0&&!opts.includes(d))opts.push(d)}
+add(q(a+' × '+b+' = ?',opts.sort(()=>Math.random()-0.5),opts.indexOf(r)))
+}break
+case'/':{
+const r=a*b;const opts=[a]
+while(opts.length<4){const d=a+Math.floor(Math.random()*10-5);if(d>0&&!opts.includes(d))opts.push(d)}
+add(q(r+' ÷ '+b+' = ?',opts.sort(()=>Math.random()-0.5),opts.indexOf(a)))
+}break
+case'p':{
+const seq=[a]
+for(let j=1;j<4;j++)seq.push(seq[j-1]+b)
+const next=seq[seq.length-1]+b;const opts=[next]
+while(opts.length<4){const d=next+Math.floor(Math.random()*10-5);if(!opts.includes(d))opts.push(d)}
+add(q(seq.join(', ')+', ?',opts.sort(()=>Math.random()-0.5),opts.indexOf(next)))
+}break
+case'l':{
+const items=['🧱','⭐','🌙','🍎','🐟','🌸','🍀','🎈']
+const idx=Math.floor(Math.random()*(items.length-3))
+const pattern=items.slice(idx,idx+3)
+const wrongIdx=Math.floor(Math.random()*items.length)
+const wrongItem=items[wrongIdx]
+const correctNext=items[(idx+3)%items.length]
+let opts=[correctNext]
+while(opts.length<4){const r=items[Math.floor(Math.random()*items.length)];if(!opts.includes(r))opts.push(r)}
+const correctIdx=opts.indexOf(correctNext)
+add(q(pattern.join(' ')+' ?',opts.sort(()=>Math.random()-0.5),correctIdx))
+}break
+case'w':{
+const names=['Ana','Luis','Sara','Pablo','Marta','Carlos','Elena','Diego']
+const name1=names[Math.floor(Math.random()*names.length)]
+let name2;do{name2=names[Math.floor(Math.random()*names.length)]}while(name2===name1)
+const qty1=2+Math.floor(Math.random()*12)
+const qty2=2+Math.floor(Math.random()*12)
+const items2=['manzanas','galletas','lápices','canicas','caramelos','globos','monedas','fichas']
+const item=items2[Math.floor(Math.random()*items2.length)]
+const ops=['tiene','compró','recogió','encontró']
+const op=ops[Math.floor(Math.random()*ops.length)]
+const ops2=['da','regala','vende','pierde']
+const op2=ops2[Math.floor(Math.random()*ops2.length)]
+const total=qty1+qty2
+const opts=[total]
+while(opts.length<4){const d=total+Math.floor(Math.random()*10-5);if(d>=0&&!opts.includes(d))opts.push(d)}
+if(Math.random()>0.5){
+add(q(name1+' '+op+' '+qty1+' '+item+'. '+name2+' le '+op2+' '+qty2+'. ¿Cuántos le quedan?',opts.sort(()=>Math.random()-0.5),opts.indexOf(total>qty2?total-qty2:0)))
+}else{
+add(q(name1+' tiene '+qty1+' '+item+'. '+name2+' tiene '+qty2+'. ¿Cuántos tienen en total?',opts.sort(()=>Math.random()-0.5),opts.indexOf(total)))
+}
+}break
+}}
+return pool
+}
+
+function startLevel(){
+phase='playing';questionIdx=0;timer=120;lives=3;combo=0;selected=-1
+const pool=genQ(level)
+curQ=pool[0]||pool[pool.length-1]
+}
+
+function checkAnswer(idx){
+if(phase!=='playing'||selected>=0)return
+selected=idx
+if(idx===curQ.answer){
+combo++
+const timeBonus=Math.floor(timer*0.15)
+const comboBonus=Math.min(combo,5)*20
+const pts=100+timeBonus+comboBonus
+score+=pts
+sfx(660,0.1,'sine',0.1)
+setTimeout(()=>sfx(880,0.1,'sine',0.1),80)
+}else{
+lives--
+combo=0
+sfx(200,0.3,'sawtooth',0.1)
+}
+setTimeout(()=>{
+if(lives<=0){phase='gameover';if(score>best){best=score;localStorage.setItem(SAVE+'_best',String(best));sfx(1100,0.15,'sine',0.12);setTimeout(()=>sfx(1320,0.15,'sine',0.12),100);setTimeout(()=>sfx(1540,0.2,'sine',0.15),200)};return}
+questionIdx++
+if(questionIdx>=8){
+if(level<10){level++;score+=500;phase='levelup';sfx(660,0.1,'sine',0.1);setTimeout(()=>sfx(880,0.1,'sine',0.1),100);setTimeout(()=>sfx(1100,0.15,'sine',0.12),200);setTimeout(()=>setTimeout(()=>startLevel(),500),600)}else{phase='win';if(score>best){best=score;localStorage.setItem(SAVE+'_best',String(best))}}
+return
+}
+selected=-1
+const pool=genQ(level)
+curQ=pool[0]||pool[pool.length-1]
+timer=Math.max(30,120-level*8)
+},700)
+}
+
+function update(){
+if(phase==='playing'){
+timer-=1/60
+if(timer<=0){phase='gameover';if(score>best){best=score;localStorage.setItem(SAVE+'_best',String(best))}}
+}
+}
+
+function drawRoundedRect(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fill()}
+function drawPanel(x,y,w,h,c,r){ctx.fillStyle=c;drawRoundedRect(x,y,w,h,r)}
+
+function draw(){
+ctx.clearRect(0,0,VW,VH)
+const grad=ctx.createLinearGradient(0,0,0,VH)
+grad.addColorStop(0,'#1a1a2e');grad.addColorStop(1,'#16213e')
+ctx.fillStyle=grad;ctx.fillRect(0,0,VW,VH)
+
+drawHUD()
+if(phase==='menu')drawMenu()
+else if(phase==='playing'||phase==='levelup')drawGame()
+else if(phase==='gameover'){drawGame();drawGO()}
+else if(phase==='win')drawWin()
+}
+
+function drawHUD(){
+ctx.fillStyle='rgba(255,255,255,0.06)'
+drawRoundedRect(8,6,VW-16,42,12)
+ctx.font='bold 13px sans-serif';ctx.textBaseline='middle'
+ctx.textAlign='left';ctx.fillStyle='#FFD700'
+ctx.fillText('⭐ '+score,20,27)
+ctx.textAlign='center';ctx.fillStyle='#81D4FA'
+ctx.fillText('Nivel '+level,VW/2,27)
+ctx.textAlign='right';ctx.fillStyle='#EF5350'
+ctx.fillText('❤️'.repeat(lives)+'🖤'.repeat(3-lives),VW-16,27)
+if(phase==='playing'){
+ctx.fillStyle='rgba(255,255,255,0.08)';drawRoundedRect(8,52,VW-16,10,5)
+ctx.fillStyle='#66BB6A';drawRoundedRect(8,52,(VW-16)*(timer/120),10,5)
+}
+}
+
+function drawMenu(){
+ctx.fillStyle='rgba(0,0,0,0.45)';ctx.fillRect(0,0,VW,VH)
+drawPanel(VW/2-155,VH/2-148,310,296, 'rgba(0,0,0,0.25)',18)
+ctx.fillStyle='#FFF8E1'
+ctx.font='bold 24px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+ctx.fillText('🧠 Cerebro Brillante',VW/2,VH/2-100)
+ctx.font='14px sans-serif';ctx.fillStyle='#B0BEC5'
+ctx.fillText('Edad: 12+  ·  8 preguntas por nivel',VW/2,VH/2-62)
+ctx.fillStyle='#78909C';ctx.font='12px sans-serif'
+ctx.fillText('➗ Matemáticas  ·  🧩 Lógica  ·  🔢 Patrones',VW/2,VH/2-34)
+ctx.fillStyle='#8B5E3C'
+ctx.font='bold 16px sans-serif'
+ctx.fillText('🐻 TOCA PARA EMPEZAR',VW/2,VH/2+20)
+const p=0.5+Math.sin(Date.now()*0.004)*0.5
+ctx.globalAlpha=p;ctx.fillStyle='#FFD700'
+ctx.font='bold 12px sans-serif'
+ctx.fillText('★ PRESIONA ESPACIO O TOCA ★',VW/2,VH/2+60)
+ctx.globalAlpha=1
+if(best>0){
+ctx.fillStyle='#FFD700';ctx.font='12px sans-serif'
+ctx.fillText('🏆 Récord: '+best+' pts',VW/2,VH/2+95)
+}
+}
+
+function drawGame(){
+drawPanel(10,70,VW-20,320,'rgba(255,255,255,0.04)',14)
+const q=curQ||{text:'',options:['','','','']}
+ctx.fillStyle='#FFF8E1';ctx.font='bold 17px sans-serif';ctx.textAlign='center';ctx.textBaseline='top'
+wrapText(q.text,VW/2,86,VW-50,20)
+
+const bh=42,by=270,gap=8,padx=12
+for(let i=0;i<q.options.length;i++){
+const col=i%2,row=Math.floor(i/2)
+const bx=padx+col*((VW-28)/2+4),bw=(VW-28)/2
+const by2=by+row*(bh+gap)
+let bg='rgba(255,255,255,0.07)',tc='#FFF8E1'
+if(selected>=0){
+if(i===curQ.answer){bg='#4CAF50';tc='#FFF'}
+else if(i===selected){bg='#EF5350';tc='#FFF'}
+else{bg='rgba(255,255,255,0.04)';tc='#666'}
+}
+drawPanel(bx,by2,bw,bh,bg,8)
+ctx.fillStyle=tc;ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+const label=String.fromCharCode(65+i)
+ctx.fillText(label+'. '+q.options[i],bx+bw/2,by2+bh/2)
+if(phase==='playing'&&selected<0&&i<4){
+ctx.fillStyle='rgba(255,255,255,0.03)'
+drawRoundedRect(bx,by2,bw,bh,8)
+}
+}
+if(selected>=0){
+const isCorrect=selected===curQ.answer
+ctx.fillStyle=isCorrect?'#4CAF50':'#EF5350'
+ctx.font='bold 16px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+ctx.fillText(isCorrect?'✓ ¡Correcto! (+'+(100+Math.floor(Math.max(0,timer)*0.15)+Math.min(combo,5)*20)+' pts)':'✗ Incorrecto',VW/2,435)
+}
+if(phase==='levelup'){
+ctx.fillStyle='rgba(0,0,0,0.35)';ctx.fillRect(0,0,VW,VH)
+drawPanel(VW/2-130,VH/2-55,260,110,'rgba(0,0,0,0.25)',18)
+ctx.fillStyle='#66BB6A';ctx.font='bold 22px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+ctx.fillText('⬆ ¡Nivel '+level+'!',VW/2,VH/2-18)
+ctx.fillStyle='#FFD700';ctx.font='13px sans-serif'
+ctx.fillText('+500 pts por completar nivel',VW/2,VH/2+20)
+}
+}
+
+function drawGO(){
+ctx.fillStyle='rgba(0,0,0,0.55)';ctx.fillRect(0,0,VW,VH)
+drawPanel(VW/2-145,VH/2-110,290,220,'rgba(0,0,0,0.25)',18)
+ctx.fillStyle='#EF5350';ctx.font='bold 28px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+ctx.fillText('💔 GAME OVER',VW/2,VH/2-68)
+ctx.fillStyle='#FFF8E1';ctx.font='18px sans-serif'
+ctx.fillText('⭐ '+score+' pts',VW/2,VH/2-25)
+ctx.fillStyle='#81D4FA';ctx.font='13px sans-serif'
+ctx.fillText('Nivel alcanzado: '+level,VW/2,VH/2+5)
+if(score>=best&&score>0){
+ctx.fillStyle='#FFD700';ctx.font='bold 14px sans-serif'
+ctx.fillText('★ ¡NUEVO RÉCORD! ★',VW/2,VH/2+40)
+}
+ctx.fillStyle='#8B5E3C';ctx.font='bold 15px sans-serif'
+ctx.fillText('TOCA PARA REINTENTAR',VW/2,VH/2+80)
+}
+
+function drawWin(){
+ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(0,0,VW,VH)
+drawPanel(VW/2-145,VH/2-120,290,240,'rgba(0,0,0,0.25)',18)
+const p2=0.5+Math.sin(Date.now()*0.005)*0.5
+ctx.globalAlpha=1-p2*0.3
+ctx.fillStyle='#FFD700';ctx.font='bold 32px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle'
+ctx.fillText('🏆 ¡VICTORIA!',VW/2,VH/2-70)
+ctx.globalAlpha=1
+ctx.fillStyle='#FFF8E1';ctx.font='bold 18px sans-serif'
+ctx.fillText('¡Completaste los 10 niveles!',VW/2,VH/2-20)
+ctx.fillStyle='#FFD700';ctx.font='16px sans-serif'
+ctx.fillText('⭐ Puntaje final: '+score,VW/2,VH/2+18)
+if(score>=best&&score>0){
+ctx.fillStyle='#FFD700';ctx.font='bold 14px sans-serif'
+ctx.fillText('★ ¡NUEVO RÉCORD! ★',VW/2,VH/2+58)
+}
+ctx.fillStyle='#8B5E3C';ctx.font='bold 14px sans-serif'
+ctx.fillText('TOCA PARA JUGAR DE NUEVO',VW/2,VH/2+100)
+}
+
+function wrapText(t,x,y,mw,lh){
+const words=t.split(' ')
+let line='',ly=y
+for(const w of words){
+const test=line?line+' '+w:w
+if(ctx.measureText(test).width>mw&&line){ctx.fillText(line,x,ly);line=w;ly+=lh+2}
+else line=test
+}
+if(line)ctx.fillText(line,x,ly)
+}
+
+function handleClick(){
+if(phase==='menu'){level=1;score=0;startLevel();return}
+if(phase==='gameover'||phase==='win'){level=1;score=0;startLevel();return}
+if(phase==='levelup')return
+if(selected>=0)return
+const bx=12,by=270,bw=186,bh=42,gap=8
+for(let i=0;i<4;i++){
+const col=i%2,row=Math.floor(i/2)
+const bx2=bx+col*((VW-28)/2+4),by2=by+row*(bh+gap)
+if(curQ&&curQ.options[i]!==undefined){
+checkAnswer(i)
+break
+}
+}
+}
+
+document.addEventListener('click',(e)=>{
+const rect=c.getBoundingClientRect()
+const sx=(e.clientX-rect.left)/rect.width*VW
+const sy=(e.clientY-rect.top)/rect.height*VH
+if(sx>=0&&sx<=VW&&sy>=0&&sy<=VH)handleClick()
+})
+
+document.addEventListener('touchstart',(e)=>{
+e.preventDefault()
+const t=e.touches[0]
+const rect=c.getBoundingClientRect()
+const sx=(t.clientX-rect.left)/rect.width*VW
+const sy=(t.clientY-rect.top)/rect.height*VH
+if(sx>=0&&sx<=VW&&sy>=0&&sy<=VH)handleClick()
+},{passive:false})
+
+document.addEventListener('keydown',(e)=>{
+const k=e.key
+if(k==='Enter'||k===' '){e.preventDefault();if(phase!=='playing'){handleClick();return}}
+if(phase==='playing'&&selected<0){
+const m={'1':0,'2':1,'3':2,'4':3,'a':0,'b':1,'c':2,'d':3}
+if(k in m)checkAnswer(m[k])
+}
+})
+
+let last=0
+function loop(t){
+update()
+draw()
+requestAnimationFrame(loop)
+}
+loop()
+</script>
+</body>
+</html>

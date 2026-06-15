@@ -1,0 +1,1328 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+    <title>Dragón Dormilón - Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a0a0a;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        border-radius: 8px;
+        border: 2px solid #5d4037;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(26, 10, 10, 0.93);
+        z-index: 10;
+        transition: opacity 0.4s;
+        border-radius: 8px;
+        padding: 20px;
+      }
+      .overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .overlay h1 {
+        font-size: clamp(22px, 5vw, 46px);
+        color: #ffc107;
+        margin-bottom: 4px;
+        text-shadow: 0 2px 10px rgba(0, 0, 0, 0.9);
+      }
+      .overlay h2 {
+        font-size: clamp(15px, 2.8vw, 26px);
+        color: #ff9800;
+        margin-bottom: 12px;
+      }
+      .overlay p {
+        font-size: clamp(12px, 2vw, 18px);
+        color: #fff8e1;
+        max-width: 85%;
+        text-align: center;
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+      .btn {
+        background: #8b5e3c;
+        color: #fff8e1;
+        border: none;
+        padding: 12px 36px;
+        font-size: clamp(15px, 2.4vw, 22px);
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        margin: 4px;
+        touch-action: manipulation;
+        font-family: inherit;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .btn2 {
+        background: #5d4037;
+        padding: 8px 24px;
+        font-size: clamp(13px, 2vw, 18px);
+      }
+      .icon {
+        font-size: clamp(44px, 9vw, 88px);
+        margin-bottom: 6px;
+        line-height: 1;
+      }
+      .stars {
+        letter-spacing: 2px;
+      }
+      #hud {
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        right: 5px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        z-index: 5;
+        pointer-events: none;
+        font-size: clamp(10px, 1.4vw, 14px);
+      }
+      #hud > span {
+        background: rgba(26, 10, 10, 0.85);
+        padding: 2px 8px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 152, 0, 0.25);
+        color: #fff8e1;
+        white-space: nowrap;
+      }
+      #noiseWrap {
+        flex: 1;
+        height: 18px;
+        background: rgba(0, 0, 0, 0.7);
+        border-radius: 9px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 152, 0, 0.25);
+        position: relative;
+        min-width: 60px;
+      }
+      #noiseBar {
+        height: 100%;
+        width: 0%;
+        border-radius: 9px;
+        transition: width 0.25s linear;
+      }
+      #noiseLabel {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #fff;
+        font-size: clamp(8px, 1.1vw, 12px);
+        font-weight: bold;
+        text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+      }
+      #btns {
+        position: absolute;
+        bottom: 5px;
+        right: 6px;
+        z-index: 5;
+        display: flex;
+        gap: 3px;
+      }
+      .btn-sm {
+        padding: 2px 10px;
+        font-size: clamp(9px, 1.1vw, 13px);
+        border: none;
+        border-radius: 6px;
+        background: rgba(139, 94, 60, 0.75);
+        color: #fff8e1;
+        cursor: pointer;
+        border: 1px solid rgba(255, 152, 0, 0.2);
+        text-decoration: none;
+        display: inline-block;
+        font-weight: bold;
+        font-family: inherit;
+      }
+      .btn-sm:hover {
+        background: rgba(255, 152, 0, 0.45);
+      }
+      #objInfo {
+        font-size: clamp(9px, 1vw, 12px);
+        background: rgba(255, 193, 7, 0.12);
+        padding: 2px 6px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 193, 7, 0.2);
+        max-width: 120px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="c"></canvas>
+      <div id="hud">
+        <span>🐲 Nv <span id="lvlD">1</span>/40</span>
+        <div id="noiseWrap">
+          <div id="noiseBar"></div>
+          <div id="noiseLabel">🔇 0%</div>
+        </div>
+        <span>📦 <span id="objD">0</span>/<span id="totD">0</span></span>
+        <span id="objInfo"></span>
+      </div>
+      <div id="menuScreen" class="overlay">
+        <div class="icon">🐻</div>
+        <h1>🐲 Dragón Dormilón</h1>
+        <h2>Grizzy &amp; the Lemmings</h2>
+        <p>
+          Ayuda a Grizzy a robar los tesoros del dragón Lemming<br />sin hacer ruido o despertará!
+          🤫
+        </p>
+        <p style="font-size: clamp(11px, 1.6vw, 15px); color: #ffc107">
+          💎 Joya (★☆☆) &nbsp; 🔑 Llave (★★☆) &nbsp; 📦 Cofre (★★★)
+        </p>
+        <button class="btn" id="startBtn">🤫 ¡Empezar a robar!</button>
+        <p
+          style="font-size: clamp(10px, 1.4vw, 13px); margin-top: 6px; color: #a1887f"
+          id="continueInfo"
+        ></p>
+      </div>
+      <div id="levelScreen" class="overlay hidden">
+        <h1>🎉 ¡Nivel Completado!</h1>
+        <p id="lvlCompleteText">¡Tesoros robados sin despertar al dragón!</p>
+        <button class="btn" id="nextBtn">➡️ Siguiente Nivel</button>
+      </div>
+      <div id="gameOverScreen" class="overlay hidden">
+        <h1>💀 ¡GAME OVER!</h1>
+        <p id="goText">¡El dragón se despertó!</p>
+        <p style="font-size: clamp(11px, 1.6vw, 15px); color: #ff9800">
+          🐲 ¡Grizzy despertó al dragón con tanto ruido!
+        </p>
+        <button class="btn" id="retryBtn">🔄 Reintentar Nivel</button>
+      </div>
+      <div id="winScreen" class="overlay hidden">
+        <div class="icon">🏆</div>
+        <h1>¡VICTORIA TOTAL!</h1>
+        <h2>🐻🎉 Grizzy es el ladrón legendario</h2>
+        <p>¡Robaste todos los tesoros de los 40 niveles<br />sin despertar al dragón ni una vez!</p>
+        <button class="btn" id="restartBtn">🔄 Jugar de nuevo</button>
+      </div>
+      <div id="btns">
+        <button class="btn-sm" id="resetBtn">🔄</button>
+        <a href="index.html" class="btn-sm">←</a>
+      </div>
+    </div>
+    <script>
+      const VW = 800,
+        VH = 550,
+        MAX_LV = 40,
+        SK = 'grizzy_dragon'
+      const DX = 400,
+        DY = 230,
+        DR = 88
+      const OT = [
+        { id: 'joya', emoji: '💎', c: '#FFC107', noise: 6, stars: 1, label: 'Joya' },
+        { id: 'llave', emoji: '🔑', c: '#FFD700', noise: 10, stars: 2, label: 'Llave' },
+        { id: 'cofre', emoji: '📦', c: '#8B5E3C', noise: 14, stars: 3, label: 'Cofre' },
+      ]
+      const NOISE_COLORS = ['#4CAF50', '#66BB6A', '#FF9800', '#FF5722', '#E53935']
+
+      let C, ctx, scl, ox, oy
+      let st = 'menu',
+        lv = 1,
+        objs = [],
+        sel = null
+      let gx = 400,
+        gy = 470
+      let cNoise = 0,
+        maxNoise = 100,
+        decay = 0.3
+      let anim = null,
+        parts = [],
+        zzzs = [],
+        torchParts = []
+      let coll = 0,
+        total = 0
+      let awake = false,
+        wakeTm = 0,
+        shake = 0
+      let lt = 0,
+        dragonPulse = 0,
+        zzzTimer = 0,
+        torchTimer = 0
+      let snoreSfx = null,
+        snoozeTimer = 0,
+        lastSnore = 0
+
+      function getCfg(l) {
+        return {
+          count: Math.min(2 + Math.floor(l * 0.22), 12),
+          maxNoise: Math.max(35, 100 - (l - 1) * 1.5),
+          decay: 0.3 + l * 0.008,
+        }
+      }
+
+      function sfx(ff, dur, ty, vol) {
+        try {
+          const ac = new (window.AudioContext || webkitAudioContext)()
+          const osc = ac.createOscillator(),
+            g = ac.createGain()
+          osc.type = ty || 'triangle'
+          osc.frequency.setValueAtTime(ff, ac.currentTime)
+          osc.frequency.exponentialRampToValueAtTime(
+            Math.max(ff * 0.5, 30),
+            ac.currentTime + (dur || 0.12),
+          )
+          g.gain.setValueAtTime(vol || 0.08, ac.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + (dur || 0.12))
+          osc.connect(g)
+          g.connect(ac.destination)
+          osc.start()
+          osc.stop(ac.currentTime + (dur || 0.12))
+          setTimeout(() => ac.close(), (dur || 0.12) * 1000 + 200)
+        } catch (e) {}
+      }
+
+      function sfxNotes(notes, ty, vol) {
+        try {
+          const ac = new (window.AudioContext || webkitAudioContext)()
+          notes.forEach((f, i) => {
+            const osc = ac.createOscillator(),
+              g = ac.createGain()
+            osc.type = ty || 'sine'
+            osc.frequency.value = f
+            g.gain.setValueAtTime(vol || 0.12, ac.currentTime + i * 0.1)
+            g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i * 0.1 + 0.2)
+            osc.connect(g)
+            g.connect(ac.destination)
+            osc.start(ac.currentTime + i * 0.1)
+            osc.stop(ac.currentTime + i * 0.1 + 0.3)
+          })
+          setTimeout(() => ac.close(), notes.length * 100 + 500)
+        } catch (e) {}
+      }
+
+      function moveSound(stars) {
+        const base = 300 - stars * 40
+        sfx(base, 0.08, 'sine', 0.06)
+        setTimeout(() => sfx(base - 60, 0.08, 'sine', 0.05), 80)
+        if (stars >= 2) setTimeout(() => sfx(base - 120, 0.12, 'sine', 0.04), 160)
+        if (stars >= 3) setTimeout(() => sfx(base - 180, 0.15, 'sawtooth', 0.03), 240)
+      }
+
+      function wakeSound() {
+        sfxNotes([200, 150, 120, 80], 'sawtooth', 0.1)
+        setTimeout(() => sfx(60, 0.4, 'sawtooth', 0.12), 400)
+      }
+
+      function winSound() {
+        sfxNotes([523, 659, 784, 1047], 'sine', 0.1)
+      }
+
+      function levelSound() {
+        sfxNotes([523, 659, 784], 'sine', 0.08)
+      }
+
+      function snoreSound() {
+        if (snoreSfx) return
+        try {
+          const ac = new (window.AudioContext || webkitAudioContext)()
+          const osc = ac.createOscillator(),
+            g = ac.createGain()
+          osc.type = 'sine'
+          const startT = ac.currentTime
+          osc.frequency.setValueAtTime(80, startT)
+          osc.frequency.exponentialRampToValueAtTime(120, startT + 0.4)
+          osc.frequency.exponentialRampToValueAtTime(80, startT + 0.8)
+          g.gain.setValueAtTime(0.04, startT)
+          g.gain.exponentialRampToValueAtTime(0.01, startT + 0.4)
+          g.gain.exponentialRampToValueAtTime(0.04, startT + 0.8)
+          osc.connect(g)
+          g.connect(ac.destination)
+          osc.start()
+          osc.stop(startT + 0.9)
+          setTimeout(() => {
+            ac.close()
+            snoreSfx = null
+          }, 1000)
+          snoreSfx = setTimeout(() => {
+            snoreSfx = null
+          }, 900)
+        } catch (e) {
+          snoreSfx = null
+        }
+      }
+
+      function genObjs(n) {
+        const res = []
+        for (let i = 0; i < n; i++) {
+          const t = OT[Math.floor(Math.random() * OT.length)]
+          let x, y, ok
+          for (let tries = 0; tries < 50; tries++) {
+            x = 55 + Math.random() * (VW - 110)
+            y = 55 + Math.random() * (VH - 130)
+            ok = Math.hypot(x - DX, y - DY) > DR + 25
+            for (const o of res)
+              if (Math.hypot(x - o.x, y - o.y) < 45) {
+                ok = false
+                break
+              }
+            if (ok) break
+          }
+          res.push({ x, y, tx: x, ty: y, type: t, coll: false })
+        }
+        return res
+      }
+
+      function initLv(n) {
+        lv = n
+        const cfg = getCfg(n)
+        objs = genObjs(cfg.count)
+        sel = null
+        cNoise = 0
+        maxNoise = cfg.maxNoise
+        decay = cfg.decay
+        coll = 0
+        total = cfg.count
+        awake = false
+        wakeTm = 0
+        shake = 0
+        anim = null
+        zzzs = []
+        parts = []
+        torchParts = []
+        dragonPulse = 0
+        zzzTimer = 0
+        gx = 400
+        gy = 470
+        updNoiseBar()
+        document.getElementById('lvlD').textContent = n
+        document.getElementById('objD').textContent = '0'
+        document.getElementById('totD').textContent = total
+        document.getElementById('objInfo').textContent = ''
+      }
+
+      function updNoiseBar() {
+        const pct = Math.min(100, (cNoise / maxNoise) * 100)
+        const el = document.getElementById('noiseBar')
+        el.style.width = pct + '%'
+        const idx = Math.min(4, Math.floor(pct / 20))
+        el.style.background =
+          'linear-gradient(90deg,' + NOISE_COLORS.slice(0, Math.max(2, idx + 1)).join(',') + ')'
+        document.getElementById('noiseLabel').textContent =
+          pct < 25
+            ? '🔇 ' + Math.round(pct) + '%'
+            : pct < 50
+              ? '🔈 ' + Math.round(pct) + '%'
+              : pct < 75
+                ? '🔉 ' + Math.round(pct) + '%'
+                : '🔊 ' + Math.round(pct) + '%'
+        if (pct >= 100) el.style.background = '#E53935'
+      }
+
+      function save() {
+        try {
+          localStorage.setItem(SK, JSON.stringify({ level: lv, date: Date.now() }))
+        } catch (e) {}
+      }
+
+      function load() {
+        try {
+          const d = JSON.parse(localStorage.getItem(SK))
+          if (d && d.level && d.level <= MAX_LV) return d.level
+        } catch (e) {}
+        return 1
+      }
+
+      function startGame() {
+        const savedLv = load()
+        document.getElementById('menuScreen').classList.add('hidden')
+        st = 'playing'
+        initLv(savedLv)
+      }
+
+      function completeLevel() {
+        if (st !== 'playing') return
+        st = 'levelComplete'
+        levelSound()
+        document.getElementById('lvlCompleteText').textContent =
+          '¡Tesoros robados en el nivel ' + lv + '!'
+        document.getElementById('levelScreen').classList.remove('hidden')
+        save()
+        if (lv < MAX_LV && lv + 1 > load())
+          localStorage.setItem(SK, JSON.stringify({ level: lv + 1, date: Date.now() }))
+      }
+
+      function gameOver() {
+        if (st !== 'playing') return
+        st = 'gameover'
+        awake = true
+        wakeTm = 1
+        shake = 15
+        wakeSound()
+        document.getElementById('goText').textContent =
+          '¡El dragón se despertó en el nivel ' + lv + '!'
+        document.getElementById('gameOverScreen').classList.remove('hidden')
+      }
+
+      function nextLevel() {
+        if (st !== 'levelComplete') return
+        document.getElementById('levelScreen').classList.add('hidden')
+        if (lv >= MAX_LV) {
+          st = 'win'
+          winSound()
+          document.getElementById('winScreen').classList.remove('hidden')
+        } else {
+          st = 'playing'
+          initLv(lv + 1)
+        }
+      }
+
+      function restartGame() {
+        document.getElementById('winScreen').classList.add('hidden')
+        st = 'playing'
+        initLv(1)
+        localStorage.setItem(SK, JSON.stringify({ level: 1, date: Date.now() }))
+      }
+
+      function retryLevel() {
+        document.getElementById('gameOverScreen').classList.add('hidden')
+        st = 'playing'
+        initLv(lv)
+      }
+
+      function spawnZzz() {
+        const offX = (Math.random() - 0.5) * 40
+        zzzs.push({
+          x: DX + offX,
+          y: DY - 70 + Math.random() * 10,
+          size: 10 + Math.random() * 10,
+          vy: -8 - Math.random() * 12,
+          vx: (Math.random() - 0.5) * 4,
+          life: 1,
+          phase: Math.random() * Math.PI * 2,
+        })
+      }
+
+      function spawnPart(x, y, c, n, spd) {
+        for (let i = 0; i < (n || 8); i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = (spd || 30) + Math.random() * 60
+          parts.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s - 10,
+            life: 1,
+            dec: 0.8 + Math.random() * 0.5,
+            sz: 2 + Math.random() * 4,
+            c: c || '#FFC107',
+          })
+        }
+      }
+
+      function spawnTorchPart(x, y) {
+        for (let i = 0; i < 2; i++) {
+          torchParts.push({
+            x: x + (Math.random() - 0.5) * 4,
+            y: y - 5,
+            vy: -(20 + Math.random() * 30),
+            vx: (Math.random() - 0.5) * 15,
+            life: 1,
+            dec: 2 + Math.random() * 1.5,
+            sz: 2 + Math.random() * 5,
+            c: ['#FF9800', '#FFC107', '#FF5722', '#FFF8E1'][Math.floor(Math.random() * 4)],
+          })
+        }
+      }
+
+      function updAnim(dt) {
+        if (!anim) return
+        anim.t += dt * 3
+        if (anim.t >= 1) {
+          const o = anim.obj
+          o.x = anim.tx
+          o.y = anim.ty
+          o.coll = true
+          coll++
+          document.getElementById('objD').textContent = coll
+          spawnPart(o.x, o.y, o.type.c, 12)
+          cNoise = Math.min(maxNoise, cNoise + o.type.noise)
+          moveSound(o.type.stars)
+          updNoiseBar()
+          if (cNoise >= maxNoise) {
+            gameOver()
+          }
+          sel = null
+          anim = null
+          if (coll >= total && st === 'playing') completeLevel()
+        } else {
+          const o = anim.obj,
+            t = anim.t,
+            tt = t * t,
+            ttt = tt * t
+          const ease = ttt * (t * (t * 6 - 15) + 10)
+          o.x = anim.fx + (anim.tx - anim.fx) * ease
+          o.y = anim.fy + (anim.ty - anim.fy) * ease
+        }
+      }
+
+      function updZzz(dt) {
+        for (let i = zzzs.length - 1; i >= 0; i--) {
+          const z = zzzs[i]
+          z.y += z.vy * dt
+          z.x += z.vx * dt + Math.sin(z.phase + Date.now() * 0.003) * 0.3
+          z.life -= 0.3 * dt
+          if (z.life <= 0) zzzs.splice(i, 1)
+        }
+      }
+
+      function updParts(arr, dt) {
+        for (let i = arr.length - 1; i >= 0; i--) {
+          const p = arr[i]
+          p.x += p.vx * dt
+          p.y += p.vy * dt
+          p.vy += 80 * dt
+          p.life -= p.dec * dt
+          if (p.life <= 0) arr.splice(i, 1)
+        }
+      }
+
+      function updNoise(dt) {
+        if (st !== 'playing') return
+        if (cNoise > 0) {
+          cNoise = Math.max(0, cNoise - decay * dt)
+          updNoiseBar()
+        }
+      }
+
+      function updDragon(dt) {
+        if (!awake) dragonPulse = Math.sin(Date.now() * 0.002) * 2
+        else if (wakeTm > 0) wakeTm = Math.max(0, wakeTm - dt * 2)
+        if (shake > 0) shake = Math.max(0, shake - dt * 20)
+        zzzTimer += dt
+        if (!awake && zzzTimer > 0.4 + Math.random() * 0.6) {
+          zzzTimer = 0
+          spawnZzz()
+        }
+        if (!awake && cNoise > maxNoise * 0.7 && Math.random() < dt * 0.5) {
+          spawnZzz()
+          spawnZzz()
+        }
+        snoozeTimer += dt
+        if (!awake && snoozeTimer - lastSnore > 2 + Math.random() * 3) {
+          lastSnore = snoozeTimer
+          snoreSound()
+        }
+      }
+
+      function updTorch(dt) {
+        torchTimer += dt
+        if (torchTimer > 0.05) {
+          torchTimer = 0
+          spawnTorchPart(60, 100)
+          spawnTorchPart(740, 100)
+          spawnTorchPart(400, 30)
+        }
+      }
+
+      function update(dt) {
+        if (st !== 'playing') return
+        updDragon(dt)
+        updNoise(dt)
+        updAnim(dt)
+        updZzz(dt)
+        updParts(parts, dt)
+        updParts(torchParts, dt)
+        updTorch(dt)
+        if (awake && wakeTm <= 0 && shake <= 0) gameOver()
+      }
+
+      function drawCave() {
+        ctx.fillStyle = '#1A0A0A'
+        ctx.fillRect(0, 0, VW, VH)
+        const grd = ctx.createRadialGradient(DX, DY, 0, DX, DY, 300)
+        grd.addColorStop(0, 'rgba(60,30,20,0.3)')
+        grd.addColorStop(1, 'rgba(0,0,0,0)')
+        ctx.fillStyle = grd
+        ctx.fillRect(0, 0, VW, VH)
+        ctx.fillStyle = '#2A1515'
+        ctx.fillRect(0, VH - 30, VW, 30)
+        ctx.fillStyle = '#3D1A1A'
+        ctx.fillRect(0, VH - 27, VW, 3)
+        ctx.strokeStyle = 'rgba(80,40,30,0.4)'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(20, 30)
+        ctx.lineTo(50, 15)
+        ctx.lineTo(80, 40)
+        ctx.lineTo(110, 10)
+        ctx.lineTo(140, 35)
+        ctx.lineTo(170, 5)
+        ctx.lineTo(200, 38)
+        ctx.lineTo(230, 12)
+        ctx.lineTo(260, 30)
+        ctx.lineTo(290, 8)
+        ctx.lineTo(320, 35)
+        ctx.lineTo(350, 15)
+        ctx.lineTo(380, 28)
+        ctx.lineTo(410, 5)
+        ctx.lineTo(440, 32)
+        ctx.lineTo(470, 10)
+        ctx.lineTo(500, 38)
+        ctx.lineTo(530, 14)
+        ctx.lineTo(560, 30)
+        ctx.lineTo(590, 8)
+        ctx.lineTo(620, 36)
+        ctx.lineTo(650, 12)
+        ctx.lineTo(680, 30)
+        ctx.lineTo(710, 15)
+        ctx.lineTo(740, 38)
+        ctx.lineTo(770, 10)
+        ctx.lineTo(800, 25)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(0, VH)
+        ctx.lineTo(15, VH - 50)
+        ctx.lineTo(30, VH - 15)
+        ctx.lineTo(55, VH - 40)
+        ctx.lineTo(70, VH - 20)
+        ctx.lineTo(95, VH - 55)
+        ctx.lineTo(110, VH - 25)
+        ctx.lineTo(130, VH - 45)
+        ctx.lineTo(145, VH - 10)
+        ctx.lineTo(160, VH - 35)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(VW, VH)
+        ctx.lineTo(VW - 15, VH - 50)
+        ctx.lineTo(VW - 30, VH - 15)
+        ctx.lineTo(VW - 55, VH - 40)
+        ctx.lineTo(VW - 70, VH - 20)
+        ctx.lineTo(VW - 95, VH - 55)
+        ctx.lineTo(VW - 110, VH - 25)
+        ctx.lineTo(VW - 130, VH - 45)
+        ctx.lineTo(VW - 145, VH - 10)
+        ctx.lineTo(VW - 160, VH - 35)
+        ctx.stroke()
+      }
+
+      function drawTorch(x, y) {
+        ctx.fillStyle = '#5D4037'
+        ctx.fillRect(x - 3, y, 6, 30)
+        ctx.fillStyle = '#795548'
+        ctx.fillRect(x - 4, y + 28, 8, 4)
+        ctx.fillStyle = '#3E2723'
+        ctx.fillRect(x - 2, y - 5, 4, 8)
+        const grd = ctx.createRadialGradient(x, y - 5, 0, x, y - 5, 25)
+        grd.addColorStop(0, 'rgba(255,200,50,0.4)')
+        grd.addColorStop(0.5, 'rgba(255,100,20,0.15)')
+        grd.addColorStop(1, 'rgba(255,50,0,0)')
+        ctx.fillStyle = grd
+        ctx.beginPath()
+        ctx.arc(x, y - 5, 25, 0, Math.PI * 2)
+        ctx.fill()
+        for (const p of torchParts) {
+          if (Math.hypot(p.x - x, p.y - (y - 5)) < 30) {
+            ctx.save()
+            ctx.globalAlpha = p.life * 0.8
+            ctx.fillStyle = p.c
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.restore()
+          }
+        }
+        ctx.fillStyle = '#FF9800'
+        ctx.beginPath()
+        ctx.ellipse(x, y - 5, 4, 8, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFC107'
+        for (let i = 0; i < 3; i++) {
+          const a = Math.random() * Math.PI * 2,
+            r = 3 + Math.random() * 5
+          ctx.beginPath()
+          ctx.arc(
+            x + Math.cos(a) * r,
+            y - 5 + Math.sin(a) * r - Math.random() * 3,
+            1.5 + Math.random() * 2,
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+        }
+      }
+
+      function drawDragon() {
+        const cx = DX,
+          cy = DY + 2
+        const pulse = awake ? 0 : dragonPulse
+        ctx.save()
+        if (shake > 0) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake)
+        ctx.translate(cx, cy)
+        const ws = awake ? 1.1 : 1
+        ctx.scale(ws, ws)
+        if (awake && wakeTm > 0) {
+          ctx.globalAlpha = 1
+          ctx.fillStyle = 'rgba(255,0,0,' + 0.3 * wakeTm + ')'
+          ctx.beginPath()
+          ctx.arc(0, -20, 130, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(0, 20, 85, 70, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B7B8D'
+        ctx.beginPath()
+        ctx.ellipse(0, 15, 75, 60, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#B0BEC5'
+        ctx.beginPath()
+        ctx.ellipse(0, 30, 50, 40, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(-25, 50, 18, 12, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(25, 50, 18, 12, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5A6A7A'
+        ctx.beginPath()
+        ctx.ellipse(-40, 18, 22, 14, -0.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(40, 18, 22, 14, 0.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#4A5A6A'
+        ctx.beginPath()
+        ctx.ellipse(-35, 15, 8, 5, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(35, 15, 8, 5, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.arc(0, -30 + pulse, 45, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#B0BEC5'
+        ctx.beginPath()
+        ctx.ellipse(0, -25 + pulse, 35, 30, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(0, -30 + pulse, 30, 25, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#90A4AE'
+        ctx.beginPath()
+        ctx.arc(-14, -38 + pulse, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(14, -38 + pulse, 9, 0, Math.PI * 2)
+        ctx.fill()
+        if (awake) {
+          ctx.fillStyle = '#E53935'
+          ctx.beginPath()
+          ctx.arc(-14, -36 + pulse, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(14, -36 + pulse, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#B71C1C'
+          ctx.beginPath()
+          ctx.arc(-14, -36 + pulse, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(14, -36 + pulse, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FFF'
+          ctx.beginPath()
+          ctx.arc(-16, -38 + pulse, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(12, -38 + pulse, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#3E2723'
+          ctx.beginPath()
+          ctx.arc(0, -22 + pulse, 6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FF5722'
+          ctx.beginPath()
+          ctx.moveTo(-12, -18 + pulse)
+          ctx.lineTo(12, -18 + pulse)
+          ctx.lineTo(0, -2 + pulse)
+          ctx.closePath()
+          ctx.fill()
+          ctx.fillStyle = '#D32F2F'
+          ctx.beginPath()
+          ctx.arc(0, -5 + pulse, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FFF'
+          ctx.beginPath()
+          ctx.moveTo(-12, -16 + pulse)
+          ctx.lineTo(1, -16 + pulse)
+          ctx.lineTo(-5, -5 + pulse)
+          ctx.closePath()
+          ctx.fill()
+          ctx.beginPath()
+          ctx.moveTo(1, -16 + pulse)
+          ctx.lineTo(12, -16 + pulse)
+          ctx.lineTo(5, -5 + pulse)
+          ctx.closePath()
+          ctx.fill()
+        } else {
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.arc(-14, -36 + pulse, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(14, -36 + pulse, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#3E2723'
+          ctx.beginPath()
+          ctx.arc(0, -25 + pulse, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#3E2723'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.arc(0, -25 + pulse, 5, 0.2, Math.PI - 0.2)
+          ctx.stroke()
+          ctx.fillStyle = '#FFB74D'
+          ctx.beginPath()
+          ctx.arc(-6, -27 + pulse, 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(6, -27 + pulse, 2, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(-50, -15, 28, 12, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(50, -15, 28, 12, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#5A6A7A'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(-70, -15)
+        ctx.lineTo(-95, -5)
+        ctx.lineTo(-105, -20)
+        ctx.lineTo(-110, 0)
+        ctx.moveTo(70, -15)
+        ctx.lineTo(95, -5)
+        ctx.lineTo(105, -20)
+        ctx.lineTo(110, 0)
+        ctx.stroke()
+        ctx.fillStyle = '#5A6A7A'
+        ctx.beginPath()
+        ctx.arc(-105, -15, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(105, -15, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#4A5A6A'
+        for (let i = 0; i < 4; i++) {
+          const a = -40 + i * 24
+          ctx.beginPath()
+          ctx.moveTo(-50 + Math.cos(a) * 5, 5 + Math.sin(a) * 5)
+          ctx.lineTo(-50 + Math.cos(a + 0.3) * 20, 5 + Math.sin(a + 0.3) * 5)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(50 + Math.cos(a) * 5, 5 + Math.sin(a) * 5)
+          ctx.lineTo(50 + Math.cos(a + 0.3) * 20, 5 + Math.sin(a + 0.3) * 5)
+          ctx.stroke()
+        }
+        ctx.fillStyle = 'rgba(255,200,100,0.3)'
+        ctx.beginPath()
+        ctx.arc(0, 20, DR + 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function drawZzz() {
+        for (const z of zzzs) {
+          ctx.save()
+          ctx.globalAlpha = z.life * 0.7
+          const sz = z.size * (0.5 + 0.5 * z.life)
+          ctx.fillStyle = 'rgba(255,255,255,0.6)'
+          ctx.font = 'bold ' + Math.round(sz) + 'px sans-serif'
+          ctx.textAlign = 'center'
+          const letters = ['Z', 'z', 'z']
+          const l = letters[Math.floor((1 - z.life) * 3) % 3]
+          ctx.fillText(l, z.x, z.y + sz * 0.3)
+          ctx.restore()
+        }
+      }
+
+      function drawObjects() {
+        for (const o of objs) {
+          ctx.save()
+          if (o.coll) ctx.globalAlpha = 0.5
+          const sz = 22
+          const x = o.x,
+            y = o.y
+          if (o === sel && !o.coll) {
+            ctx.strokeStyle = '#FFC107'
+            ctx.lineWidth = 3
+            ctx.setLineDash([4, 4])
+            ctx.beginPath()
+            ctx.arc(x, y, sz + 8, 0, Math.PI * 2)
+            ctx.stroke()
+            ctx.setLineDash([])
+            ctx.fillStyle = 'rgba(255,193,7,0.15)'
+            ctx.beginPath()
+            ctx.arc(x, y, sz + 8, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          const grd = ctx.createRadialGradient(x - 5, y - 5, 0, x, y, sz)
+          grd.addColorStop(0, o.type.c)
+          grd.addColorStop(1, shadeColor(o.type.c, -30))
+          ctx.fillStyle = grd
+          ctx.beginPath()
+          ctx.arc(x, y, sz, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(x, y, sz, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.font = '20px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(o.type.emoji, x, y)
+          if (!o.coll) {
+            let stars = ''
+            for (let i = 0; i < o.type.stars; i++) stars += '⭐'
+            for (let i = o.type.stars; i < 3; i++) stars += '☆'
+            ctx.font = '8px sans-serif'
+            ctx.fillStyle = 'rgba(255,255,255,0.8)'
+            ctx.textBaseline = 'top'
+            ctx.fillText(stars, x, y + sz + 2)
+          }
+          ctx.restore()
+        }
+      }
+
+      function shadeColor(c, pct) {
+        let r = parseInt(c.slice(1, 3), 16),
+          g = parseInt(c.slice(3, 5), 16),
+          b = parseInt(c.slice(5, 7), 16)
+        r = Math.max(0, Math.min(255, r + pct))
+        g = Math.max(0, Math.min(255, g + pct))
+        b = Math.max(0, Math.min(255, b + pct))
+        return '#' + [r, g, b].map((v) => v.toString(16).padStart(2, '0')).join('')
+      }
+
+      function drawGrizzy(x, y) {
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 16, 10, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.ellipse(-16, 0, 8, 5, -0.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(16, 0, 8, 5, 0.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(0, -12, 12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.arc(0, -8, 8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.arc(-6, -14, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(6, -14, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.arc(-9, -16, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(9, -16, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.arc(-5, -15, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -15, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(0, -10, 4, 2.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.arc(0, -16, 0.8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.arc(-14, 2, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(14, 2, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(0, -10, 5, 0.15, Math.PI - 0.15)
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      function drawParts() {
+        for (const p of parts) {
+          ctx.save()
+          ctx.globalAlpha = Math.max(0, p.life)
+          ctx.fillStyle = p.c
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.sz * (0.3 + 0.7 * p.life), 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
+      function drawSelectionGuide() {
+        if (!sel) return
+        const x = sel.x,
+          y = sel.y
+        ctx.save()
+        ctx.fillStyle = 'rgba(255,193,7,0.08)'
+        ctx.beginPath()
+        ctx.arc(x, y, 60, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = 'rgba(255,193,7,0.3)'
+        ctx.lineWidth = 1
+        ctx.setLineDash([3, 6])
+        ctx.beginPath()
+        ctx.arc(x, y, 60, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        ctx.font = '9px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('👉 Clic en destino para mover', x, y + 80)
+        ctx.restore()
+      }
+
+      function draw() {
+        ctx.save()
+        ctx.scale(scl, scl)
+        drawCave()
+        drawTorch(60, 100)
+        drawTorch(740, 100)
+        drawTorch(400, 30)
+        drawDragon()
+        drawObjects()
+        drawZzz()
+        drawGrizzy(gx, gy)
+        drawParts()
+        drawSelectionGuide()
+        if (st === 'playing') {
+          ctx.fillStyle = 'rgba(255,255,255,0.12)'
+          ctx.font = '9px sans-serif'
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'bottom'
+          ctx.fillText(
+            '🤫 Sigilo: ' +
+              (cNoise / maxNoise < 0.5
+                ? '✅ Bueno'
+                : cNoise / maxNoise < 0.8
+                  ? '⚠️ Cuidado'
+                  : '🔴 Peligro'),
+            8,
+            VH - 34,
+          )
+        }
+        ctx.restore()
+      }
+
+      function handleClick(vx, vy) {
+        if (st !== 'playing' || awake) return
+        if (anim) return
+        if (sel) {
+          let hit = false
+          for (const o of objs) {
+            if (o === sel && !o.coll && Math.hypot(vx - o.x, vy - o.y) < 50) {
+              hit = true
+              break
+            }
+          }
+          if (!hit) {
+            const dest = { x: vx, y: vy }
+            const o = sel
+            anim = { obj: o, fx: o.x, fy: o.y, tx: vx, ty: vy, t: 0 }
+            gx = vx
+            gy = vy
+            return
+          }
+          sel = null
+          document.getElementById('objInfo').textContent = ''
+          return
+        }
+        for (let i = objs.length - 1; i >= 0; i--) {
+          const o = objs[i]
+          if (!o.coll && Math.hypot(vx - o.x, vy - o.y) < 25) {
+            sel = o
+            document.getElementById('objInfo').textContent =
+              o.type.emoji +
+              ' ' +
+              o.type.label +
+              ' ' +
+              '⭐'.repeat(o.type.stars) +
+              '☆'.repeat(3 - o.type.stars) +
+              ' 🔊' +
+              o.type.noise
+            sfx(400, 0.06, 'sine', 0.05)
+            return
+          }
+        }
+      }
+
+      function getPos(e) {
+        const r = C.getBoundingClientRect()
+        const cx =
+          (e.clientX || (e.touches && e.touches[0].clientX) || 0) -
+          r.left -
+          parseFloat(getComputedStyle(C).marginLeft || 0)
+        const cy =
+          (e.clientY || (e.touches && e.touches[0].clientY) || 0) -
+          r.top -
+          parseFloat(getComputedStyle(C).marginTop || 0)
+        return { x: cx / scl, y: cy / scl }
+      }
+
+      function resize() {
+        const wrap = document.getElementById('wrap')
+        const r = VH / VW
+        let w = window.innerWidth - 4,
+          h = window.innerHeight - 4
+        if (w / h > r) {
+          w = h * r
+        } else {
+          h = w / r
+        }
+        wrap.style.width = w + 'px'
+        wrap.style.height = h + 'px'
+        C.style.width = w + 'px'
+        C.style.height = h + 'px'
+        scl = w / VW
+        ox = (wrap.offsetWidth - w) / 2
+        oy = (wrap.offsetHeight - h) / 2
+        C.style.marginLeft = ox + 'px'
+        C.style.marginTop = oy + 'px'
+        C.width = VW
+        C.height = VH
+      }
+
+      function setup() {
+        C = document.getElementById('c')
+        ctx = C.getContext('2d')
+        resize()
+        window.addEventListener('resize', resize)
+        C.addEventListener('mousedown', (e) => {
+          const p = getPos(e)
+          handleClick(p.x, p.y)
+        })
+        C.addEventListener(
+          'touchstart',
+          (e) => {
+            e.preventDefault()
+            const p = getPos(e)
+            handleClick(p.x, p.y)
+          },
+          { passive: false },
+        )
+        document.getElementById('startBtn').addEventListener('click', startGame)
+        document.getElementById('nextBtn').addEventListener('click', nextLevel)
+        document.getElementById('retryBtn').addEventListener('click', retryLevel)
+        document.getElementById('restartBtn').addEventListener('click', restartGame)
+        document.getElementById('resetBtn').addEventListener('click', () => {
+          if (st === 'playing') {
+            initLv(lv)
+          } else if (st === 'gameover' || st === 'levelComplete' || st === 'win') {
+            document.getElementById('gameOverScreen').classList.add('hidden')
+            document.getElementById('levelScreen').classList.add('hidden')
+            document.getElementById('winScreen').classList.add('hidden')
+            st = 'playing'
+            initLv(lv)
+          }
+        })
+        const savedLv = load()
+        if (savedLv > 1)
+          document.getElementById('continueInfo').textContent =
+            '🐻 Progreso guardado: Nivel ' + savedLv
+        requestAnimationFrame(gameLoop)
+      }
+
+      function gameLoop(timestamp) {
+        const dt = lt ? Math.min((timestamp - lt) / 1000, 0.05) : 0.016
+        lt = timestamp
+        update(dt)
+        draw()
+        requestAnimationFrame(gameLoop)
+      }
+
+      window.addEventListener('DOMContentLoaded', setup)
+    </script>
+  </body>
+</html>

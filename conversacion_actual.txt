@@ -1,0 +1,27 @@
+# Conversación Actual — 15 Jun 2026
+
+## Estado
+- Sesión fresca, recién iniciada
+- Se leyó el archivo `Archivo de texto… (1).txt` que contiene el transcript completo de la sesión anterior
+
+## Resumen de la sesión anterior (del transcript)
+1. Proyecto: `/home/teo/Projects/games/Saulche/` — 53 juegos (luego 54)
+2. Se construyó un framework de testing con Playwright (380 tests, 0 fallos)
+3. 5 bugs reales encontrados y corregidos:
+   - donkey.html: drP() faltante + bucle infinito
+   - juego04.html: maze array plano → 2D
+   - juego06.html: roundRect() faltante
+   - juego15.html: roundRect() faltante
+   - snake.html: draw() llamado antes de init()
+4. Se creó juego41.html "Cerebro Brillante" — juego de matemáticas/lógica
+5. Se creó MENTIS — El Desafío del Saber:
+   - 38 archivos, ~3050 líneas de código
+   - 100 pisos procedurales, 5 categorías de puzzles
+   - Torre con 6 zonas, dificultad adaptativa, 50 niveles, 34 logros
+   - Tests pasados en Chromium headless sin errores
+
+## Archivos importantes
+- `/home/teo/Projects/games/Saulche/` — proyecto principal de juegos
+- `/home/teo/Projects/games/mentis/` — proyecto MENTIS
+- `/home/teo/Projects/games/Saulche/Archivo de texto… (1).txt` — transcript anterior
+- `/home/teo/Projects/games/Saulche/Archivo de texto….txt` — otro transcript

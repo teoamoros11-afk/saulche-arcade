@@ -1,0 +1,1079 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+    <title>Aventura Submarina - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        image-rendering: pixelated;
+        background: #0a1f3d;
+      }
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      #ui-overlay > * {
+        pointer-events: auto;
+      }
+      .hidden {
+        display: none !important;
+      }
+      #menu {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 10;
+        pointer-events: auto;
+      }
+      #menu h1 {
+        font-size: 3em;
+        color: #ffd700;
+        text-shadow:
+          0 0 20px #ff8c00,
+          0 4px 8px rgba(0, 0, 0, 0.8);
+        margin-bottom: 10px;
+        letter-spacing: 2px;
+      }
+      #menu p {
+        color: #7fdbff;
+        font-size: 1.1em;
+        margin-bottom: 25px;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
+      }
+      .btn {
+        display: inline-block;
+        padding: 14px 50px;
+        font-size: 1.3em;
+        font-weight: bold;
+        border: none;
+        border-radius: 30px;
+        cursor: pointer;
+        transition: 0.2s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+      .btn-jugar {
+        background: linear-gradient(135deg, #ff8c00, #ffd700);
+        color: #1a1a2e;
+        box-shadow: 0 0 25px rgba(255, 140, 0, 0.5);
+      }
+      .btn-jugar:hover {
+        transform: scale(1.08);
+        box-shadow: 0 0 40px rgba(255, 140, 0, 0.8);
+      }
+      .btn-jugar:active {
+        transform: scale(0.95);
+      }
+      #gameOver {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 10;
+        pointer-events: auto;
+        background: rgba(10, 31, 61, 0.92);
+        padding: 40px 50px;
+        border-radius: 20px;
+        border: 3px solid #ffd700;
+        box-shadow: 0 0 60px rgba(255, 140, 0, 0.3);
+      }
+      #gameOver h2 {
+        font-size: 2.5em;
+        color: #ff4444;
+        text-shadow: 0 0 20px #ff0000;
+        margin-bottom: 10px;
+      }
+      #gameOver .final-score {
+        font-size: 1.5em;
+        color: #7fdbff;
+        margin: 10px 0;
+      }
+      #gameOver .high-score {
+        font-size: 1.1em;
+        color: #ffd700;
+        margin-bottom: 20px;
+      }
+      #gameOver .level-reached {
+        font-size: 1.1em;
+        color: #ccc;
+        margin-bottom: 10px;
+      }
+      #hud {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        display: flex;
+        gap: 25px;
+        align-items: center;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 5px 18px;
+        border-radius: 15px;
+        backdrop-filter: blur(4px);
+      }
+      #hud > * {
+        pointer-events: auto;
+      }
+      .hud-item {
+        color: #fff;
+        font-size: 0.9em;
+        font-weight: bold;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+        white-space: nowrap;
+      }
+      .hud-item span {
+        color: #ffd700;
+      }
+      #barra-vidas {
+        display: flex;
+        gap: 3px;
+      }
+      .vida-icon {
+        font-size: 1.1em;
+        filter: drop-shadow(0 0 3px #ff4444);
+      }
+      #barra-oxigeno {
+        width: 120px;
+        height: 14px;
+        background: rgba(0, 0, 0, 0.5);
+        border-radius: 7px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+      }
+      #oxigeno-fill {
+        height: 100%;
+        width: 100%;
+        background: linear-gradient(90deg, #00bfff, #00ff7f);
+        border-radius: 7px;
+        transition: width 0.15s;
+      }
+      .label-wrap {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .label-wrap small {
+        color: #aaa;
+        font-size: 0.75em;
+      }
+      @media (max-width: 600px) {
+        #menu h1 {
+          font-size: 2em;
+        }
+        #gameOver {
+          padding: 25px 20px;
+        }
+        #gameOver h2 {
+          font-size: 1.8em;
+        }
+        .btn {
+          padding: 10px 30px;
+          font-size: 1em;
+        }
+        #hud {
+          gap: 10px;
+          padding: 4px 10px;
+          font-size: 0.75em;
+        }
+        #barra-oxigeno {
+          width: 80px;
+          height: 10px;
+        }
+      }
+      @media (max-width: 400px) {
+        #hud {
+          gap: 6px;
+          font-size: 0.65em;
+        }
+        #barra-oxigeno {
+          width: 60px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="menu">
+      <h1>🐻 Aventura Submarina 🌊</h1>
+      <p>Grizzy &amp; the Lemmings</p>
+      <button class="btn btn-jugar" onclick="iniciarJuego()">▶ JUGAR</button>
+    </div>
+
+    <div id="gameOver" class="hidden">
+      <h2>💀 GAME OVER</h2>
+      <div class="final-score">Puntos: <span id="finalScore">0</span></div>
+      <div class="level-reached">Nivel: <span id="finalLevel">1</span></div>
+      <div class="high-score">🏆 Récord: <span id="highScore">0</span></div>
+      <button class="btn btn-jugar" onclick="iniciarJuego()" style="margin-top: 15px">
+        🔄 REINTENTAR
+      </button>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-item">🏅 <span id="puntosDisplay">0</span></div>
+      <div class="hud-item">Nv <span id="nivelDisplay">1</span>/40</div>
+      <div id="barra-vidas"></div>
+      <div class="label-wrap">
+        <small>O₂</small>
+        <div id="barra-oxigeno"><div id="oxigeno-fill"></div></div>
+      </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const VW = 600,
+        VH = 400
+      let W = window.innerWidth,
+        H = window.innerHeight
+      let escala = 1
+
+      function redimensionar() {
+        W = window.innerWidth
+        H = window.innerHeight
+        const ratio = VW / VH
+        let cw, ch
+        if (W / H > ratio) {
+          ch = H
+          cw = ch * ratio
+        } else {
+          cw = W
+          ch = cw / ratio
+        }
+        escala = cw / VW
+        canvas.style.width = cw + 'px'
+        canvas.style.height = ch + 'px'
+        canvas.width = VW
+        canvas.height = VH
+      }
+      window.addEventListener('resize', redimensionar)
+      redimensionar()
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+      function playTono(freq, dur, tipo = 'sine', vol = 0.15) {
+        const osc = audioCtx.createOscillator()
+        const gan = audioCtx.createGain()
+        osc.type = tipo
+        osc.frequency.value = freq
+        gan.gain.setValueAtTime(vol, audioCtx.currentTime)
+        gan.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+        osc.connect(gan)
+        gan.connect(audioCtx.destination)
+        osc.start()
+        osc.stop(audioCtx.currentTime + dur)
+      }
+      function sonidoPeces() {
+        playTono(880, 0.1, 'sine', 0.12)
+        setTimeout(() => playTono(1100, 0.12, 'sine', 0.1), 60)
+      }
+      function sonidoBomba() {
+        playTono(120, 0.25, 'sawtooth', 0.18)
+        playTono(80, 0.35, 'square', 0.1)
+      }
+      function sonidoBurbuja() {
+        playTono(600, 0.08, 'sine', 0.06)
+        playTono(800, 0.1, 'sine', 0.05)
+      }
+      function sonidoGameOver() {
+        playTono(400, 0.2, 'square', 0.12)
+        setTimeout(() => playTono(300, 0.2, 'square', 0.1), 200)
+        setTimeout(() => playTono(200, 0.35, 'square', 0.15), 400)
+      }
+      function sonidoOxigenoBajo() {
+        playTono(300, 0.15, 'square', 0.06)
+        setTimeout(() => playTono(250, 0.15, 'square', 0.05), 200)
+      }
+
+      const LS_KEY = 'grizzy_submarine'
+
+      // ===== ESTADO GLOBAL =====
+      let juego = {}
+      let animId = null
+
+      function resetJuego() {
+        let hs = parseInt(localStorage.getItem(LS_KEY)) || 0
+        juego = {
+          puntos: 0,
+          nivel: 1,
+          vidas: 3,
+          oxigeno: 100,
+          pausa: false,
+          gameOver: false,
+          iniciado: false,
+          highScore: hs,
+          sub: { x: 280, y: 340, w: 60, h: 36, vy: 0, vx: 0, vel: 3, oxigeno: 100 },
+          peces: [],
+          bombas: [],
+          burbujas: [],
+          particulas: [],
+          decoraciones: [],
+          algas: [],
+          tick: 0,
+          bombTick: 0,
+          pezTick: 0,
+          burbujaTick: 0,
+          fondoOff: 0,
+        }
+        for (let i = 0; i < 8; i++)
+          juego.algas.push({
+            x: Math.random() * VW,
+            h: 40 + Math.random() * 80,
+            phase: Math.random() * Math.PI * 2,
+            color: `hsl(${120 + Math.random() * 40},60%,${30 + Math.random() * 30}%)`,
+          })
+        for (let i = 0; i < 3; i++)
+          juego.decoraciones.push({
+            x: 100 + Math.random() * 400,
+            y: 280 + Math.random() * 80,
+            t: Math.random() * 4 + 2,
+            color: ['#FF69B4', '#9B59B6', '#FF1493', '#DA70D6'][i],
+          })
+        for (let i = 0; i < 3; i++)
+          juego.decoraciones.push({
+            x: 80 + Math.random() * 440,
+            y: 300 + Math.random() * 60,
+            t: Math.random() * 3 + 1.5,
+            color: '#FF6347',
+            tipo: 'coral',
+          })
+      }
+
+      function spawnPez() {
+        const nivel = juego.nivel
+        const colores = [
+          '#FF3B30',
+          '#007AFF',
+          '#FFCC00',
+          '#34C759',
+          '#FF9500',
+          '#AF52DE',
+          '#FF2D55',
+          '#5AC8FA',
+        ]
+        const c = colores[Math.floor(Math.random() * colores.length)]
+        const vel = 0.5 + Math.random() * 0.8 + nivel * 0.03
+        juego.peces.push({
+          x: VW + 20,
+          y: 30 + Math.random() * (VH - 130),
+          w: 28,
+          h: 16,
+          vy: (Math.random() - 0.5) * 0.8,
+          vx: -vel,
+          color: c,
+          tipo: ['normal', 'normal', 'rapido', 'normal'][Math.floor(Math.random() * 4)],
+          brillo: 0.5 + Math.random() * 0.5,
+        })
+      }
+      function spawnBomba() {
+        const nivel = juego.nivel
+        const vel = 0.6 + Math.random() * 0.7 + nivel * 0.04
+        juego.bombas.push({
+          x: 20 + Math.random() * (VW - 40),
+          y: -25,
+          size: 18 + Math.random() * 4,
+          vy: vel,
+          vx: (Math.random() - 0.5) * 0.3,
+          timer: 0,
+        })
+      }
+      function spawnBurbuja() {
+        juego.burbujas.push({
+          x: Math.random() * VW,
+          y: VH + 10,
+          r: 5 + Math.random() * 8,
+          vy: -0.5 - Math.random() * 0.8 - juego.nivel * 0.01,
+          vx: (Math.random() - 0.5) * 0.2,
+          alpha: 0.4 + Math.random() * 0.3,
+        })
+      }
+
+      function spawnParticulas(x, y, color, cant = 12, spd = 3) {
+        for (let i = 0; i < cant; i++) {
+          const ang = Math.random() * Math.PI * 2
+          const vel = 0.5 + Math.random() * spd
+          juego.particulas.push({
+            x,
+            y,
+            vx: Math.cos(ang) * vel,
+            vy: Math.sin(ang) * vel,
+            life: 1,
+            decay: 0.015 + Math.random() * 0.02,
+            r: 2 + Math.random() * 4,
+            color,
+          })
+        }
+      }
+      function spawnExplosion(x, y) {
+        const cols = ['#FF4500', '#FF6347', '#FFD700', '#FF8C00', '#FF0000', '#ff0']
+        for (let i = 0; i < 25; i++) {
+          const ang = Math.random() * Math.PI * 2
+          const vel = 1 + Math.random() * 4
+          juego.particulas.push({
+            x,
+            y,
+            vx: Math.cos(ang) * vel,
+            vy: Math.sin(ang) * vel,
+            life: 1,
+            decay: 0.012 + Math.random() * 0.02,
+            r: 2 + Math.random() * 6,
+            color: cols[Math.floor(Math.random() * cols.length)],
+          })
+        }
+      }
+
+      // ===== INPUT =====
+      const keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key))
+          e.preventDefault()
+        if (e.key === 'Enter' && juego.gameOver) iniciarJuego()
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+      })
+
+      // ===== UPDATE =====
+      function update() {
+        if (!juego.iniciado || juego.gameOver || juego.pausa) return
+        const s = juego.sub
+        const t = juego.tick
+        juego.fondoOff = (juego.fondoOff + 0.1) % 600
+
+        // Mover submarino
+        let dx = 0,
+          dy = 0
+        if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx = -1
+        if (keys['ArrowRight'] || keys['d'] || keys['D']) dx = 1
+        if (keys['ArrowUp'] || keys['w'] || keys['W']) dy = -1
+        if (keys['ArrowDown'] || keys['s'] || keys['S']) dy = 1
+        if (dx && dy) {
+          dx *= 0.707
+          dy *= 0.707
+        }
+        s.vx += (dx * s.vel - s.vx) * 0.15
+        s.vy += (dy * s.vel - s.vy) * 0.15
+        s.x += s.vx
+        s.y += s.vy
+        s.x = Math.max(30, Math.min(VW - 30, s.x))
+        s.y = Math.max(40, Math.min(VH - 40, s.y))
+
+        // Spawn peces
+        const nivel = juego.nivel
+        const pezInterval = Math.max(18, 50 - nivel * 0.8)
+        if (t % Math.floor(pezInterval) === 0) spawnPez()
+        if (nivel > 10 && t % Math.floor(pezInterval * 0.7) === 0) spawnPez()
+
+        // Spawn bombas
+        const bombaInterval = Math.max(20, 70 - nivel * 1.2)
+        if (t % Math.floor(bombaInterval) === 0) spawnBomba()
+        if (nivel > 5 && t % Math.floor(bombaInterval * 0.85) === 0) spawnBomba()
+        if (nivel > 15 && t % Math.floor(bombaInterval * 0.7) === 0) spawnBomba()
+        if (nivel > 25 && t % Math.floor(bombaInterval * 0.55) === 0) spawnBomba()
+        if (nivel > 35 && t % Math.floor(bombaInterval * 0.45) === 0) spawnBomba()
+
+        // Spawn burbujas
+        const burbInterval = Math.max(25, 70 - nivel * 0.6)
+        if (t % Math.floor(burbInterval) === 0) spawnBurbuja()
+
+        // Oxígeno
+        s.oxigeno -= 0.02 + nivel * 0.003
+        if (s.oxigeno <= 0) {
+          s.oxigeno = 0
+          perderVida()
+        }
+        juego.oxigeno = s.oxigeno
+
+        // Mover peces
+        for (let i = juego.peces.length - 1; i >= 0; i--) {
+          const p = juego.peces[i]
+          p.x += p.vx
+          p.y += p.vy
+          if (p.y < 10 || p.y > VH - 30) p.vy *= -1
+          if (p.x < -40) {
+            juego.peces.splice(i, 1)
+            continue
+          }
+          // Colisión
+          const dist = Math.hypot(p.x - s.x, p.y - s.y)
+          if (dist < 30) {
+            juego.peces.splice(i, 1)
+            juego.puntos += 10
+            sonidoPeces()
+            spawnParticulas(p.x, p.y, p.color, 10, 2)
+          }
+        }
+
+        // Mover bombas
+        for (let i = juego.bombas.length - 1; i >= 0; i--) {
+          const b = juego.bombas[i]
+          b.y += b.vy
+          b.x += b.vx
+          b.timer++
+          if (b.x < 0 || b.x > VW) b.vx *= -1
+          if (b.y > VH + 30) {
+            juego.bombas.splice(i, 1)
+            continue
+          }
+          const dist = Math.hypot(b.x - s.x, b.y - s.y)
+          if (dist < 25 + b.size / 4) {
+            juego.bombas.splice(i, 1)
+            sonidoBomba()
+            spawnExplosion(b.x, b.y)
+            perderVida()
+          }
+        }
+
+        // Mover burbujas
+        for (let i = juego.burbujas.length - 1; i >= 0; i--) {
+          const b = juego.burbujas[i]
+          b.y += b.vy
+          b.x += b.vx
+          if (b.y < -20) {
+            juego.burbujas.splice(i, 1)
+            continue
+          }
+          const dist = Math.hypot(b.x - s.x, b.y - s.y)
+          if (dist < 25) {
+            juego.burbujas.splice(i, 1)
+            s.oxigeno = Math.min(100, s.oxigeno + 22)
+            sonidoBurbuja()
+            spawnParticulas(b.x, b.y, '#7FDBFF', 8, 1.5)
+          }
+        }
+
+        // Particulas
+        for (let i = juego.particulas.length - 1; i >= 0; i--) {
+          const p = juego.particulas[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.02
+          p.life -= p.decay
+          p.r *= 0.99
+          if (p.life <= 0 || p.r < 0.3) {
+            juego.particulas.splice(i, 1)
+          }
+        }
+
+        // Algas animación
+        juego.algas.forEach((a) => {
+          a.phase += 0.02
+        })
+
+        // Nivel up
+        const pecesNivel = 5 + nivel * 2
+        if (juego.puntos >= pecesNivel * 10 && juego.nivel < 40) {
+          juego.nivel++
+          juego.sub.vel = 3 + juego.nivel * 0.05
+        }
+        if (juego.nivel > 40) juego.nivel = 40
+
+        // Oxígeno bajo sonido
+        if (Math.floor(s.oxigeno) === 20 && t % 30 === 0) sonidoOxigenoBajo()
+
+        juego.tick++
+      }
+
+      function perderVida() {
+        juego.vidas--
+        if (juego.vidas <= 0) {
+          juego.gameOver = true
+          sonidoGameOver()
+          const hs = parseInt(localStorage.getItem(LS_KEY)) || 0
+          if (juego.puntos > hs) {
+            localStorage.setItem(LS_KEY, juego.puntos)
+            juego.highScore = juego.puntos
+          }
+          actualizarHUD()
+          mostrarGameOver()
+          return
+        }
+        juego.sub.x = 280
+        juego.sub.y = 340
+        juego.sub.oxigeno = 100
+        juego.sub.vx = 0
+        juego.sub.vy = 0
+      }
+
+      // ===== DRAW =====
+      function draw() {
+        ctx.clearRect(0, 0, VW, VH)
+
+        // Fondo degradado profundo
+        const grad = ctx.createLinearGradient(0, 0, 0, VH)
+        grad.addColorStop(0, '#0D3B66')
+        grad.addColorStop(0.3, '#0A2F4A')
+        grad.addColorStop(0.7, '#071830')
+        grad.addColorStop(1, '#040B14')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, VW, VH)
+
+        // Rayos de luz
+        ctx.save()
+        ctx.globalAlpha = 0.04
+        for (let i = 0; i < 4; i++) {
+          const x = 80 + i * 140 + Math.sin(juego.tick * 0.01 + i) * 20
+          ctx.beginPath()
+          ctx.moveTo(x, 0)
+          ctx.lineTo(x - 25, 400)
+          ctx.lineTo(x + 25, 400)
+          ctx.closePath()
+          ctx.fillStyle = '#7FDBFF'
+          ctx.fill()
+        }
+        ctx.restore()
+
+        // Algas
+        juego.algas.forEach((a) => {
+          ctx.save()
+          ctx.translate(a.x, a.y)
+          ctx.strokeStyle = a.color
+          ctx.lineWidth = 4
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          const sway = Math.sin(a.phase) * 12
+          for (let y = 0; y < a.h; y += 5) {
+            const x2 = sway * Math.sin(y * 0.08) * 0.5
+            ctx.lineTo(x2, -y)
+          }
+          ctx.stroke()
+          ctx.restore()
+        })
+
+        // Decoraciones (medusas, corales)
+        juego.decoraciones.forEach((d) => {
+          if (d.tipo === 'coral') {
+            ctx.fillStyle = d.color
+            ctx.globalAlpha = 0.6
+            for (let i = 0; i < 4; i++) {
+              const cx = d.x + Math.sin(juego.tick * 0.02 + i * 2) * 5
+              const cy = d.y + i * 8
+              ctx.beginPath()
+              ctx.arc(cx, cy, 8 - i, 0, Math.PI * 2)
+              ctx.fill()
+            }
+            ctx.globalAlpha = 1
+          } else {
+            ctx.fillStyle = d.color
+            ctx.globalAlpha = 0.4 + Math.sin(juego.tick * 0.03 + d.x) * 0.15
+            ctx.beginPath()
+            for (let i = 0; i < 5; i++) {
+              const a2 = (i * Math.PI * 2) / 5 + Math.sin(juego.tick * 0.02 + d.x) * 0.3
+              const r2 = 10 + Math.sin(juego.tick * 0.04 + i) * 4
+              const px = d.x + Math.cos(a2) * r2
+              const py = d.y + Math.sin(a2) * r2 + Math.sin(juego.tick * 0.03 + i) * 3
+              i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+            }
+            ctx.closePath()
+            ctx.fill()
+            ctx.globalAlpha = 1
+          }
+        })
+
+        // ---- BURBUJAS ----
+        juego.burbujas.forEach((b) => {
+          ctx.save()
+          ctx.globalAlpha = b.alpha
+          const gradB = ctx.createRadialGradient(b.x - 2, b.y - 2, 1, b.x, b.y, b.r)
+          gradB.addColorStop(0, 'rgba(255,255,255,0.8)')
+          gradB.addColorStop(0.5, 'rgba(127,219,255,0.3)')
+          gradB.addColorStop(1, 'rgba(127,219,255,0)')
+          ctx.fillStyle = gradB
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          ctx.restore()
+        })
+
+        // ---- PECES ----
+        juego.peces.forEach((p) => {
+          ctx.save()
+          ctx.translate(p.x, p.y)
+          if (p.vx > 0) ctx.scale(-1, 1)
+          // Cuerpo
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.ellipse(0, 0, p.w / 2, p.h / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Cola
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.moveTo(-p.w / 2, 0)
+          ctx.lineTo(-p.w / 2 - 10, -p.h / 2)
+          ctx.lineTo(-p.w / 2 - 10, p.h / 2)
+          ctx.closePath()
+          ctx.fill()
+          // Ojo
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(p.w / 4, -3, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(p.w / 4, -2, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // Carita feliz
+          ctx.strokeStyle = '#222'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(p.w / 4, 2, 3, 0.1, Math.PI - 0.1)
+          ctx.stroke()
+          // Aleta
+          ctx.fillStyle = p.color
+          ctx.globalAlpha = 0.7
+          ctx.beginPath()
+          ctx.ellipse(2, -p.h / 2 - 4, 8, 4, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+          ctx.restore()
+        })
+
+        // ---- BOMBAS / LEMMINGS ----
+        juego.bombas.forEach((b) => {
+          ctx.save()
+          ctx.translate(b.x, b.y)
+          const bounce = Math.sin(b.timer * 0.1) * 2
+          ctx.translate(0, bounce)
+          // Burbuja negra
+          const gradB = ctx.createRadialGradient(-3, -3, 2, 0, 0, b.size + 6)
+          gradB.addColorStop(0, 'rgba(50,50,50,0.6)')
+          gradB.addColorStop(0.7, 'rgba(20,20,20,0.5)')
+          gradB.addColorStop(1, 'rgba(0,0,0,0)')
+          ctx.fillStyle = gradB
+          ctx.beginPath()
+          ctx.arc(0, 0, b.size + 6, 0, Math.PI * 2)
+          ctx.fill()
+          // Cuerpo Lemming
+          ctx.fillStyle = '#888'
+          ctx.beginPath()
+          ctx.ellipse(0, 0, b.size * 0.9, b.size, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Cabeza
+          ctx.fillStyle = '#999'
+          ctx.beginPath()
+          ctx.ellipse(0, -b.size * 0.3, b.size * 0.55, b.size * 0.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Ojos locos
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(-4, -b.size * 0.4, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(4, -b.size * 0.4, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#f00'
+          const eyeOff = Math.sin(b.timer * 0.15) * 1.5
+          ctx.beginPath()
+          ctx.arc(-4 + eyeOff * 0.5, -b.size * 0.4 + eyeOff * 0.3, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(4 + eyeOff * 0.5, -b.size * 0.4 + eyeOff * 0.3, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          // Sonrisa
+          ctx.strokeStyle = '#333'
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.arc(0, -b.size * 0.2, 3, 0.2, Math.PI - 0.2)
+          ctx.stroke()
+          // Mechón
+          ctx.fillStyle = '#555'
+          ctx.beginPath()
+          ctx.ellipse(1, -b.size * 0.7, 3, 5, -0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(-2, -b.size * 0.75, 2.5, 4, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          // Cuerpo abajo
+          ctx.fillStyle = '#666'
+          ctx.fillRect(-6, b.size * 0.2, 12, 8)
+          ctx.fillStyle = '#555'
+          ctx.fillRect(-5, b.size * 0.4, 10, 4)
+          // Brazos
+          ctx.strokeStyle = '#888'
+          ctx.lineWidth = 2.5
+          ctx.beginPath()
+          ctx.moveTo(-b.size * 0.6, b.size * 0.1)
+          ctx.lineTo(-b.size * 0.9, b.size * 0.3)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(b.size * 0.6, b.size * 0.1)
+          ctx.lineTo(b.size * 0.9, b.size * 0.3)
+          ctx.stroke()
+          // Orejas
+          ctx.fillStyle = '#777'
+          ctx.beginPath()
+          ctx.ellipse(-8, -b.size * 0.55, 3, 4, -0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(8, -b.size * 0.55, 3, 4, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        })
+
+        // ---- SUBMARINO CON GRIZZY ----
+        const s = juego.sub
+        ctx.save()
+        ctx.translate(s.x, s.y)
+        // Casco
+        const gradS = ctx.createLinearGradient(-30, -20, 30, 20)
+        gradS.addColorStop(0, '#4A90D9')
+        gradS.addColorStop(0.5, '#6BB5FF')
+        gradS.addColorStop(1, '#2C6BB0')
+        ctx.fillStyle = gradS
+        ctx.beginPath()
+        ctx.ellipse(0, 0, s.w / 2, s.h / 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#1A4A7A'
+        ctx.lineWidth = 2
+        ctx.stroke()
+        // Remaches
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = '#8AB5D0'
+          ctx.beginPath()
+          ctx.arc(-18 + i * 18, 10, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        // Ventana
+        ctx.fillStyle = '#A8D8FF'
+        ctx.beginPath()
+        ctx.ellipse(5, -3, 18, 15, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#1A4A7A'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.ellipse(5, -3, 18, 15, 0, 0, Math.PI * 2)
+        ctx.stroke()
+        // Brillo ventana
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        ctx.beginPath()
+        ctx.ellipse(0, -8, 10, 6, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        // GRIZZY dentro
+        // Cara
+        ctx.fillStyle = '#C68E5B'
+        ctx.beginPath()
+        ctx.ellipse(5, -1, 13, 12, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Orejas
+        ctx.fillStyle = '#A07040'
+        ctx.beginPath()
+        ctx.ellipse(-5, -12, 5, 6, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(15, -12, 5, 6, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#C68E5B'
+        ctx.beginPath()
+        ctx.ellipse(-5, -12, 3, 4, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(15, -12, 3, 4, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        // Ojos Grizzy
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(0, -3, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(10, -3, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3A2010'
+        const ppar = Math.floor(juego.tick / 15) % 2
+        ctx.beginPath()
+        ctx.arc(1 - (ppar ? 1.5 : 0), -2 - (ppar ? 0.5 : 0), 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(11 - (ppar ? 1.5 : 0), -2 - (ppar ? 0.5 : 0), 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        // Cejas
+        ctx.strokeStyle = '#6B4226'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(-4, -9)
+        ctx.quadraticCurveTo(1, -12, 5, -9)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(6, -9)
+        ctx.quadraticCurveTo(11, -12, 15, -9)
+        ctx.stroke()
+        // Nariz
+        ctx.fillStyle = '#3A2010'
+        ctx.beginPath()
+        ctx.ellipse(5, 1, 3, 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Sonrisa Grizzy
+        ctx.strokeStyle = '#3A2010'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(5, 4, 4, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+        // Cuerpo Grizzy (bajo ventana)
+        ctx.fillStyle = '#B8784A'
+        ctx.beginPath()
+        ctx.ellipse(5, 12, 10, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Brazos Grizzy hacia controles
+        ctx.strokeStyle = '#C68E5B'
+        ctx.lineWidth = 4
+        ctx.lineCap = 'round'
+        ctx.beginPath()
+        ctx.moveTo(-5, 10)
+        ctx.quadraticCurveTo(-12, 8, -10, 16)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(15, 10)
+        ctx.quadraticCurveTo(22, 8, 20, 16)
+        ctx.stroke()
+        // Periscopio
+        ctx.fillStyle = '#2C6BB0'
+        ctx.fillRect(-8, -26, 6, 12)
+        ctx.fillStyle = '#6BB5FF'
+        ctx.fillRect(-7, -24, 4, 8)
+        ctx.fillStyle = '#888'
+        ctx.beginPath()
+        ctx.arc(-5, -27, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#AAD4FF'
+        ctx.beginPath()
+        ctx.arc(-5, -27, 3, 0, Math.PI * 2)
+        ctx.fill()
+        // Hélice
+        ctx.save()
+        ctx.translate(-s.w / 2 - 2, 0)
+        for (let i = 0; i < 3; i++) {
+          ctx.fillStyle = '#8C8C8C'
+          ctx.save()
+          ctx.rotate(juego.tick * 0.15 + (i * Math.PI * 2) / 3)
+          ctx.beginPath()
+          ctx.ellipse(0, 0, 4, 12, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+        ctx.restore()
+        // Luces
+        const luzOn = Math.floor(juego.tick / 30) % 2 === 0
+        if (luzOn) {
+          ctx.fillStyle = 'rgba(255,255,200,0.3)'
+          ctx.beginPath()
+          ctx.arc(8, 14, 6, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
+
+        // ---- PARTÍCULAS ----
+        juego.particulas.forEach((p) => {
+          ctx.save()
+          ctx.globalAlpha = p.life
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        })
+
+        // ---- HUD ----
+        actualizarHUD()
+      }
+
+      function actualizarHUD() {
+        document.getElementById('puntosDisplay').textContent = juego.puntos
+        document.getElementById('nivelDisplay').textContent = juego.nivel
+        const vidasEl = document.getElementById('barra-vidas')
+        vidasEl.innerHTML = ''
+        for (let i = 0; i < juego.vidas; i++) {
+          const span = document.createElement('span')
+          span.className = 'vida-icon'
+          span.textContent = '❤️'
+          vidasEl.appendChild(span)
+        }
+        const ox = Math.max(0, juego.sub.oxigeno)
+        document.getElementById('oxigeno-fill').style.width = ox + '%'
+      }
+
+      // ===== ESCENAS =====
+      function mostrarMenu() {
+        document.getElementById('menu').classList.remove('hidden')
+        document.getElementById('gameOver').classList.add('hidden')
+        document.getElementById('hud').classList.add('hidden')
+      }
+      function ocultarMenus() {
+        document.getElementById('menu').classList.add('hidden')
+        document.getElementById('gameOver').classList.add('hidden')
+        document.getElementById('hud').classList.remove('hidden')
+      }
+      function mostrarGameOver() {
+        document.getElementById('finalScore').textContent = juego.puntos
+        document.getElementById('finalLevel').textContent = juego.nivel
+        document.getElementById('highScore').textContent = juego.highScore
+        document.getElementById('gameOver').classList.remove('hidden')
+      }
+
+      function iniciarJuego() {
+        if (animId) {
+          cancelAnimationFrame(animId)
+          animId = null
+        }
+        resetJuego()
+        ocultarMenus()
+        juego.iniciado = true
+        if (audioCtx.state === 'suspended') audioCtx.resume()
+        animId = requestAnimationFrame(loop)
+      }
+
+      function loop() {
+        if (!juego.iniciado) {
+          animId = requestAnimationFrame(loop)
+          return
+        }
+        update()
+        draw()
+        animId = requestAnimationFrame(loop)
+      }
+
+      // Inicio
+      mostrarMenu()
+      animId = requestAnimationFrame(loop)
+    </script>
+  </body>
+</html>

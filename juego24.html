@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+    <title>Caza de Galletas - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      }
+      #gameWrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        touch-action: none;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        border: 3px solid #a67c52;
+        border-radius: 12px;
+        box-shadow: 0 0 40px rgba(166, 124, 82, 0.3);
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #startScreen,
+      #gameOverScreen {
+        position: absolute;
+        pointer-events: auto;
+        text-align: center;
+        color: #fff;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.75);
+        border-radius: 16px;
+        padding: 30px 40px;
+        max-width: 90vw;
+        border: 3px solid #d2691e;
+      }
+      #startScreen h1 {
+        font-size: 2.2em;
+        color: #ffc107;
+        text-shadow: 3px 3px 0 #d2691e;
+        margin-bottom: 10px;
+      }
+      #startScreen .sub {
+        color: #fff8e1;
+        font-size: 1em;
+        margin-bottom: 20px;
+      }
+      #gameOverScreen h1 {
+        font-size: 2em;
+        color: #e74c3c;
+        margin-bottom: 10px;
+      }
+      #gameOverScreen .score {
+        font-size: 1.5em;
+        color: #ffc107;
+        margin-bottom: 5px;
+      }
+      #gameOverScreen .best {
+        font-size: 1em;
+        color: #aaa;
+        margin-bottom: 20px;
+      }
+      .btn {
+        pointer-events: auto;
+        background: #d2691e;
+        color: #fff;
+        border: none;
+        padding: 12px 30px;
+        font-size: 1.2em;
+        border-radius: 30px;
+        cursor: pointer;
+        margin-top: 10px;
+        transition:
+          transform 0.1s,
+          background 0.2s;
+        font-weight: bold;
+      }
+      .btn:hover {
+        background: #e07b2e;
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .controls-hint {
+        color: #bbb;
+        font-size: 0.75em;
+        margin-top: 15px;
+      }
+      @media (max-width: 500px) {
+        #startScreen h1 {
+          font-size: 1.5em;
+        }
+        #startScreen .sub {
+          font-size: 0.8em;
+        }
+        #gameOverScreen h1 {
+          font-size: 1.4em;
+        }
+        #gameOverScreen .score {
+          font-size: 1.1em;
+        }
+        .btn {
+          font-size: 1em;
+          padding: 10px 24px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameWrapper">
+      <canvas id="gameCanvas" width="400" height="500"></canvas>
+      <div id="ui">
+        <div id="startScreen">
+          <h1>🍪 CAZA DE GALLETAS</h1>
+          <p class="sub">¡Atrapa las galletas con Grizzy!</p>
+          <p style="color: #ccc; font-size: 0.85em; margin-bottom: 8px">
+            ← → o A/D · Galleta=+10 · Dorada=+25 · Lemming=❤️-1
+          </p>
+          <button class="btn" id="startBtn">¡JUGAR!</button>
+          <p class="controls-hint">Grizzy &amp; the Lemmings fan game</p>
+        </div>
+        <div id="gameOverScreen">
+          <h1>💀 GAME OVER</h1>
+          <p class="score" id="finalScore">0</p>
+          <p class="best" id="bestScore">Mejor: 0</p>
+          <button class="btn" id="restartBtn">REVANCHA</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      ;(function () {
+        const canvas = document.getElementById('gameCanvas')
+        const ctx = canvas.getContext('2d')
+        const W = 400,
+          H = 500
+
+        const startScreen = document.getElementById('startScreen')
+        const gameOverScreen = document.getElementById('gameOverScreen')
+        const startBtn = document.getElementById('startBtn')
+        const restartBtn = document.getElementById('restartBtn')
+        const finalScoreEl = document.getElementById('finalScore')
+        const bestScoreEl = document.getElementById('bestScore')
+
+        // ---- AUDIO (Web Audio) ----
+        let audioCtx = null
+        function initAudio() {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        }
+        function playTone(freq, dur, type = 'square', vol = 0.12) {
+          try {
+            initAudio()
+            const o = audioCtx.createOscillator()
+            const g = audioCtx.createGain()
+            o.type = type
+            o.frequency.value = freq
+            g.gain.setValueAtTime(vol, audioCtx.currentTime)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.start()
+            o.stop(audioCtx.currentTime + dur)
+          } catch (e) {}
+        }
+        function sfxCatch() {
+          playTone(880, 0.08, 'square', 0.1)
+          playTone(1100, 0.06, 'square', 0.08)
+        }
+        function sfxBonus() {
+          playTone(660, 0.1, 'sine', 0.12)
+          setTimeout(() => {
+            playTone(880, 0.1, 'sine', 0.12)
+          }, 80)
+          setTimeout(() => {
+            playTone(1100, 0.12, 'sine', 0.12)
+          }, 160)
+        }
+        function sfxLemming() {
+          playTone(200, 0.15, 'sawtooth', 0.1)
+          setTimeout(() => {
+            playTone(160, 0.2, 'sawtooth', 0.08)
+          }, 120)
+        }
+        function sfxLoseLife() {
+          playTone(300, 0.12, 'square', 0.12)
+          setTimeout(() => {
+            playTone(200, 0.15, 'square', 0.1)
+          }, 100)
+          setTimeout(() => {
+            playTone(150, 0.2, 'square', 0.08)
+          }, 200)
+        }
+        function sfxGameOver() {
+          playTone(400, 0.15, 'sawtooth', 0.1)
+          setTimeout(() => {
+            playTone(300, 0.15, 'sawtooth', 0.1)
+          }, 150)
+          setTimeout(() => {
+            playTone(200, 0.25, 'sawtooth', 0.08)
+          }, 300)
+        }
+
+        // ---- GAME STATE ----
+        let state = 'menu' // menu|playing|gameover
+        let score = 0
+        let lives = 3
+        let level = 1
+        let bestScore = parseInt(localStorage.getItem('grizzy_cookie_best')) || 0
+
+        // Player
+        const player = { x: W / 2, y: H - 35, w: 80, h: 14 }
+
+        // Falling objects
+        let items = []
+        const ITEM_TYPES = { COOKIE: 'cookie', GOLDEN: 'golden', LEMMING: 'lemming' }
+
+        // Particles
+        let particles = []
+
+        // Timers
+        let spawnTimer = 0
+        let baseSpawnInterval = 45 // frames
+        let frameCount = 0
+        let gameSpeed = 1
+
+        // Keys
+        const keys = { left: false, right: false }
+        let touchX = null
+
+        // ---- HELPERS ----
+        function clamp(v, min, max) {
+          return Math.max(min, Math.min(max, v))
+        }
+
+        function getLevelSpeed(lvl) {
+          return 1 + Math.min((lvl - 1) * 0.15, 3.5)
+        }
+        function getLevelSpawnInterval(lvl) {
+          return Math.max(18, baseSpawnInterval - (lvl - 1) * 0.7)
+        }
+        function getLevelLemmingChance(lvl) {
+          return Math.min(0.15 + (lvl - 1) * 0.012, 0.45)
+        }
+        function getLevelGoldenChance(lvl) {
+          return Math.min(0.08 + (lvl - 1) * 0.005, 0.2)
+        }
+
+        function spawnItem() {
+          const typeRand = Math.random()
+          const lemmingChance = getLevelLemmingChance(level)
+          const goldenChance = getLevelGoldenChance(level)
+          let type
+          if (typeRand < lemmingChance) type = ITEM_TYPES.LEMMING
+          else if (typeRand < lemmingChance + goldenChance) type = ITEM_TYPES.GOLDEN
+          else type = ITEM_TYPES.COOKIE
+
+          const r = type === ITEM_TYPES.LEMMING ? 14 : type === ITEM_TYPES.GOLDEN ? 12 : 11
+          const x = 12 + Math.random() * (W - 24)
+          const spd = 0.9 + Math.random() * 0.5
+          items.push({
+            type,
+            x,
+            y: -r,
+            r,
+            speed: spd * getLevelSpeed(level),
+            wobble: Math.random() * Math.PI * 2,
+            wobbleSpeed: 0.02 + Math.random() * 0.03,
+            wobbleAmp: type === ITEM_TYPES.LEMMING ? 8 : 3,
+          })
+        }
+
+        function spawnParticles(x, y, color, count = 10) {
+          for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2
+            const s = 0.5 + Math.random() * 2.5
+            particles.push({
+              x,
+              y,
+              vx: Math.cos(a) * s,
+              vy: Math.sin(a) * s - 1,
+              life: 1,
+              decay: 0.015 + Math.random() * 0.02,
+              r: 2 + Math.random() * 4,
+              color,
+            })
+          }
+        }
+
+        function resetGame() {
+          score = 0
+          lives = 3
+          level = 1
+          items = []
+          particles = []
+          player.x = W / 2
+          spawnTimer = 0
+          frameCount = 0
+        }
+
+        function startGame() {
+          resetGame()
+          state = 'playing'
+          startScreen.style.display = 'none'
+          gameOverScreen.style.display = 'none'
+        }
+
+        function gameOver() {
+          state = 'gameover'
+          sfxGameOver()
+          if (score > bestScore) {
+            bestScore = score
+            localStorage.setItem('grizzy_cookie_best', bestScore)
+          }
+          finalScoreEl.textContent = 'Puntuación: ' + score
+          bestScoreEl.textContent = 'Mejor: ' + bestScore
+          gameOverScreen.style.display = 'flex'
+        }
+
+        // ---- INPUT ----
+        document.addEventListener('keydown', (e) => {
+          const k = e.key
+          if (k === 'ArrowLeft' || k === 'a' || k === 'A') {
+            keys.left = true
+            e.preventDefault()
+          }
+          if (k === 'ArrowRight' || k === 'd' || k === 'D') {
+            keys.right = true
+            e.preventDefault()
+          }
+          if (k === ' ' && state === 'menu') {
+            startGame()
+            e.preventDefault()
+          }
+          if (k === ' ' && state === 'gameover') {
+            startGame()
+            e.preventDefault()
+          }
+          if (k === 'Enter' && state === 'menu') {
+            startGame()
+            e.preventDefault()
+          }
+          if (k === 'Enter' && state === 'gameover') {
+            startGame()
+            e.preventDefault()
+          }
+        })
+        document.addEventListener('keyup', (e) => {
+          const k = e.key
+          if (k === 'ArrowLeft' || k === 'a' || k === 'A') {
+            keys.left = false
+            e.preventDefault()
+          }
+          if (k === 'ArrowRight' || k === 'd' || k === 'D') {
+            keys.right = false
+            e.preventDefault()
+          }
+        })
+
+        // Touch
+        canvas.addEventListener(
+          'touchstart',
+          (e) => {
+            e.preventDefault()
+            const t = e.touches[0]
+            const rect = canvas.getBoundingClientRect()
+            const scaleX = canvas.width / rect.width
+            const cx = (t.clientX - rect.left) * scaleX
+            touchX = cx
+            if (state === 'menu') startGame()
+            else if (state === 'gameover') startGame()
+          },
+          { passive: false },
+        )
+        canvas.addEventListener(
+          'touchmove',
+          (e) => {
+            e.preventDefault()
+            const t = e.touches[0]
+            const rect = canvas.getBoundingClientRect()
+            const scaleX = canvas.width / rect.width
+            touchX = (t.clientX - rect.left) * scaleX
+          },
+          { passive: false },
+        )
+        canvas.addEventListener(
+          'touchend',
+          (e) => {
+            e.preventDefault()
+            touchX = null
+          },
+          { passive: false },
+        )
+
+        startBtn.addEventListener('click', startGame)
+        restartBtn.addEventListener('click', startGame)
+
+        // ---- RESIZE ----
+        function resizeCanvas() {
+          const wrap = document.getElementById('gameWrapper')
+          const mw = window.innerWidth,
+            mh = window.innerHeight
+          const scale = Math.min(mw / W, mh / H)
+          const cw = Math.floor(W * scale)
+          const ch = Math.floor(H * scale)
+          canvas.style.width = cw + 'px'
+          canvas.style.height = ch + 'px'
+        }
+        window.addEventListener('resize', resizeCanvas)
+        resizeCanvas()
+
+        // ---- UPDATE ----
+        function update() {
+          if (state !== 'playing') return
+          frameCount++
+
+          // Check level up
+          const needed = level * 5
+          if (score >= needed && level < 40) {
+            level++
+            baseSpawnInterval = Math.max(18, baseSpawnInterval - 0.5)
+          }
+
+          // Player movement
+          const speed = 4.5
+          if (touchX !== null) {
+            const target = touchX - player.w / 2
+            const diff = target - player.x
+            if (Math.abs(diff) > 2) {
+              player.x += Math.sign(diff) * Math.min(Math.abs(diff), speed * 1.2)
+            }
+          } else {
+            if (keys.left) player.x -= speed
+            if (keys.right) player.x += speed
+          }
+          player.x = clamp(player.x, 2, W - player.w - 2)
+
+          // Spawn
+          const spawnInterval = getLevelSpawnInterval(level)
+          spawnTimer++
+          if (spawnTimer >= spawnInterval) {
+            spawnTimer = 0
+            spawnItem()
+            // Occasionally spawn extra items at higher levels
+            if (level >= 5 && Math.random() < 0.25) spawnItem()
+            if (level >= 15 && Math.random() < 0.2) spawnItem()
+            if (level >= 30 && Math.random() < 0.15) spawnItem()
+          }
+
+          // Update items
+          for (let i = items.length - 1; i >= 0; i--) {
+            const it = items[i]
+            it.wobble += it.wobbleSpeed
+            it.x += Math.sin(it.wobble) * it.wobbleAmp * 0.2
+            it.y += it.speed
+
+            // Check catch
+            const px = player.x,
+              py = player.y
+            const pw = player.w,
+              ph = player.h
+            const itHalfR = it.r * 1.3
+            if (
+              it.y + it.r >= py &&
+              it.y - it.r <= py + ph &&
+              it.x + itHalfR > px &&
+              it.x - itHalfR < px + pw
+            ) {
+              if (it.type === ITEM_TYPES.LEMMING) {
+                lives--
+                sfxLemming()
+                spawnParticles(it.x, it.y, '#7E8A9E', 15)
+                if (lives <= 0) {
+                  gameOver()
+                  return
+                }
+              } else if (it.type === ITEM_TYPES.GOLDEN) {
+                score += 25
+                sfxBonus()
+                spawnParticles(it.x, it.y, '#FFC107', 18)
+              } else {
+                score += 10
+                sfxCatch()
+                spawnParticles(it.x, it.y, '#D2691E', 12)
+              }
+              items.splice(i, 1)
+              continue
+            }
+
+            // Remove if off screen
+            if (it.y > H + 20) {
+              items.splice(i, 1)
+            }
+          }
+
+          // Update particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.08
+            p.life -= p.decay
+            if (p.life <= 0 || p.y > H + 10) {
+              particles.splice(i, 1)
+            }
+          }
+        }
+
+        // ---- DRAW ----
+        function drawBackground() {
+          // Wall
+          ctx.fillStyle = '#FFF8E1'
+          ctx.fillRect(0, 0, W, H - 60)
+          // Counter/floor
+          ctx.fillStyle = '#A67C52'
+          ctx.fillRect(0, H - 60, W, 60)
+          // Counter top line
+          ctx.fillStyle = '#8B6914'
+          ctx.fillRect(0, H - 62, W, 3)
+          // Floor tiles hint
+          ctx.fillStyle = '#8B6914'
+          for (let i = 0; i < W; i += 30) {
+            ctx.fillRect(i, H - 8, 15, 3)
+          }
+          // Wall decoration - cabinet hint
+          ctx.fillStyle = '#E8D5A3'
+          ctx.fillRect(10, 10, 80, 100)
+          ctx.fillRect(W - 90, 10, 80, 100)
+          ctx.strokeStyle = '#C4A97D'
+          ctx.lineWidth = 2
+          ctx.strokeRect(10, 10, 80, 100)
+          ctx.strokeRect(W - 90, 10, 80, 100)
+        }
+
+        function drawPlayer() {
+          const px = player.x,
+            py = player.y,
+            pw = player.w,
+            ph = player.h
+
+          // Body (Grizzy bear)
+          const bx = px + pw / 2,
+            by = py - 18
+          // Ears
+          ctx.fillStyle = '#7B4F2E'
+          ctx.beginPath()
+          ctx.arc(bx - 14, by - 14, 8, 0, Math.PI * 2)
+          ctx.arc(bx + 14, by - 14, 8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#C48B5C'
+          ctx.beginPath()
+          ctx.arc(bx - 14, by - 14, 4, 0, Math.PI * 2)
+          ctx.arc(bx + 14, by - 14, 4, 0, Math.PI * 2)
+          ctx.fill()
+          // Head
+          ctx.fillStyle = '#C48B5C'
+          ctx.beginPath()
+          ctx.arc(bx, by, 17, 0, Math.PI * 2)
+          ctx.fill()
+          // Chef hat
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.ellipse(bx, by - 20, 14, 8, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillRect(bx - 10, by - 28, 20, 12)
+          ctx.fillStyle = '#eee'
+          ctx.beginPath()
+          ctx.arc(bx, by - 28, 8, 0, Math.PI * 2)
+          ctx.fill()
+          // Eyes
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(bx - 6, by - 2, 2.5, 0, Math.PI * 2)
+          ctx.arc(bx + 6, by - 2, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(bx - 5, by - 3, 1, 0, Math.PI * 2)
+          ctx.arc(bx + 7, by - 3, 1, 0, Math.PI * 2)
+          ctx.fill()
+          // Nose
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.ellipse(bx, by + 4, 3, 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Smile
+          ctx.strokeStyle = '#222'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(bx, by + 6, 5, 0.1, Math.PI - 0.1)
+          ctx.stroke()
+
+          // Plate
+          ctx.fillStyle = '#DDD'
+          ctx.shadowColor = 'rgba(0,0,0,.15)'
+          ctx.shadowBlur = 6
+          ctx.beginPath()
+          ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2, ph / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          // Plate border
+          ctx.strokeStyle = '#4A90D9'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.ellipse(px + pw / 2, py + ph / 2, pw / 2 - 3, ph / 2 - 3, 0, 0, Math.PI * 2)
+          ctx.stroke()
+          // Plate inner ring
+          ctx.strokeStyle = '#bbb'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.ellipse(px + pw / 2, py + ph / 2, pw / 4, ph / 3, 0, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+
+        function drawCookie(item) {
+          const x = item.x,
+            y = item.y,
+            r = item.r
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,.1)'
+          ctx.beginPath()
+          ctx.arc(x + 2, y + 3, r, 0, Math.PI * 2)
+          ctx.fill()
+          // Cookie body
+          ctx.fillStyle = '#D2691E'
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+          // Highlight
+          ctx.fillStyle = 'rgba(255,255,200,.15)'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.25, y - r * 0.3, r * 0.5, 0, Math.PI * 2)
+          ctx.fill()
+          // Chocolate chips
+          ctx.fillStyle = '#5C3A1E'
+          const chips = [
+            [-4, -3, 1.5],
+            [5, -1, 1.2],
+            [-2, 5, 1.3],
+            [6, 4, 1.0],
+            [-7, 2, 0.8],
+          ]
+          for (const [ox, oy, s] of chips) {
+            ctx.beginPath()
+            ctx.arc(x + ox, y + oy, s, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        }
+
+        function drawGoldenCookie(item) {
+          const x = item.x,
+            y = item.y,
+            r = item.r
+          // Glow
+          const grad = ctx.createRadialGradient(x, y, 0, x, y, r * 2.5)
+          grad.addColorStop(0, 'rgba(255,193,7,.3)')
+          grad.addColorStop(1, 'rgba(255,193,7,0)')
+          ctx.fillStyle = grad
+          ctx.beginPath()
+          ctx.arc(x, y, r * 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,.08)'
+          ctx.beginPath()
+          ctx.arc(x + 2, y + 3, r, 0, Math.PI * 2)
+          ctx.fill()
+          // Cookie body
+          ctx.fillStyle = '#FFC107'
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+          // Sheen
+          ctx.fillStyle = 'rgba(255,255,255,.3)'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.2, y - r * 0.25, r * 0.4, 0, Math.PI * 2)
+          ctx.fill()
+          // Chocolate chips
+          ctx.fillStyle = '#5C3A1E'
+          const chips = [
+            [-3, -2, 1.2],
+            [4, 0, 1],
+            [0, 4, 1.1],
+            [-5, 3, 0.7],
+            [5, -3, 0.9],
+          ]
+          for (const [ox, oy, s] of chips) {
+            ctx.beginPath()
+            ctx.arc(x + ox, y + oy, s, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          // Sparkle
+          const sparkle = Math.sin(frameCount * 0.15) * 0.5 + 0.5
+          ctx.fillStyle = `rgba(255,255,255,${sparkle * 0.5})`
+          ctx.beginPath()
+          ctx.arc(x - r * 0.4, y - r * 0.4, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        function drawLemming(item) {
+          const x = item.x,
+            y = item.y,
+            r = item.r
+          // Shadow
+          ctx.fillStyle = 'rgba(0,0,0,.1)'
+          ctx.beginPath()
+          ctx.arc(x + 2, y + 3, r, 0, Math.PI * 2)
+          ctx.fill()
+          // Body
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(x, y + 2, r, r * 1.1, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Belly
+          ctx.fillStyle = '#9EA8B8'
+          ctx.beginPath()
+          ctx.ellipse(x, y + 4, r * 0.6, r * 0.7, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Head
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.arc(x, y - r * 0.3, r * 0.65, 0, Math.PI * 2)
+          ctx.fill()
+          // Ears
+          ctx.fillStyle = '#9EA8B8'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.45, y - r * 0.65, r * 0.25, 0, Math.PI * 2)
+          ctx.arc(x + r * 0.45, y - r * 0.65, r * 0.25, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#D4A5A5'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.45, y - r * 0.65, r * 0.12, 0, Math.PI * 2)
+          ctx.arc(x + r * 0.45, y - r * 0.65, r * 0.12, 0, Math.PI * 2)
+          ctx.fill()
+          // Eyes (mischievous)
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(x - 3, y - r * 0.3, 1.8, 0, Math.PI * 2)
+          ctx.arc(x + 3, y - r * 0.3, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(x - 2.5, y - r * 0.45, 1, 0, Math.PI * 2)
+          ctx.arc(x + 3.5, y - r * 0.45, 1, 0, Math.PI * 2)
+          ctx.fill()
+          // Mischievous grin
+          ctx.strokeStyle = '#222'
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.arc(x, y - r * 0.05, 3.5, 0.2, Math.PI - 0.2)
+          ctx.stroke()
+          // Teeth
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(x - 2, y - r * 0.05, 1.5, 2)
+          ctx.fillRect(x + 0.5, y - r * 0.05, 1.5, 2)
+          // Arms
+          ctx.strokeStyle = '#7E8A9E'
+          ctx.lineWidth = 2.5
+          ctx.beginPath()
+          ctx.moveTo(x - r * 0.5, y - r * 0.05)
+          ctx.lineTo(x - r * 0.85, y + r * 0.15)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(x + r * 0.5, y - r * 0.05)
+          ctx.lineTo(x + r * 0.85, y + r * 0.15)
+          ctx.stroke()
+          // Feet
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(x - r * 0.3, y + r * 0.75, r * 0.25, r * 0.12, 0, 0, Math.PI * 2)
+          ctx.ellipse(x + r * 0.3, y + r * 0.75, r * 0.25, r * 0.12, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        function drawParticles() {
+          for (const p of particles) {
+            ctx.globalAlpha = p.life
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.globalAlpha = 1
+        }
+
+        function drawHUD() {
+          // Score
+          ctx.fillStyle = '#333'
+          ctx.font = 'bold 16px "Segoe UI",Tahoma,sans-serif'
+          ctx.textAlign = 'left'
+          ctx.fillText('🍪 ' + score, 10, 22)
+          // Lives
+          ctx.textAlign = 'right'
+          let h = ''
+          for (let i = 0; i < lives; i++) h += '❤️'
+          ctx.fillText(h, W - 10, 22)
+          // Level
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#666'
+          ctx.font = 'bold 13px "Segoe UI",Tahoma,sans-serif'
+          ctx.fillText('NIVEL ' + level + '/' + 40, W / 2, 22)
+        }
+
+        // ---- RENDER LOOP ----
+        function render() {
+          ctx.clearRect(0, 0, W, H)
+          drawBackground()
+          drawPlayer()
+
+          for (const item of items) {
+            if (item.type === ITEM_TYPES.COOKIE) drawCookie(item)
+            else if (item.type === ITEM_TYPES.GOLDEN) drawGoldenCookie(item)
+            else if (item.type === ITEM_TYPES.LEMMING) drawLemming(item)
+          }
+
+          drawParticles()
+          drawHUD()
+        }
+
+        function gameLoop() {
+          update()
+          render()
+          requestAnimationFrame(gameLoop)
+        }
+
+        // ---- START ----
+        startScreen.style.display = 'flex'
+        gameOverScreen.style.display = 'none'
+        bestScoreEl.textContent = 'Mejor: ' + bestScore
+        gameLoop()
+      })()
+    </script>
+  </body>
+</html>

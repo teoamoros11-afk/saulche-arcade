@@ -1,0 +1,1010 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+    <title>🐻 Memoria de Animales - Grizzy & the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: #2d1b0e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: #ffe0b2;
+        position: relative;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(ellipse at 50% 0%, rgba(255, 152, 0, 0.1) 0%, transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      body::after {
+        content: '🍂';
+        position: fixed;
+        top: 5%;
+        left: 10%;
+        font-size: 4vmin;
+        opacity: 0.15;
+        animation: leafFloat 12s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 0;
+      }
+      @keyframes leafFloat {
+        0%,
+        100% {
+          transform: translateY(0) rotate(0deg);
+        }
+        50% {
+          transform: translateY(30vh) rotate(180deg);
+        }
+      }
+      .screen {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 1;
+        padding: 3vmin;
+      }
+      .screen.active {
+        display: flex;
+      }
+
+      /* START SCREEN */
+      #startScreen h1 {
+        font-size: 7vmin;
+        color: #ff9800;
+        text-shadow:
+          0.3vmin 0.3vmin 0 #5d4037,
+          0 0 3vmin rgba(255, 152, 0, 0.3);
+        margin-bottom: 1vmin;
+        text-align: center;
+      }
+      #startScreen .subtitle {
+        font-size: 3vmin;
+        color: #ffcc80;
+        margin-bottom: 4vmin;
+        text-align: center;
+      }
+      #startScreen .grizzy-big {
+        font-size: 18vmin;
+        margin-bottom: 2vmin;
+        animation: bounce 2s ease-in-out infinite;
+        filter: drop-shadow(0 0 3vmin rgba(255, 152, 0, 0.3));
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3vmin);
+        }
+      }
+      .btn {
+        background: linear-gradient(180deg, #ff9800, #e65100);
+        color: #fff;
+        border: none;
+        border-radius: 1.5vmin;
+        padding: 2vmin 6vmin;
+        font-size: 3.5vmin;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow:
+          0 0.5vmin 1.5vmin rgba(0, 0, 0, 0.5),
+          inset 0 0.2vmin 0 rgba(255, 255, 255, 0.3);
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        margin: 0.8vmin;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .btn:hover {
+        transform: translateY(-0.3vmin);
+        box-shadow:
+          0 0.8vmin 2vmin rgba(0, 0, 0, 0.6),
+          inset 0 0.2vmin 0 rgba(255, 255, 255, 0.3);
+      }
+      .btn:active {
+        transform: translateY(0.2vmin);
+      }
+      .btn-small {
+        padding: 1.5vmin 3vmin;
+        font-size: 2.5vmin;
+      }
+      .btn-secondary {
+        background: linear-gradient(180deg, #5d4037, #3e2723);
+        box-shadow:
+          0 0.3vmin 1vmin rgba(0, 0, 0, 0.4),
+          inset 0 0.2vmin 0 rgba(255, 255, 255, 0.1);
+      }
+      .stats-info {
+        font-size: 2.5vmin;
+        color: #bdbdbd;
+        margin: 2vmin 0;
+        text-align: center;
+      }
+      .stats-info span {
+        color: #ff9800;
+        font-weight: bold;
+      }
+
+      /* GAME SCREEN */
+      #gameScreen {
+        padding: 1.5vmin;
+      }
+      #topBar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        max-width: 90vmin;
+        padding: 0.5vmin 1vmin;
+        margin-bottom: 1.5vmin;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 1vmin;
+        border: 0.15vmin solid rgba(255, 152, 0, 0.2);
+      }
+      #topBar .level {
+        font-size: 2.8vmin;
+        font-weight: bold;
+        color: #ff9800;
+      }
+      #topBar .moves {
+        font-size: 2.5vmin;
+        color: #ffcc80;
+      }
+      #topBar .moves span {
+        color: #fff;
+        font-weight: bold;
+      }
+      #topBar .restart {
+        padding: 0.8vmin 2vmin;
+        font-size: 2vmin;
+        border: none;
+        border-radius: 0.8vmin;
+        background: #5d4037;
+        color: #ffe0b2;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      #topBar .restart:hover {
+        background: #795548;
+      }
+
+      #boardWrap {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex: 1;
+        width: 100%;
+      }
+      #board {
+        display: grid;
+        gap: 1vmin;
+        justify-content: center;
+        align-content: center;
+      }
+
+      /* CARD */
+      .card {
+        perspective: 800px;
+        cursor: pointer;
+        aspect-ratio: 1;
+      }
+      .card-inner {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        transform-style: preserve-3d;
+        border-radius: 1vmin;
+      }
+      .card.flipped .card-inner {
+        transform: rotateY(180deg);
+      }
+      .card.matched {
+        pointer-events: none;
+      }
+      .card.matched .card-inner {
+        animation: matchPop 0.5s ease forwards;
+        animation-delay: 0.3s;
+      }
+      @keyframes matchPop {
+        0% {
+          transform: rotateY(180deg) scale(1);
+        }
+        50% {
+          transform: rotateY(180deg) scale(1.15);
+        }
+        100% {
+          transform: rotateY(180deg) scale(0);
+          opacity: 0;
+        }
+      }
+      .card-front,
+      .card-back {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        backface-visibility: hidden;
+        border-radius: 1vmin;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .card-front {
+        transform: rotateY(180deg);
+        background: linear-gradient(135deg, #8b5e3c, #6d4c2a);
+        border: 0.3vmin solid #ff9800;
+        box-shadow:
+          inset 0 0 2vmin rgba(0, 0, 0, 0.3),
+          0 0.3vmin 0.8vmin rgba(0, 0, 0, 0.4);
+      }
+      .card-back {
+        background: linear-gradient(135deg, #8b5e3c, #6d4c2a);
+        border: 0.3vmin solid #ff9800;
+        box-shadow:
+          inset 0 0 2vmin rgba(0, 0, 0, 0.3),
+          0 0.3vmin 0.8vmin rgba(0, 0, 0, 0.4);
+      }
+      .card-back canvas,
+      .card-front canvas {
+        width: 80%;
+        height: 80%;
+      }
+      .card.disabled {
+        pointer-events: none;
+      }
+
+      /* MODAL OVERLAY */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 100;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(0.5vmin);
+      }
+      .modal.active {
+        display: flex;
+      }
+      .modal-content {
+        background: linear-gradient(180deg, #4a2f1a, #2d1b0e);
+        border: 0.3vmin solid #ff9800;
+        border-radius: 2vmin;
+        padding: 4vmin 6vmin;
+        text-align: center;
+        max-width: 55vmin;
+        box-shadow: 0 0 5vmin rgba(255, 152, 0, 0.2);
+        animation: modalIn 0.4s ease;
+      }
+      @keyframes modalIn {
+        from {
+          transform: scale(0.8);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .modal-content h2 {
+        font-size: 4vmin;
+        color: #ff9800;
+        margin-bottom: 1vmin;
+        text-shadow: 0.2vmin 0.2vmin 0 #5d4037;
+      }
+      .modal-content p {
+        font-size: 2.5vmin;
+        color: #ffcc80;
+        margin-bottom: 2vmin;
+      }
+      .modal-content .big-emoji {
+        font-size: 10vmin;
+        margin-bottom: 1vmin;
+      }
+
+      /* STARS */
+      .star {
+        position: fixed;
+        pointer-events: none;
+        z-index: 50;
+        font-size: 3vmin;
+        animation: starFly 0.8s ease-out forwards;
+      }
+      @keyframes starFly {
+        0% {
+          transform: translate(0, 0) scale(0) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(var(--tx), var(--ty)) scale(1.5) rotate(360deg);
+          opacity: 0;
+        }
+      }
+
+      /* VICTORY SCREEN */
+      #victoryScreen h1 {
+        font-size: 8vmin;
+        color: #ffd700;
+        text-shadow:
+          0.3vmin 0.3vmin 0 #5d4037,
+          0 0 4vmin rgba(255, 215, 0, 0.3);
+        margin-bottom: 1vmin;
+      }
+      #victoryScreen .trophy {
+        font-size: 20vmin;
+        margin-bottom: 2vmin;
+        animation: bounce 2s ease-in-out infinite;
+      }
+      #victoryScreen p {
+        font-size: 3vmin;
+        color: #ffcc80;
+        margin-bottom: 3vmin;
+        text-align: center;
+      }
+
+      /* CONFETTI */
+      .confetti {
+        position: fixed;
+        pointer-events: none;
+        z-index: 60;
+        width: 1.5vmin;
+        height: 1.5vmin;
+        border-radius: 50%;
+        animation: confettiFall linear forwards;
+      }
+      @keyframes confettiFall {
+        0% {
+          transform: translateY(-10vh) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+
+      /* RESPONSIVE */
+      @media (max-width: 600px) {
+        #board {
+          gap: 0.8vmin;
+        }
+        .btn {
+          padding: 2.5vmin 5vmin;
+          font-size: 4vmin;
+        }
+        #topBar .level {
+          font-size: 3.5vmin;
+        }
+        #topBar .moves {
+          font-size: 3vmin;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <!-- START SCREEN -->
+    <div id="startScreen" class="screen active">
+      <div class="grizzy-big">🐻</div>
+      <h1>MEMORIA DE ANIMALES</h1>
+      <div class="subtitle">🐾 Grizzy &amp; the Lemmings 🐾</div>
+      <button class="btn" onclick="startGame(1)">🎮 JUGAR</button>
+      <button
+        class="btn btn-secondary"
+        id="continueBtn"
+        style="display: none"
+        onclick="continueGame()"
+      >
+        ▶ CONTINUAR
+      </button>
+      <div class="stats-info" id="statsInfo"></div>
+    </div>
+
+    <!-- GAME SCREEN -->
+    <div id="gameScreen" class="screen">
+      <div id="topBar">
+        <div class="level">🐻 Nivel <span id="levelDisplay">1</span>/40</div>
+        <div class="moves">✋ Movimientos: <span id="moveCount">0</span></div>
+        <button class="restart" onclick="confirmRestart()">⟳</button>
+      </div>
+      <div id="boardWrap"><div id="board"></div></div>
+    </div>
+
+    <!-- LEVEL COMPLETE MODAL -->
+    <div id="levelModal" class="modal">
+      <div class="modal-content">
+        <div class="big-emoji">⭐</div>
+        <h2 id="levelTitle">¡NIVEL COMPLETO!</h2>
+        <p id="levelMsg">Preparando siguiente nivel...</p>
+        <button class="btn" id="nextBtn" onclick="nextLevel()">▶ SIGUIENTE</button>
+      </div>
+    </div>
+
+    <!-- VICTORY SCREEN -->
+    <div id="victoryScreen" class="screen">
+      <div class="trophy">🏆</div>
+      <h1>¡VICTORIA!</h1>
+      <p>¡Completaste los 40 niveles!<br />Eres el verdadero Grizzy 🐻</p>
+      <button class="btn" onclick="startGame(1)">🔄 JUGAR DE NUEVO</button>
+    </div>
+
+    <script>
+      // ===== ANIMALES =====
+      const ANIMALS = [
+        { name: 'Grizzy', emoji: '🐻', bg: '#8B4513', border: '#A0522D' },
+        { name: 'Lemming', emoji: '🐭', bg: '#808080', border: '#A0A0A0' },
+        { name: 'Abeja', emoji: '🐝', bg: '#FFC107', border: '#FF8F00' },
+        { name: 'Pez', emoji: '🐟', bg: '#42A5F5', border: '#1565C0' },
+        { name: 'Pájaro', emoji: '🐦', bg: '#EF5350', border: '#C62828' },
+        { name: 'Mariposa', emoji: '🦋', bg: '#9C27B0', border: '#6A1B9A' },
+        { name: 'Rana', emoji: '🐸', bg: '#66BB6A', border: '#2E7D32' },
+        { name: 'Conejo', emoji: '🐰', bg: '#BDBDBD', border: '#757575' },
+        { name: 'Zorro', emoji: '🦊', bg: '#FF7043', border: '#D84315' },
+        { name: 'Búho', emoji: '🦉', bg: '#8D6E63', border: '#4E342E' },
+        { name: 'Tortuga', emoji: '🐢', bg: '#81C784', border: '#388E3C' },
+        { name: 'Ardilla', emoji: '🐿️', bg: '#A1887F', border: '#5D4037' },
+        { name: 'León', emoji: '🦁', bg: '#FFB74D', border: '#E65100' },
+        { name: 'Elefante', emoji: '🐘', bg: '#90A4AE', border: '#455A64' },
+        { name: 'Jirafa', emoji: '🦒', bg: '#FFCC02', border: '#F9A825' },
+        { name: 'Cebra', emoji: '🦓', bg: '#CFD8DC', border: '#607D8B' },
+        { name: 'Mono', emoji: '🐒', bg: '#8D6E63', border: '#4E342E' },
+        { name: 'Loro', emoji: '🦜', bg: '#4CAF50', border: '#1B5E20' },
+        { name: 'Delfín', emoji: '🐬', bg: '#29B6F6', border: '#01579B' },
+        { name: 'Tiburón', emoji: '🦈', bg: '#607D8B', border: '#263238' },
+        { name: 'Serpiente', emoji: '🐍', bg: '#66BB6A', border: '#1B5E20' },
+        { name: 'Águila', emoji: '🦅', bg: '#795548', border: '#3E2723' },
+        { name: 'Lobo', emoji: '🐺', bg: '#78909C', border: '#37474F' },
+        { name: 'Oso Polar', emoji: '🐻‍❄️', bg: '#E0E0E0', border: '#9E9E9E' },
+        { name: 'Pingüino', emoji: '🐧', bg: '#37474F', border: '#1A237E' },
+        { name: 'Canguro', emoji: '🦘', bg: '#A1887F', border: '#4E342E' },
+        { name: 'Koala', emoji: '🐨', bg: '#BCAAA4', border: '#5D4037' },
+        { name: 'Mapache', emoji: '🦝', bg: '#8D6E63', border: '#3E2723' },
+        { name: 'Erizo', emoji: '🦔', bg: '#A1887F', border: '#4E342E' },
+        { name: 'Caracol', emoji: '🐌', bg: '#FFAB91', border: '#BF360C' },
+        { name: 'Mariquita', emoji: '🐞', bg: '#EF5350', border: '#B71C1C' },
+        { name: 'Camaleón', emoji: '🦎', bg: '#AED581', border: '#33691E' },
+      ]
+
+      // ===== CONFIG NIVELES =====
+      const TOTAL_LEVELS = 40
+
+      function getLevelConfig(level) {
+        let cols, rows, pairs
+        if (level <= 8) {
+          cols = 4
+          rows = 4
+          pairs = 8
+        } else if (level <= 16) {
+          cols = 6
+          rows = 4
+          pairs = 12
+        } else if (level <= 24) {
+          cols = 6
+          rows = 6
+          pairs = 18
+        } else if (level <= 32) {
+          cols = 8
+          rows = 6
+          pairs = 24
+        } else {
+          cols = 8
+          rows = 8
+          pairs = 32
+        }
+        return { cols, rows, pairs }
+      }
+
+      // ===== AUDIO =====
+      let audioCtx = null
+
+      function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        if (audioCtx.state === 'suspended') audioCtx.resume()
+      }
+
+      function playTone(freq, dur, type = 'sine', vol = 0.08) {
+        try {
+          initAudio()
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          osc.connect(gain)
+          gain.connect(audioCtx.destination)
+          osc.type = type
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime)
+          gain.gain.setValueAtTime(vol, audioCtx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+          osc.start(audioCtx.currentTime)
+          osc.stop(audioCtx.currentTime + dur)
+        } catch (e) {}
+      }
+
+      function playSequence(notes, dur, type) {
+        notes.forEach((freq, i) => {
+          setTimeout(() => playTone(freq, dur, type), i * (dur * 800))
+        })
+      }
+
+      function playFlip() {
+        playTone(500, 0.1, 'sine', 0.06)
+      }
+      function playMatch() {
+        playSequence([523, 659, 784], 0.15, 'sine')
+      }
+      function playError() {
+        playSequence([300, 200], 0.2, 'sawtooth')
+      }
+      function playLevelUp() {
+        playSequence([523, 659, 784, 1047], 0.2, 'sine')
+      }
+      function playVictory() {
+        playSequence([523, 587, 659, 784, 880, 988, 1047], 0.25, 'sine')
+      }
+
+      // ===== DRAWING =====
+      function drawAnimalOnCanvas(canvas, animal) {
+        const size = Math.min(canvas.width, canvas.height)
+        const ctx = canvas.getContext('2d')
+        ctx.clearRect(0, 0, canvas.width, canvas.height)
+        const cx = canvas.width / 2,
+          cy = canvas.height / 2
+        const r = size * 0.38
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, 0, Math.PI * 2)
+        ctx.fillStyle = animal.bg
+        ctx.fill()
+        ctx.strokeStyle = animal.border
+        ctx.lineWidth = Math.max(1, size * 0.025)
+        ctx.stroke()
+        ctx.font = `${size * 0.48}px serif`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText(animal.emoji, cx, cy + size * 0.02)
+      }
+
+      function drawPawOnCanvas(canvas) {
+        const ctx = canvas.getContext('2d')
+        const w = canvas.width,
+          h = canvas.height
+        ctx.clearRect(0, 0, w, h)
+        const padX = w * 0.5,
+          padY = h * 0.62
+        const padW = w * 0.26,
+          padH = h * 0.16
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.ellipse(padX, padY, padW, padH, 0, 0, Math.PI * 2)
+        ctx.fill()
+        const toes = [
+          [w * 0.32, h * 0.27],
+          [w * 0.46, h * 0.16],
+          [w * 0.58, h * 0.16],
+          [w * 0.72, h * 0.28],
+        ]
+        ctx.fillStyle = '#5D4037'
+        toes.forEach(([x, y]) => {
+          ctx.beginPath()
+          ctx.ellipse(x, y, w * 0.09, h * 0.07, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        ctx.fillStyle = '#4E342E'
+        ctx.beginPath()
+        ctx.ellipse(padX - w * 0.05, padY - h * 0.07, w * 0.06, h * 0.04, -0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(padX + w * 0.05, padY - h * 0.07, w * 0.06, h * 0.04, 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8D6E63'
+        ctx.beginPath()
+        ctx.arc(w * 0.85, h * 0.88, w * 0.04, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(w * 0.15, h * 0.88, w * 0.035, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      // ===== GAME STATE =====
+      let state = {
+        level: 1,
+        moves: 0,
+        cards: [],
+        flipped: [],
+        locked: false,
+        matchedCount: 0,
+        totalPairs: 0,
+        isPlaying: false,
+      }
+
+      // ===== DOM REFS =====
+      const startScreen = document.getElementById('startScreen')
+      const gameScreen = document.getElementById('gameScreen')
+      const victoryScreen = document.getElementById('victoryScreen')
+      const board = document.getElementById('board')
+      const levelDisplay = document.getElementById('levelDisplay')
+      const moveCount = document.getElementById('moveCount')
+      const levelModal = document.getElementById('levelModal')
+      const levelTitle = document.getElementById('levelTitle')
+      const levelMsg = document.getElementById('levelMsg')
+      const nextBtn = document.getElementById('nextBtn')
+      const continueBtn = document.getElementById('continueBtn')
+      const statsInfo = document.getElementById('statsInfo')
+
+      // ===== LOCAL STORAGE =====
+      const STORAGE_KEY = 'grizzy_memory'
+
+      function saveProgress() {
+        try {
+          const data = { level: state.level, highest: getHighestLevel() }
+          if (state.level > data.highest) data.highest = state.level
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        } catch (e) {}
+      }
+
+      function loadProgress() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY)
+          return raw ? JSON.parse(raw) : null
+        } catch (e) {
+          return null
+        }
+      }
+
+      function getHighestLevel() {
+        const data = loadProgress()
+        return data ? data.highest : 0
+      }
+
+      // ===== SHOW SCREEN =====
+      function showScreen(screen) {
+        ;[startScreen, gameScreen, victoryScreen].forEach((s) => s.classList.remove('active'))
+        screen.classList.add('active')
+      }
+
+      // ===== START / CONTINUE =====
+      function startGame(level) {
+        state.level = level
+        state.isPlaying = true
+        showScreen(gameScreen)
+        initLevel()
+      }
+
+      function continueGame() {
+        const data = loadProgress()
+        if (data && data.level && data.level <= TOTAL_LEVELS) {
+          startGame(data.level)
+        } else {
+          startGame(1)
+        }
+      }
+
+      function confirmRestart() {
+        if (confirm('¿Reiniciar el nivel actual?')) {
+          state.moves = 0
+          state.flipped = []
+          state.locked = false
+          state.matchedCount = 0
+          initLevel()
+        }
+      }
+
+      // ===== LEVEL SETUP =====
+      function initLevel() {
+        const config = getLevelConfig(state.level)
+        state.moves = 0
+        state.flipped = []
+        state.locked = false
+        state.matchedCount = 0
+        state.totalPairs = config.pairs
+        levelDisplay.textContent = state.level
+        moveCount.textContent = '0'
+
+        const animals = selectAnimals(config.pairs)
+        let deck = []
+        animals.forEach((a, i) => {
+          deck.push({ id: i, animal: a, flipped: false, matched: false })
+          deck.push({ id: i, animal: a, flipped: false, matched: false })
+        })
+        shuffle(deck)
+        state.cards = deck
+
+        renderBoard(config)
+        saveProgress()
+      }
+
+      function selectAnimals(count) {
+        const shuffled = [...ANIMALS]
+        shuffle(shuffled)
+        if (count <= shuffled.length) return shuffled.slice(0, count)
+        const result = []
+        while (result.length < count) {
+          const temp = [...ANIMALS]
+          shuffle(temp)
+          for (const a of temp) {
+            if (result.length >= count) break
+            result.push(a)
+          }
+        }
+        return result
+      }
+
+      function shuffle(arr) {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[arr[i], arr[j]] = [arr[j], arr[i]]
+        }
+      }
+
+      // ===== RENDER =====
+      function renderBoard(config) {
+        board.innerHTML = ''
+        board.style.gridTemplateColumns = `repeat(${config.cols}, 1fr)`
+
+        const vw = window.innerWidth
+        const vh = window.innerHeight
+        const topBarH = 10
+        const gapTotal = (config.cols + config.rows) * 1
+        const availW = vw * 0.92
+        const availH = vh * 0.88 - topBarH
+        const cardSize = Math.floor(
+          Math.min(availW / config.cols - 1, availH / config.rows - 1, 14),
+        )
+
+        state.cards.forEach((card, index) => {
+          const cardEl = document.createElement('div')
+          cardEl.className = 'card'
+          cardEl.dataset.index = index
+          cardEl.style.width = cardSize + 'vmin'
+          cardEl.style.height = cardSize + 'vmin'
+
+          const inner = document.createElement('div')
+          inner.className = 'card-inner'
+
+          const front = document.createElement('div')
+          front.className = 'card-front'
+          const frontCanvas = document.createElement('canvas')
+          frontCanvas.width = 120
+          frontCanvas.height = 120
+          drawAnimalOnCanvas(frontCanvas, card.animal)
+          front.appendChild(frontCanvas)
+
+          const back = document.createElement('div')
+          back.className = 'card-back'
+          const backCanvas = document.createElement('canvas')
+          backCanvas.width = 120
+          backCanvas.height = 120
+          drawPawOnCanvas(backCanvas)
+          back.appendChild(backCanvas)
+
+          inner.appendChild(front)
+          inner.appendChild(back)
+          cardEl.appendChild(inner)
+          cardEl.addEventListener('click', () => onCardClick(index))
+          board.appendChild(cardEl)
+        })
+      }
+
+      // ===== GAME LOGIC =====
+      function onCardClick(index) {
+        if (state.locked) return
+        const card = state.cards[index]
+        if (card.flipped || card.matched) return
+        if (state.flipped.length >= 2) return
+
+        initAudio()
+        card.flipped = true
+        state.flipped.push(index)
+        const cardEl = board.children[index]
+        cardEl.classList.add('flipped')
+        playFlip()
+
+        if (state.flipped.length === 2) {
+          state.moves++
+          moveCount.textContent = state.moves
+          checkMatch()
+        }
+      }
+
+      function checkMatch() {
+        state.locked = true
+        const [i1, i2] = state.flipped
+        const c1 = state.cards[i1]
+        const c2 = state.cards[i2]
+
+        if (c1.id === c2.id) {
+          setTimeout(() => {
+            c1.matched = true
+            c2.matched = true
+            state.matchedCount += 2
+            const el1 = board.children[i1]
+            const el2 = board.children[i2]
+            el1.classList.add('matched')
+            el2.classList.add('matched')
+            spawnStars(el1)
+            spawnStars(el2)
+            playMatch()
+            state.flipped = []
+            state.locked = false
+            if (state.matchedCount === state.cards.length) {
+              setTimeout(onLevelComplete, 600)
+            }
+          }, 400)
+        } else {
+          setTimeout(() => {
+            c1.flipped = false
+            c2.flipped = false
+            board.children[i1].classList.remove('flipped')
+            board.children[i2].classList.remove('flipped')
+            state.flipped = []
+            state.locked = false
+          }, 900)
+          playError()
+        }
+      }
+
+      // ===== STARS =====
+      function spawnStars(el) {
+        const rect = el.getBoundingClientRect()
+        const cx = rect.left + rect.width / 2
+        const cy = rect.top + rect.height / 2
+        const emojis = ['⭐', '✨', '🌟', '💫']
+        for (let i = 0; i < 8; i++) {
+          const star = document.createElement('div')
+          star.className = 'star'
+          star.textContent = emojis[Math.floor(Math.random() * emojis.length)]
+          const angle = Math.random() * Math.PI * 2
+          const dist = 4 + Math.random() * 8
+          star.style.setProperty('--tx', Math.cos(angle) * dist + 'vmin')
+          star.style.setProperty('--ty', Math.sin(angle) * dist + 'vmin')
+          star.style.left = cx + 'px'
+          star.style.top = cy + 'px'
+          star.style.fontSize = 2 + Math.random() * 2 + 'vmin'
+          document.body.appendChild(star)
+          setTimeout(() => star.remove(), 800)
+        }
+      }
+
+      // ===== LEVEL COMPLETE =====
+      function onLevelComplete() {
+        playLevelUp()
+        if (state.level >= TOTAL_LEVELS) {
+          onVictory()
+          return
+        }
+        levelTitle.textContent = '⭐ ¡NIVEL ' + state.level + ' COMPLETO!'
+        levelMsg.textContent = 'Preparando nivel ' + (state.level + 1) + '...'
+        levelModal.classList.add('active')
+      }
+
+      function nextLevel() {
+        levelModal.classList.remove('active')
+        state.level++
+        state.moves = 0
+        state.flipped = []
+        state.locked = false
+        state.matchedCount = 0
+        initLevel()
+      }
+
+      function onVictory() {
+        levelModal.classList.remove('active')
+        playVictory()
+        showScreen(victoryScreen)
+        spawnConfetti()
+        try {
+          const data = { level: TOTAL_LEVELS, highest: TOTAL_LEVELS }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        } catch (e) {}
+      }
+
+      // ===== CONFETTI =====
+      function spawnConfetti() {
+        const colors = ['#FF9800', '#FFD700', '#FF5252', '#4CAF50', '#2196F3', '#E040FB', '#FF4081']
+        for (let i = 0; i < 80; i++) {
+          setTimeout(() => {
+            const el = document.createElement('div')
+            el.className = 'confetti'
+            el.style.left = Math.random() * 100 + 'vw'
+            el.style.top = '-5vh'
+            el.style.background = colors[Math.floor(Math.random() * colors.length)]
+            el.style.width = 1 + Math.random() * 2 + 'vmin'
+            el.style.height = 1 + Math.random() * 2 + 'vmin'
+            el.style.borderRadius = Math.random() > 0.5 ? '50%' : '0.2vmin'
+            el.style.animationDuration = 2 + Math.random() * 3 + 's'
+            el.style.animationDelay = '0s'
+            document.body.appendChild(el)
+            setTimeout(() => el.remove(), 5000)
+          }, i * 40)
+        }
+      }
+
+      // ===== STARS ANIMATION (background) =====
+      ;(function createBgStars() {
+        const container = document.body
+        for (let i = 0; i < 15; i++) {
+          const star = document.createElement('div')
+          star.textContent = '✨'
+          star.style.position = 'fixed'
+          star.style.pointerEvents = 'none'
+          star.style.zIndex = '0'
+          star.style.opacity = '0.08'
+          star.style.fontSize = 2 + Math.random() * 3 + 'vmin'
+          star.style.left = Math.random() * 100 + 'vw'
+          star.style.top = Math.random() * 100 + 'vh'
+          star.style.animation = `leafFloat ${10 + Math.random() * 20}s ease-in-out infinite`
+          star.style.animationDelay = Math.random() * 10 + 's'
+          container.appendChild(star)
+        }
+      })()
+
+      // ===== KEYBOARD =====
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (startScreen.classList.contains('active')) {
+            startGame(1)
+          } else if (victoryScreen.classList.contains('active')) {
+            startGame(1)
+          } else if (levelModal.classList.contains('active')) {
+            nextLevel()
+          }
+        }
+      })
+
+      // ===== INIT =====
+      ;(function init() {
+        const data = loadProgress()
+        if (data && data.highest && data.highest > 0) {
+          continueBtn.style.display = 'inline-block'
+          statsInfo.innerHTML =
+            '🐻 Progreso: nivel <span>' +
+            Math.min(data.highest, TOTAL_LEVELS) +
+            '</span>/' +
+            TOTAL_LEVELS
+        } else {
+          statsInfo.textContent = '🐾 40 niveles de diversión animal'
+        }
+      })()
+    </script>
+  </body>
+</html>

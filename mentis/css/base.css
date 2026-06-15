@@ -1,0 +1,12 @@
+@import 'variables.css';
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-main);-webkit-font-smoothing:antialiased;touch-action:none;-webkit-user-select:none;user-select:none}
+a{color:var(--gold);text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit;background:none;color:inherit}
+input,textarea{font-family:inherit;outline:none;border:none}
+canvas{display:block}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--purple-dim);border-radius:2px}
+::selection{background:var(--purple);color:#fff}
+@font-face{font-family:'Segoe UI';src:local('Segoe UI'),local('-apple-system'),local('system-ui')}

@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+    <title>El Dragón Recolector - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        touch-action: none;
+      }
+      #wrapper {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(180deg, #1a1a2e, #16213e);
+      }
+      canvas {
+        display: block;
+        background: #87ceeb;
+        image-rendering: pixelated;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        cursor: pointer;
+      }
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #startScreen,
+      #gameOverScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        pointer-events: auto;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        color: #fff;
+        text-align: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.7);
+      }
+      #startScreen h1 {
+        font-size: clamp(28px, 6vw, 64px);
+        color: #ffc107;
+        text-shadow:
+          3px 3px 0 #e65100,
+          0 0 20px rgba(255, 193, 7, 0.5);
+        margin-bottom: 8px;
+      }
+      #startScreen .subtitle {
+        font-size: clamp(14px, 2.5vw, 28px);
+        color: #81c784;
+        margin-bottom: 20px;
+      }
+      #startScreen .controls {
+        font-size: clamp(12px, 2vw, 18px);
+        color: #b0bec5;
+        margin-bottom: 24px;
+        line-height: 1.6;
+      }
+      #startScreen .controls span {
+        display: inline-block;
+        background: #37474f;
+        padding: 2px 12px;
+        border-radius: 4px;
+        margin: 2px;
+        font-weight: 700;
+        color: #ffc107;
+      }
+      #startBtn,
+      #restartBtn {
+        pointer-events: auto;
+        padding: 14px 48px;
+        font-size: clamp(18px, 3vw, 32px);
+        font-weight: 700;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        background: linear-gradient(180deg, #ffc107, #ff8f00);
+        color: #3e2723;
+        box-shadow:
+          0 6px 0 #e65100,
+          0 8px 24px rgba(255, 193, 7, 0.4);
+        transition: all 0.1s;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+      }
+      #startBtn:active,
+      #restartBtn:active {
+        transform: translateY(6px);
+        box-shadow: 0 2px 0 #e65100;
+      }
+      #startBtn:hover,
+      #restartBtn:hover {
+        filter: brightness(1.1);
+      }
+      #gameOverScreen .title {
+        font-size: clamp(32px, 6vw, 64px);
+        color: #ef5350;
+        text-shadow: 3px 3px 0 #b71c1c;
+        margin-bottom: 8px;
+      }
+      #gameOverScreen .score {
+        font-size: clamp(20px, 3.5vw, 36px);
+        color: #ffc107;
+        margin-bottom: 4px;
+      }
+      #gameOverScreen .best {
+        font-size: clamp(14px, 2vw, 24px);
+        color: #81c784;
+        margin-bottom: 20px;
+      }
+      #gameOverScreen .newbest {
+        color: #ffd54f;
+        font-weight: 700;
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+      .hidden {
+        display: none !important;
+      }
+      #levelDisplay {
+        position: absolute;
+        top: 12px;
+        right: 18px;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: clamp(14px, 2vw, 22px);
+        color: #fff;
+        text-shadow: 2px 2px 0 #333;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 4px 12px;
+        border-radius: 8px;
+        z-index: 10;
+      }
+      #scoreDisplay {
+        position: absolute;
+        top: 12px;
+        left: 18px;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: clamp(14px, 2vw, 22px);
+        color: #ffc107;
+        text-shadow: 2px 2px 0 #333;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.4);
+        padding: 4px 12px;
+        border-radius: 8px;
+        z-index: 10;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <canvas id="gameCanvas" width="600" height="300"></canvas>
+      <div id="levelDisplay">Nivel 1</div>
+      <div id="scoreDisplay">Puntos: 0</div>
+      <div id="startScreen">
+        <h1>🐻 EL DRAGÓN RECOLECTOR</h1>
+        <div class="subtitle">★ Grizzy &amp; the Lemmings ★</div>
+        <div class="controls">
+          <span>&uarr;</span> <span>W</span> Subir &nbsp;|&nbsp; <span>&darr;</span>
+          <span>S</span> Bajar<br />
+          Recoge gemas &bull; Evita nubes y montañas
+        </div>
+        <button id="startBtn">¡JUGAR!</button>
+      </div>
+      <div id="gameOverScreen" class="hidden">
+        <div class="title">GAME OVER</div>
+        <div class="score" id="finalScore">Puntos: 0</div>
+        <div class="best" id="bestScore">Récord: 0</div>
+        <div id="newBestLabel" class="newbest hidden">¡NUEVO RÉCORD!</div>
+        <button id="restartBtn">REINICIAR</button>
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const W = 600,
+        H = 300
+      const startScreen = document.getElementById('startScreen')
+      const gameOverScreen = document.getElementById('gameOverScreen')
+      const finalScoreEl = document.getElementById('finalScore')
+      const bestScoreEl = document.getElementById('bestScore')
+      const newBestLabel = document.getElementById('newBestLabel')
+      const scoreDisplay = document.getElementById('scoreDisplay')
+      const levelDisplay = document.getElementById('levelDisplay')
+
+      function resizeCanvas() {
+        const wrapper = document.getElementById('wrapper')
+        const rw = wrapper.clientWidth,
+          rh = wrapper.clientHeight
+        const scale = Math.min(rw / W, rh / H)
+        const dw = W * scale,
+          dh = H * scale
+        canvas.style.width = dw + 'px'
+        canvas.style.height = dh + 'px'
+      }
+      window.addEventListener('resize', resizeCanvas)
+
+      // Audio
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+      function playSound(type) {
+        try {
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          osc.connect(gain)
+          gain.connect(audioCtx.destination)
+          const t = audioCtx.currentTime
+          if (type === 'gem') {
+            osc.frequency.setValueAtTime(880, t)
+            osc.frequency.exponentialRampToValueAtTime(1760, t + 0.1)
+            gain.gain.setValueAtTime(0.15, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15)
+            osc.start(t)
+            osc.stop(t + 0.15)
+          } else if (type === 'red') {
+            osc.frequency.setValueAtTime(660, t)
+            osc.frequency.exponentialRampToValueAtTime(1320, t + 0.08)
+            gain.gain.setValueAtTime(0.18, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2)
+            osc.start(t)
+            osc.stop(t + 0.2)
+          } else if (type === 'gold') {
+            osc.frequency.setValueAtTime(523, t)
+            osc.frequency.exponentialRampToValueAtTime(1047, t + 0.06)
+            osc.frequency.setValueAtTime(1047, t + 0.06)
+            osc.frequency.exponentialRampToValueAtTime(2093, t + 0.12)
+            gain.gain.setValueAtTime(0.2, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3)
+            osc.start(t)
+            osc.stop(t + 0.3)
+          } else if (type === 'cloud') {
+            osc.type = 'sawtooth'
+            osc.frequency.setValueAtTime(200, t)
+            osc.frequency.exponentialRampToValueAtTime(60, t + 0.2)
+            gain.gain.setValueAtTime(0.12, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.25)
+            osc.start(t)
+            osc.stop(t + 0.25)
+          } else if (type === 'crash') {
+            osc.type = 'square'
+            osc.frequency.setValueAtTime(150, t)
+            osc.frequency.exponentialRampToValueAtTime(30, t + 0.3)
+            gain.gain.setValueAtTime(0.25, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35)
+            osc.start(t)
+            osc.stop(t + 0.35)
+          } else if (type === 'gameover') {
+            osc.type = 'sawtooth'
+            osc.frequency.setValueAtTime(400, t)
+            osc.frequency.exponentialRampToValueAtTime(80, t + 0.8)
+            gain.gain.setValueAtTime(0.2, t)
+            gain.gain.exponentialRampToValueAtTime(0.001, t + 1)
+            osc.start(t)
+            osc.stop(t + 1)
+          }
+        } catch (e) {}
+      }
+
+      // Game State
+      let game = {
+        running: false,
+        over: false,
+        paused: false,
+        score: 0,
+        dist: 0,
+        level: 1,
+        maxLevel: 40,
+        speed: 2,
+        baseSpeed: 2,
+        player: null,
+        gems: [],
+        clouds: [],
+        mountains: [],
+        particles: [],
+        bgTowns: [],
+        frame: 0,
+        scrollX: 0,
+        best: parseInt(localStorage.getItem('grizzy_dragon_best') || '0'),
+      }
+
+      class Player {
+        constructor() {
+          this.x = 80
+          this.y = 150
+          this.w = 28
+          this.h = 28
+          this.vy = 0
+          this.targetY = 150
+          this.flapTimer = 0
+          this.flapFrame = 0
+          this.fireTimer = 0
+          this.fireActive = false
+          this.breathTimer = 0
+        }
+        update() {
+          this.vy *= 0.85
+          this.vy += (this.targetY - this.y) * 0.08
+          this.y += this.vy
+          this.y = Math.max(20, Math.min(H - 30, this.y))
+          this.flapTimer++
+          if (this.flapTimer > 6) {
+            this.flapTimer = 0
+            this.flapFrame = (this.flapFrame + 1) % 2
+          }
+          if (this.fireTimer > 0) this.fireTimer--
+          this.fireActive = this.fireTimer > 0
+          if (Math.random() < 0.005 && !this.fireActive) {
+            this.fireActive = true
+            this.fireTimer = 40
+          }
+          this.breathTimer++
+        }
+        draw(ctx) {
+          const x = this.x,
+            y = this.y,
+            wingUp = this.flapFrame === 0
+          // Body (bear)
+          ctx.fillStyle = '#8D6E63'
+          ctx.beginPath()
+          ctx.ellipse(x, y, 13, 11, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Belly
+          ctx.fillStyle = '#A1887F'
+          ctx.beginPath()
+          ctx.ellipse(x + 2, y + 2, 8, 7, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Head
+          ctx.fillStyle = '#8D6E63'
+          ctx.beginPath()
+          ctx.arc(x + 17, y - 4, 9, 0, Math.PI * 2)
+          ctx.fill()
+          // Ears
+          ctx.fillStyle = '#6D4C41'
+          ctx.beginPath()
+          ctx.arc(x + 12, y - 12, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + 22, y - 12, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#A1887F'
+          ctx.beginPath()
+          ctx.arc(x + 12, y - 12, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + 22, y - 12, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          // Eyes
+          ctx.fillStyle = '#333'
+          ctx.beginPath()
+          ctx.arc(x + 20, y - 6, 2.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + 15, y - 5, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // Nose
+          ctx.fillStyle = '#4E342E'
+          ctx.beginPath()
+          ctx.arc(x + 20, y - 2, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // Mouth
+          ctx.beginPath()
+          ctx.moveTo(x + 18, y)
+          ctx.lineTo(x + 22, y)
+          ctx.strokeStyle = '#4E342E'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          // Wings (dragon)
+          ctx.fillStyle = '#4CAF50'
+          ctx.strokeStyle = '#2E7D32'
+          ctx.lineWidth = 1.5
+          if (wingUp) {
+            ctx.beginPath()
+            ctx.moveTo(x - 4, y - 2)
+            ctx.lineTo(x - 20, y - 18)
+            ctx.lineTo(x - 14, y - 5)
+            ctx.lineTo(x - 26, y - 16)
+            ctx.lineTo(x - 16, y - 2)
+            ctx.lineTo(x - 28, y - 8)
+            ctx.lineTo(x - 12, y + 2)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+          } else {
+            ctx.beginPath()
+            ctx.moveTo(x - 4, y + 2)
+            ctx.lineTo(x - 22, y + 18)
+            ctx.lineTo(x - 14, y + 6)
+            ctx.lineTo(x - 28, y + 16)
+            ctx.lineTo(x - 16, y + 4)
+            ctx.lineTo(x - 30, y + 10)
+            ctx.lineTo(x - 12, y - 1)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+          }
+          // Scales
+          ctx.fillStyle = '#66BB6A'
+          ctx.strokeStyle = '#388E3C'
+          ctx.lineWidth = 0.8
+          for (let i = 0; i < 5; i++) {
+            const sx = x - 2 - i * 4 + Math.sin(this.breathTimer * 0.05 + i) * 1.5
+            const sy = y - 5 + Math.sin(i * 1.2) * 3
+            ctx.beginPath()
+            ctx.moveTo(sx, sy - 3)
+            ctx.lineTo(sx - 3, sy)
+            ctx.lineTo(sx, sy + 3)
+            ctx.lineTo(sx + 3, sy)
+            ctx.closePath()
+            ctx.fill()
+            ctx.stroke()
+          }
+          // Tail
+          ctx.strokeStyle = '#4CAF50'
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.moveTo(x - 12, y + 2)
+          const tx = x - 18 + Math.sin(game.frame * 0.08) * 2
+          const ty = y + 8 + Math.sin(game.frame * 0.1) * 2
+          ctx.quadraticCurveTo(x - 22, y + 10, tx, ty)
+          ctx.stroke()
+          ctx.fillStyle = '#4CAF50'
+          ctx.beginPath()
+          ctx.moveTo(tx - 4, ty - 2)
+          ctx.lineTo(tx + 4, ty + 4)
+          ctx.lineTo(tx + 2, ty - 4)
+          ctx.closePath()
+          ctx.fill()
+          // Fire breath
+          if (this.fireActive || this.fireTimer > 0) {
+            const fr = Math.random() * 8 + 6
+            const fg = Math.random() * 8 + 8
+            ctx.fillStyle = `rgba(255,${(100 + Math.random() * 80) | 0},0,${0.6 + Math.random() * 0.3})`
+            ctx.beginPath()
+            ctx.moveTo(x + 26, y - 4)
+            ctx.quadraticCurveTo(
+              x + 40 + Math.random() * 10,
+              y - 10 - Math.random() * 8,
+              x + 48 + Math.random() * 12,
+              y - 4 + Math.random() * 6,
+            )
+            ctx.quadraticCurveTo(
+              x + 40 + Math.random() * 10,
+              y + 6 + Math.random() * 6,
+              x + 26,
+              y + 2,
+            )
+            ctx.fill()
+            ctx.fillStyle = `rgba(255,255,${(100 + Math.random() * 80) | 0},${0.3 + Math.random() * 0.2})`
+            ctx.beginPath()
+            ctx.moveTo(x + 26, y - 2)
+            ctx.quadraticCurveTo(
+              x + 36 + Math.random() * 8,
+              y - 6 - Math.random() * 6,
+              x + 42 + Math.random() * 10,
+              y,
+            )
+            ctx.quadraticCurveTo(
+              x + 36 + Math.random() * 8,
+              y + 4 + Math.random() * 4,
+              x + 26,
+              y + 1,
+            )
+            ctx.fill()
+          }
+        }
+      }
+
+      class Gem {
+        constructor() {
+          this.x = W + 20 + Math.random() * 80
+          this.y = 30 + Math.random() * (H - 80)
+          this.type = Math.random() < 0.5 ? 'blue' : Math.random() < 0.5 ? 'red' : 'gold'
+          this.size = this.type === 'gold' ? 9 : 7
+          this.collected = false
+          this.sparkle = Math.random() * 100
+        }
+        update(speed) {
+          this.x -= speed
+          this.sparkle++
+        }
+        draw(ctx) {
+          if (this.collected) return
+          ctx.save()
+          const cx = this.x,
+            cy = this.y,
+            s = this.size
+          const shimmer = Math.sin(this.sparkle * 0.08) * 0.3 + 0.7
+          ctx.shadowBlur = 10
+          if (this.type === 'blue') {
+            ctx.fillStyle = '#2196F3'
+            ctx.shadowColor = '#2196F3'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s)
+            ctx.lineTo(cx + s * 0.6, cy - s * 0.3)
+            ctx.lineTo(cx, cy + s * 0.4)
+            ctx.lineTo(cx - s * 0.6, cy - s * 0.3)
+            ctx.closePath()
+            ctx.fill()
+            ctx.fillStyle = '#64B5F6'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s * 0.8)
+            ctx.lineTo(cx + s * 0.35, cy - s * 0.25)
+            ctx.lineTo(cx, cy + s * 0.2)
+            ctx.lineTo(cx - s * 0.35, cy - s * 0.25)
+            ctx.closePath()
+            ctx.fill()
+          } else if (this.type === 'red') {
+            ctx.fillStyle = '#F44336'
+            ctx.shadowColor = '#F44336'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s)
+            ctx.lineTo(cx + s * 0.6, cy - s * 0.3)
+            ctx.lineTo(cx, cy + s * 0.4)
+            ctx.lineTo(cx - s * 0.6, cy - s * 0.3)
+            ctx.closePath()
+            ctx.fill()
+            ctx.fillStyle = '#EF9A9A'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s * 0.8)
+            ctx.lineTo(cx + s * 0.35, cy - s * 0.25)
+            ctx.lineTo(cx, cy + s * 0.2)
+            ctx.lineTo(cx - s * 0.35, cy - s * 0.25)
+            ctx.closePath()
+            ctx.fill()
+          } else {
+            ctx.fillStyle = '#FFD700'
+            ctx.shadowColor = '#FFD700'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s)
+            ctx.lineTo(cx + s * 0.7, cy - s * 0.3)
+            ctx.lineTo(cx, cy + s * 0.5)
+            ctx.lineTo(cx - s * 0.7, cy - s * 0.3)
+            ctx.closePath()
+            ctx.fill()
+            ctx.fillStyle = '#FFF176'
+            ctx.beginPath()
+            ctx.moveTo(cx, cy - s * 0.8)
+            ctx.lineTo(cx + s * 0.4, cy - s * 0.25)
+            ctx.lineTo(cx, cy + s * 0.3)
+            ctx.lineTo(cx - s * 0.4, cy - s * 0.25)
+            ctx.closePath()
+            ctx.fill()
+          }
+          // Shine
+          ctx.shadowBlur = 0
+          ctx.fillStyle = `rgba(255,255,255,${shimmer * 0.5})`
+          ctx.beginPath()
+          ctx.arc(cx - s * 0.2, cy - s * 0.3, 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
+      class Cloud {
+        constructor() {
+          this.x = W + 20 + Math.random() * 100
+          this.y = 20 + Math.random() * (H - 60)
+          this.w = 30 + Math.random() * 20
+          this.h = 16 + Math.random() * 8
+          this.speed = game.speed * 0.2 + 0.1
+          this.lemmingsFace = true
+          this.eyeTimer = 0
+        }
+        update() {
+          this.x -= this.speed + game.speed * 0.3
+          this.eyeTimer++
+        }
+        draw(ctx) {
+          const x = this.x,
+            y = this.y,
+            w = this.w,
+            h = this.h
+          ctx.fillStyle = '#555'
+          ctx.shadowBlur = 8
+          ctx.shadowColor = 'rgba(0,0,0,0.3)'
+          ctx.beginPath()
+          ctx.ellipse(x, y, h * 0.7, h, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x - w * 0.3, y - h * 0.1, h * 0.8, h * 0.7, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x + w * 0.3, y - h * 0.1, h * 0.8, h * 0.7, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x - w * 0.1, y - h * 0.3, h * 0.6, h * 0.6, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          // Lemming face
+          ctx.fillStyle = '#333'
+          ctx.beginPath()
+          ctx.arc(x - w * 0.15, y - h * 0.05, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + w * 0.15, y - h * 0.05, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FF8F00'
+          ctx.beginPath()
+          ctx.ellipse(x, y + h * 0.12, 3, 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Angry eyebrows
+          ctx.strokeStyle = '#333'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(x - w * 0.28, y - h * 0.22)
+          ctx.lineTo(x - w * 0.08, y - h * 0.16)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(x + w * 0.28, y - h * 0.22)
+          ctx.lineTo(x + w * 0.08, y - h * 0.16)
+          ctx.stroke()
+          // Eyes blink
+          if (this.eyeTimer % 120 < 8) {
+            ctx.fillStyle = '#555'
+            ctx.fillRect(x - w * 0.22, y - h * 0.08, 6, 2)
+            ctx.fillRect(x + w * 0.08, y - h * 0.08, 6, 2)
+          }
+        }
+        getBounds() {
+          return {
+            x: this.x - this.w * 0.7,
+            y: this.y - this.h * 0.6,
+            w: this.w * 1.4,
+            h: this.h * 1.2,
+          }
+        }
+      }
+
+      class Mountain {
+        constructor(fromTop) {
+          this.fromTop = fromTop
+          this.x = W + 10 + Math.random() * 60
+          this.w = 25 + Math.random() * 35
+          this.h = 30 + Math.random() * 50
+          if (fromTop) this.y = 0
+          else this.y = H - this.h
+          this.points = []
+          const segments = (3 + Math.random() * 3) | 0
+          for (let i = 0; i <= segments; i++) {
+            const px = this.x - this.w / 2 + i * (this.w / segments)
+            const py = fromTop
+              ? this.y + this.h * (1 - (i % 2 === 0 ? 0.2 : 0.5 + Math.random() * 0.3))
+              : this.y + this.h * (i % 2 === 0 ? 0.8 : 0.2 + Math.random() * 0.3)
+            this.points.push({ x: px, y: py })
+          }
+        }
+        update(speed) {
+          this.x -= speed
+          for (let p of this.points) p.x -= speed
+        }
+        draw(ctx) {
+          const isTop = this.fromTop
+          ctx.fillStyle = '#4CAF50'
+          ctx.strokeStyle = '#388E3C'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(this.x - this.w / 2, isTop ? this.y : this.y + this.h)
+          for (let p of this.points) ctx.lineTo(p.x, p.y)
+          ctx.lineTo(this.x + this.w / 2, isTop ? this.y : this.y + this.h)
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+          // Snow cap
+          ctx.fillStyle = '#E8F5E9'
+          ctx.beginPath()
+          const mid = this.points[Math.floor(this.points.length / 2)]
+          ctx.arc(mid.x, mid.y - 3, 4, 0, Math.PI * 2)
+          ctx.fill()
+          // Gray rock layer
+          ctx.fillStyle = '#78909C'
+          for (let i = 1; i < this.points.length - 1; i += 2) {
+            const p = this.points[i]
+            ctx.fillRect(p.x - 4, isTop ? this.y + this.h - 8 : p.y + this.h - 8, 8, 8)
+          }
+        }
+        getBounds() {
+          return {
+            x: this.x - this.w / 2,
+            y: this.fromTop ? this.y : this.y + this.h * 0.3,
+            w: this.w,
+            h: this.fromTop ? this.h * 0.7 : this.h * 0.7,
+          }
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color) {
+          this.x = x
+          this.y = y
+          this.vx = (Math.random() - 0.5) * 4
+          this.vy = (Math.random() - 0.5) * 4 - 2
+          this.life = 30 + Math.random() * 20
+          this.maxLife = this.life
+          this.color = color
+          this.size = 2 + Math.random() * 3
+        }
+        update() {
+          this.x += this.vx
+          this.y += this.vy
+          this.vy += 0.08
+          this.life--
+        }
+        draw(ctx) {
+          const alpha = this.life / this.maxLife
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = this.color
+          ctx.beginPath()
+          ctx.arc(this.x, this.y, this.size * alpha, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+      }
+
+      // Town decoration
+      function generateTowns() {
+        game.bgTowns = []
+        for (let i = 0; i < 8; i++) {
+          game.bgTowns.push({
+            x: i * 85 + 20,
+            y: H - 18 + Math.random() * 2 - 1,
+            w: 12 + Math.random() * 8,
+            h: 8 + Math.random() * 10,
+            color: ['#A1887F', '#BCAAA4', '#8D6E63', '#BDBDBD'][(Math.random() * 4) | 0],
+            roof: ['#D32F2F', '#C62828', '#B71C1C'][(Math.random() * 3) | 0],
+          })
+        }
+      }
+
+      function spawnGem() {
+        if (game.gems.length < 4 + game.level && Math.random() < 0.015) {
+          game.gems.push(new Gem())
+        }
+      }
+      function spawnCloud() {
+        if (game.clouds.length < 2 + Math.floor(game.level / 5) && Math.random() < 0.008) {
+          game.clouds.push(new Cloud())
+        }
+      }
+      function spawnMountain() {
+        if (game.mountains.length < 2 + Math.floor(game.level / 8) && Math.random() < 0.006) {
+          game.mountains.push(new Mountain(Math.random() < 0.5))
+        }
+      }
+
+      function drawBackground() {
+        // Sky gradient
+        const grd = ctx.createLinearGradient(0, 0, 0, H)
+        grd.addColorStop(0, '#4FC3F7')
+        grd.addColorStop(0.5, '#87CEEB')
+        grd.addColorStop(1, '#B3E5FC')
+        ctx.fillStyle = grd
+        ctx.fillRect(0, 0, W, H)
+        // Sun
+        ctx.fillStyle = '#FFC107'
+        ctx.shadowBlur = 30
+        ctx.shadowColor = '#FFC107'
+        ctx.beginPath()
+        ctx.arc(520, 40, 28, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFD54F'
+        ctx.shadowBlur = 0
+        ctx.beginPath()
+        ctx.arc(520, 40, 22, 0, Math.PI * 2)
+        ctx.fill()
+        // Sun rays
+        ctx.strokeStyle = 'rgba(255,193,7,0.2)'
+        ctx.lineWidth = 2
+        for (let i = 0; i < 12; i++) {
+          const a = (i * Math.PI) / 6 + game.frame * 0.003
+          ctx.beginPath()
+          ctx.moveTo(520 + Math.cos(a) * 32, 40 + Math.sin(a) * 32)
+          ctx.lineTo(520 + Math.cos(a) * 48, 40 + Math.sin(a) * 48)
+          ctx.stroke()
+        }
+        ctx.shadowBlur = 0
+        // Clouds (decorative)
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'
+        for (let i = 0; i < 4; i++) {
+          const cx = ((i * 180 + game.scrollX * 0.05) % (W + 100)) - 50
+          const cy = 15 + Math.sin(i * 2.5) * 12
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, 25, 10, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx - 15, cy + 3, 18, 8, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx + 18, cy + 5, 15, 7, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        // Ground
+        ctx.fillStyle = '#66BB6A'
+        ctx.fillRect(0, H - 10, W, 10)
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(0, H - 6, W, 6)
+        ctx.fillStyle = '#388E3C'
+        ctx.fillRect(0, H - 3, W, 3)
+        // Towns
+        for (let t of game.bgTowns) {
+          t.x -= game.speed * 0.5
+          if (t.x + t.w < 0) t.x = W + 20 + Math.random() * 40
+          ctx.fillStyle = t.color
+          ctx.fillRect(t.x, t.y - t.h, t.w, t.h)
+          ctx.fillStyle = t.roof
+          ctx.beginPath()
+          ctx.moveTo(t.x - 2, t.y - t.h)
+          ctx.lineTo(t.x + t.w / 2, t.y - t.h - 6)
+          ctx.lineTo(t.x + t.w + 2, t.y - t.h)
+          ctx.closePath()
+          ctx.fill()
+          // Windows
+          ctx.fillStyle = '#FFF9C4'
+          ctx.fillRect(t.x + 2, t.y - t.h + 2, 3, 3)
+          ctx.fillRect(t.x + t.w - 5, t.y - t.h + 2, 3, 3)
+        }
+      }
+
+      function checkCollisions() {
+        const p = game.player
+        // Gems
+        for (let i = game.gems.length - 1; i >= 0; i--) {
+          const g = game.gems[i]
+          if (g.collected) continue
+          const dx = p.x + 14 - g.x,
+            dy = p.y + 14 - g.y
+          if (Math.sqrt(dx * dx + dy * dy) < 18) {
+            g.collected = true
+            if (g.type === 'blue') {
+              game.score += 10
+              playSound('gem')
+            } else if (g.type === 'red') {
+              game.score += 20
+              playSound('red')
+            } else {
+              game.score += 30
+              playSound('gold')
+            }
+            // Particles
+            const colors = { blue: '#64B5F6', red: '#EF9A9A', gold: '#FFD700' }
+            for (let j = 0; j < 12; j++) game.particles.push(new Particle(g.x, g.y, colors[g.type]))
+            spawnGem() // immediate respawn
+          }
+        }
+        game.gems = game.gems.filter((g) => !g.collected)
+        // Clouds
+        for (let i = game.clouds.length - 1; i >= 0; i--) {
+          const c = game.clouds[i]
+          const b = c.getBounds()
+          if (p.x + 14 > b.x && p.x + 14 < b.x + b.w && p.y + 14 > b.y && p.y + 14 < b.y + b.h) {
+            playSound('cloud')
+            game.speed = Math.max(1, game.speed - 0.8)
+            for (let j = 0; j < 8; j++) game.particles.push(new Particle(p.x, p.y, '#666'))
+            game.clouds.splice(i, 1)
+            p.fireTimer = Math.max(p.fireTimer, 15)
+          }
+        }
+        // Mountains
+        for (let i = game.mountains.length - 1; i >= 0; i--) {
+          const m = game.mountains[i]
+          const b = m.getBounds()
+          if (p.x + 14 > b.x && p.x + 14 < b.x + b.w && p.y + 14 > b.y && p.y + 14 < b.y + b.h) {
+            playSound('crash')
+            game.over = true
+            game.running = false
+            endGame()
+            return
+          }
+        }
+      }
+
+      function update() {
+        if (!game.running || game.over || game.paused) return
+        game.frame++
+        game.scrollX += game.speed
+        game.dist += game.speed
+        game.score += Math.floor(game.speed * 0.02)
+        // Level progression
+        const newLevel = Math.min(game.maxLevel, Math.floor(game.dist / 500) + 1)
+        if (newLevel !== game.level) {
+          game.level = newLevel
+          levelDisplay.textContent = 'Nivel ' + game.level
+        }
+        game.speed = game.baseSpeed + game.level * 0.12 + Math.sin(game.frame * 0.001) * 0.1
+        // Screen shake
+        // Player
+        game.player.update()
+        // Spawn
+        spawnGem()
+        spawnCloud()
+        spawnMountain()
+        // Update entities
+        for (let g of game.gems) g.update(game.speed)
+        for (let c of game.clouds) c.update()
+        for (let m of game.mountains) m.update(game.speed)
+        for (let p of game.particles) p.update()
+        game.particles = game.particles.filter((p) => p.life > 0)
+        // Remove off-screen
+        game.gems = game.gems.filter((g) => g.x > -20)
+        game.clouds = game.clouds.filter((c) => c.x > -50)
+        game.mountains = game.mountains.filter((m) => m.x < -m.w)
+        // Collisions
+        checkCollisions()
+        // UI
+        scoreDisplay.textContent = 'Puntos: ' + game.score
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+        drawBackground()
+        // Mountains behind
+        for (let m of game.mountains) m.draw(ctx)
+        // Clouds
+        for (let c of game.clouds) c.draw(ctx)
+        // Gems
+        for (let g of game.gems) g.draw(ctx)
+        // Player
+        if (!game.over) game.player.draw(ctx)
+        // Particles
+        for (let p of game.particles) p.draw(ctx)
+      }
+
+      function gameLoop() {
+        update()
+        if (game.running || game.over) draw()
+        requestAnimationFrame(gameLoop)
+      }
+
+      function initGame() {
+        game.player = new Player()
+        game.gems = []
+        game.clouds = []
+        game.mountains = []
+        game.particles = []
+        game.score = 0
+        game.dist = 0
+        game.speed = game.baseSpeed
+        game.scrollX = 0
+        game.level = 1
+        game.frame = 0
+        game.running = true
+        game.over = false
+        gameOverScreen.classList.add('hidden')
+        startScreen.classList.add('hidden')
+        levelDisplay.textContent = 'Nivel 1'
+        scoreDisplay.textContent = 'Puntos: 0'
+        generateTowns()
+        // Initial gems
+        for (let i = 0; i < 4; i++) game.gems.push(new Gem())
+      }
+
+      function endGame() {
+        game.over = true
+        game.running = false
+        playSound('gameover')
+        const isNew = game.score > game.best
+        if (isNew) {
+          game.best = game.score
+          localStorage.setItem('grizzy_dragon_best', game.best.toString())
+        }
+        finalScoreEl.textContent = 'Puntos: ' + game.score
+        bestScoreEl.textContent = 'Récord: ' + game.best
+        newBestLabel.classList.toggle('hidden', !isNew)
+        gameOverScreen.classList.remove('hidden')
+      }
+
+      // Input
+      const keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (
+          e.key === 'ArrowUp' ||
+          e.key === 'ArrowDown' ||
+          e.key === 'w' ||
+          e.key === 'W' ||
+          e.key === 's' ||
+          e.key === 'S'
+        )
+          e.preventDefault()
+        if (game.running && !game.over) {
+          if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W')
+            game.player.targetY = game.player.y - 25
+          if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S')
+            game.player.targetY = game.player.y + 25
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+        if (
+          (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') &&
+          !keys['ArrowDown'] &&
+          !keys['s'] &&
+          !keys['S']
+        ) {
+          game.player.targetY = game.player.y
+        }
+        if (
+          (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') &&
+          !keys['ArrowUp'] &&
+          !keys['w'] &&
+          !keys['W']
+        ) {
+          game.player.targetY = game.player.y
+        }
+      })
+
+      // Touch controls
+      let touchStartY = 0
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          touchStartY = e.touches[0].clientY
+        },
+        false,
+      )
+      canvas.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault()
+          if (!game.running || game.over) return
+          const dy = e.touches[0].clientY - touchStartY
+          const rect = canvas.getBoundingClientRect()
+          const scaleY = H / rect.height
+          const delta = dy * scaleY
+          game.player.targetY = Math.max(20, Math.min(H - 30, game.player.y + delta * 0.5))
+          touchStartY = e.touches[0].clientY
+        },
+        false,
+      )
+
+      // Buttons
+      document.getElementById('startBtn').addEventListener('click', () => {
+        if (audioCtx.state === 'suspended') audioCtx.resume()
+        initGame()
+      })
+      document.getElementById('restartBtn').addEventListener('click', () => {
+        initGame()
+      })
+
+      resizeCanvas()
+      generateTowns()
+      game.player = new Player()
+      game.best = parseInt(localStorage.getItem('grizzy_dragon_best') || '0')
+      gameLoop()
+
+      // Periodic spawn for consistent gem count
+      setInterval(() => {
+        if (game.running && !game.over && game.gems.length < 5 + game.level) {
+          game.gems.push(new Gem())
+        }
+      }, 2000)
+    </script>
+  </body>
+</html>

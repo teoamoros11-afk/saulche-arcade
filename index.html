@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0" />
+    <title>🐻 Grizzy's Arcade - 55 Juegos</title>
+    <meta
+      name="description"
+      content="55 juegos increíbles de Grizzy y los Lemmings. ¡Hecho con amor para un gran amigo!"
+    />
+    <meta name="theme-color" content="#2D1B0E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Grizzy Arcade" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+    <link rel="apple-touch-icon" href="assets/icon-192.png" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      body {
+        background: linear-gradient(180deg, #2d1b0e 0%, #4a2f1a 30%, #1b3a2d 70%, #0f281c 100%);
+        font-family: 'Segoe UI', 'Comic Sans MS', cursive, sans-serif;
+        color: #fff8e1;
+        min-height: 100vh;
+        padding: 2vmin 2vmin 4vmin;
+        position: relative;
+      }
+      body::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(ellipse at 50% 0%, rgba(255, 152, 0, 0.1) 0%, transparent 60%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .container {
+        text-align: center;
+        max-width: 1200px;
+        margin: 0 auto;
+        position: relative;
+        z-index: 1;
+      }
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.03);
+        }
+      }
+      @keyframes leafFall {
+        0% {
+          transform: translateY(-10vh) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          text-shadow: 0 0 20px rgba(255, 193, 7, 0.3);
+        }
+        50% {
+          text-shadow: 0 0 40px rgba(255, 193, 7, 0.6);
+        }
+      }
+      @keyframes float {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-6px);
+        }
+      }
+      .grizzy-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 2vmin;
+        margin-bottom: 1vmin;
+        animation: pulse 3s ease-in-out infinite;
+        flex-wrap: wrap;
+      }
+      .grizzy-icon {
+        width: 7vmin;
+        height: 7vmin;
+        min-width: 40px;
+        min-height: 40px;
+        background: radial-gradient(ellipse at 40% 35%, #a67c52, #8b5e3c 50%, #6b4226);
+        border-radius: 50%;
+        position: relative;
+        display: inline-block;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+        animation: float 4s ease-in-out infinite;
+      }
+      .grizzy-icon::before {
+        content: '';
+        position: absolute;
+        top: -0.8vmin;
+        left: 0.5vmin;
+        width: 2vmin;
+        height: 2vmin;
+        background: #6b4226;
+        border-radius: 50%;
+        box-shadow: 4vmin 0 0 #6b4226;
+      }
+      .grizzy-icon .eyes {
+        position: absolute;
+        top: 2.5vmin;
+        left: 1.5vmin;
+        width: 1vmin;
+        height: 1vmin;
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 3.5vmin 0 0 #fff;
+      }
+      .grizzy-icon .eyes::after {
+        content: '';
+        position: absolute;
+        top: 0.3vmin;
+        left: 0.3vmin;
+        width: 0.5vmin;
+        height: 0.5vmin;
+        background: #222;
+        border-radius: 50%;
+        box-shadow: 3.5vmin 0 0 #222;
+      }
+      .grizzy-icon .nose {
+        position: absolute;
+        top: 3.5vmin;
+        left: 3vmin;
+        width: 1.4vmin;
+        height: 0.8vmin;
+        background: #3e2723;
+        border-radius: 50%;
+      }
+      h1 {
+        font-size: clamp(1.8rem, 5vmin, 3.5rem);
+        color: #ffc107;
+        text-shadow:
+          0 3px 10px rgba(255, 193, 7, 0.4),
+          0 4px 8px rgba(0, 0, 0, 0.5);
+        letter-spacing: 2px;
+        animation: glow 3s ease-in-out infinite;
+      }
+      h1 small {
+        display: block;
+        font-size: clamp(0.7rem, 1.5vmin, 1.2rem);
+        color: #a67c52;
+        text-shadow: none;
+        letter-spacing: 3px;
+        margin-top: -0.3vmin;
+      }
+      .subtitle {
+        font-size: clamp(0.8rem, 1.8vmin, 1.3rem);
+        color: #fff8e1;
+        margin-bottom: 2vmin;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      }
+      .stats-bar {
+        display: flex;
+        justify-content: center;
+        gap: clamp(8px, 2vmin, 24px);
+        flex-wrap: wrap;
+        margin-bottom: 2vmin;
+      }
+      .stat-card {
+        background: rgba(255, 152, 0, 0.1);
+        border: 1px solid rgba(255, 152, 0, 0.2);
+        border-radius: 12px;
+        padding: clamp(4px, 0.8vmin, 10px) clamp(10px, 2vmin, 24px);
+        display: flex;
+        align-items: center;
+        gap: clamp(4px, 0.6vmin, 10px);
+        font-size: clamp(0.65rem, 1.1vmin, 0.95rem);
+      }
+      .stat-card .num {
+        font-weight: bold;
+        color: #ffc107;
+        font-size: clamp(0.9rem, 1.6vmin, 1.4rem);
+      }
+      .section-title {
+        font-size: clamp(1rem, 2.2vmin, 1.6rem);
+        color: #ff9800;
+        margin: 2.5vmin 0 1.5vmin;
+        text-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        border-bottom: 1px solid rgba(255, 152, 0, 0.2);
+        padding-bottom: 0.5vmin;
+      }
+      .games-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(clamp(120px, 15vmin, 170px), 1fr));
+        gap: clamp(6px, 0.8vmin, 12px);
+        margin: 0 auto;
+        max-width: 1100px;
+        animation: fadeIn 0.5s ease-out;
+      }
+      .game-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: clamp(8px, 1.2vmin, 16px);
+        background: linear-gradient(145deg, rgba(139, 94, 60, 0.5), rgba(107, 66, 38, 0.6));
+        border: 2px solid rgba(255, 152, 0, 0.25);
+        border-radius: clamp(8px, 1vmin, 14px);
+        color: #fff8e1;
+        text-decoration: none;
+        font-size: clamp(0.55rem, 0.9vmin, 0.8rem);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        backdrop-filter: blur(6px);
+        min-height: clamp(60px, 9vmin, 100px);
+        position: relative;
+        overflow: hidden;
+      }
+      .game-btn::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, transparent 30%, rgba(255, 152, 0, 0.03) 70%);
+        opacity: 0;
+        transition: opacity 0.4s;
+        pointer-events: none;
+      }
+      .game-btn:hover::after {
+        opacity: 1;
+      }
+      .game-btn:hover {
+        background: linear-gradient(145deg, rgba(139, 94, 60, 0.7), rgba(107, 66, 38, 0.8));
+        border-color: #ff9800;
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 6px 20px rgba(255, 152, 0, 0.25);
+      }
+      .game-btn:active {
+        transform: translateY(-1px) scale(0.98);
+      }
+      .game-btn .icon {
+        font-size: clamp(1.5rem, 3vmin, 2.5rem);
+        margin-bottom: 2px;
+        filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+        transition: transform 0.3s;
+      }
+      .game-btn:hover .icon {
+        transform: scale(1.15);
+      }
+      .game-btn .name {
+        font-weight: bold;
+        font-size: clamp(0.6rem, 1vmin, 0.85rem);
+        color: #ffc107;
+        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        text-align: center;
+        line-height: 1.2;
+      }
+      .game-btn .num {
+        position: absolute;
+        top: 2px;
+        left: 4px;
+        font-size: clamp(0.4rem, 0.6vmin, 0.5rem);
+        opacity: 0.5;
+        color: #b0bec5;
+      }
+      .game-btn .check {
+        position: absolute;
+        top: 2px;
+        right: 4px;
+        font-size: clamp(0.4rem, 0.6vmin, 0.5rem);
+      }
+      .pwa-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(76, 175, 80, 0.15);
+        border: 1px solid rgba(76, 175, 80, 0.3);
+        border-radius: 20px;
+        padding: 4px 14px;
+        font-size: clamp(0.55rem, 0.9vmin, 0.75rem);
+        color: #81c784;
+        margin-bottom: 1.5vmin;
+        cursor: pointer;
+        transition: all 0.3s;
+      }
+      .pwa-badge:hover {
+        background: rgba(76, 175, 80, 0.25);
+      }
+      .footer {
+        margin-top: 3vmin;
+        color: rgba(255, 248, 225, 0.4);
+        font-size: clamp(0.5rem, 0.9vmin, 0.75rem);
+      }
+      .footer b {
+        color: #a67c52;
+      }
+      .leaf {
+        position: fixed;
+        width: 12px;
+        height: 12px;
+        background: #4caf50;
+        border-radius: 0 50% 50% 50%;
+        animation: leafFall linear forwards;
+        z-index: 0;
+        pointer-events: none;
+        opacity: 0.3;
+      }
+      .leaf:nth-child(2n) {
+        background: #ff9800;
+        border-radius: 50% 0 50% 50%;
+      }
+      .leaf:nth-child(3n) {
+        background: #8b5e3c;
+        border-radius: 50% 50% 0 50%;
+      }
+      .back-top {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 100;
+        background: rgba(139, 94, 60, 0.8);
+        color: #ffc107;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        cursor: pointer;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        display: none;
+        transition: all 0.3s;
+      }
+      .back-top:hover {
+        background: rgba(255, 152, 0, 0.6);
+        transform: translateY(-2px);
+      }
+      .install-prompt {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 200;
+        background: linear-gradient(135deg, #2d1b0e, #4a2f1a);
+        border: 2px solid #ff9800;
+        border-radius: 16px;
+        padding: 12px 20px;
+        display: none;
+        gap: 12px;
+        align-items: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+        font-size: clamp(0.7rem, 1vmin, 0.9rem);
+        max-width: 90vw;
+      }
+      .install-prompt span {
+        color: #fff8e1;
+      }
+      .install-prompt .btn {
+        padding: 6px 18px;
+        background: #ff9800;
+        border: none;
+        border-radius: 8px;
+        color: #2d1b0e;
+        font-weight: bold;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .install-prompt .btn:hover {
+        background: #ffb74d;
+      }
+      .install-prompt .close {
+        background: none;
+        border: none;
+        color: #a67c52;
+        cursor: pointer;
+        font-size: 1.2rem;
+        padding: 0 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="grizzy-header">
+        <div class="grizzy-icon">
+          <div class="eyes"></div>
+          <div class="nose"></div>
+        </div>
+        <h1>🐻 Grizzy's Arcade<small>★ &amp; the Lemmings ★</small></h1>
+        <div class="grizzy-icon" style="transform: scaleX(-1)">
+          <div class="eyes"></div>
+          <div class="nose"></div>
+        </div>
+      </div>
+      <div class="subtitle">🎮 ¡Bienvenido al bosque, que empiece la diversión! 🎮</div>
+
+      <div class="stats-bar">
+        <div class="stat-card">🎮 <span class="num">53</span> Juegos</div>
+        <div class="stat-card">🏆 <span class="num" id="completedCount">0</span> Completados</div>
+        <div class="stat-card">💾 <span class="num">✓</span> Auto-guardado</div>
+        <div class="stat-card">📱 <span class="num">✓</span> Offline</div>
+      </div>
+
+      <div class="pwa-badge" id="installBtn" style="display: none">
+        📲 Instalar en tu dispositivo
+      </div>
+
+      <div class="section-title">🌟 Clásicos Grizzy</div>
+      <div class="games-grid" id="classicGrid">
+        <a href="tetris.html" class="game-btn" data-save="tetris_grizzy"
+          ><div class="icon">🧩</div>
+          <div class="name">Tetris</div></a
+        >
+        <a href="snake.html" class="game-btn" data-save="snake_grizzy"
+          ><div class="icon">🐍</div>
+          <div class="name">Snake</div></a
+        >
+        <a href="pong.html" class="game-btn" data-save="pong_grizzy"
+          ><div class="icon">🏓</div>
+          <div class="name">Pong</div></a
+        >
+        <a href="breakout.html" class="game-btn" data-save="breakout_grizzy"
+          ><div class="icon">🧱</div>
+          <div class="name">Breakout</div></a
+        >
+        <a href="tictactoe.html" class="game-btn" data-save="tictactoe_grizzy"
+          ><div class="icon">❌</div>
+          <div class="name">Tres en Raya</div></a
+        >
+        <a href="simon.html" class="game-btn" data-save="simon_grizzy"
+          ><div class="icon">🔴</div>
+          <div class="name">Simon</div></a
+        >
+        <a href="minesweeper.html" class="game-btn" data-save="minesweeper_grizzy"
+          ><div class="icon">💣</div>
+          <div class="name">Buscaminas</div></a
+        >
+        <a href="donkey.html" class="game-btn" data-save="donkey_grizzy"
+          ><div class="icon">🦍</div>
+          <div class="name">Donkey Kong</div></a
+        >
+        <a href="kingkong.html" class="game-btn" data-save="kingkong_grizzy"
+          ><div class="icon">🍌</div>
+          <div class="name">King Kong</div></a
+        >
+        <a href="submarino.html" class="game-btn" data-save="submarino_grizzy"
+          ><div class="icon">🚤</div>
+          <div class="name">Submarino</div></a
+        >
+        <a href="comecocos.html" class="game-btn" data-save="comecocos_grizzy"
+          ><div class="icon">🟡</div>
+          <div class="name">Come Cocos</div></a
+        >
+        <a href="hundirlaflota.html" class="game-btn" data-save="hundirlaflota_grizzy"
+          ><div class="icon">⚓</div>
+          <div class="name">Hundir Flota</div></a
+        >
+        <a href="flappygrizzy.html" class="game-btn" data-save="flappy_grizzy"
+          ><div class="icon">🐦</div>
+          <div class="name">Flappy Grizzy</div></a
+        >
+      </div>
+
+      <div class="section-title">🎈 Aventuras Vol. 1</div>
+      <div class="games-grid" id="adv1Grid">
+        <a href="juego01.html" class="game-btn" data-save="grizzy_clouds_best"
+          ><span class="num">01</span>
+          <div class="icon">☁️</div>
+          <div class="name">Saltador Nubes</div></a
+        >
+        <a href="juego02.html" class="game-btn" data-save="grizzy_runner_best"
+          ><span class="num">02</span>
+          <div class="icon">🐕</div>
+          <div class="name">Corre Perrito</div></a
+        >
+        <a href="juego03.html" class="game-btn" data-save="grizzy_fishing_best"
+          ><span class="num">03</span>
+          <div class="icon">🐟</div>
+          <div class="name">Pesca Mágica</div></a
+        >
+        <a href="juego04.html" class="game-btn" data-save="grizzy_maze"
+          ><span class="num">04</span>
+          <div class="icon">🌀</div>
+          <div class="name">Laberinto Feliz</div></a
+        >
+        <a href="juego05.html" class="game-btn" data-save="grizzy_stars_best"
+          ><span class="num">05</span>
+          <div class="icon">⭐</div>
+          <div class="name">Recolecta Estrellas</div></a
+        >
+        <a href="juego06.html" class="game-btn" data-save="grizzy_race_best"
+          ><span class="num">06</span>
+          <div class="icon">🏎️</div>
+          <div class="name">Mini Carreras</div></a
+        >
+        <a href="juego07.html" class="game-btn" data-save="grizzy_memory"
+          ><span class="num">07</span>
+          <div class="icon">🐘</div>
+          <div class="name">Memoria Animales</div></a
+        >
+        <a href="juego08.html" class="game-btn" data-save="grizzy_robot"
+          ><span class="num">08</span>
+          <div class="icon">🤖</div>
+          <div class="name">Robot Constructor</div></a
+        >
+        <a href="juego09.html" class="game-btn" data-save="grizzy_chick"
+          ><span class="num">09</span>
+          <div class="icon">🐤</div>
+          <div class="name">Salva al Pollito</div></a
+        >
+        <a href="juego10.html" class="game-btn" data-save="grizzy_painter"
+          ><span class="num">10</span>
+          <div class="icon">🎨</div>
+          <div class="name">Pintor Loco</div></a
+        >
+        <a href="juego11.html" class="game-btn" data-save="grizzy_farm"
+          ><span class="num">11</span>
+          <div class="icon">🌾</div>
+          <div class="name">Granja Feliz</div></a
+        >
+        <a href="juego12.html" class="game-btn" data-save="grizzy_hero_best"
+          ><span class="num">12</span>
+          <div class="icon">🦸</div>
+          <div class="name">Mini Superhéroe</div></a
+        >
+        <a href="juego13.html" class="game-btn" data-save="grizzy_pirate_best"
+          ><span class="num">13</span>
+          <div class="icon">🏴‍☠️</div>
+          <div class="name">Tesoro Pirata</div></a
+        >
+        <a href="juego14.html" class="game-btn" data-save="grizzy_kitchen"
+          ><span class="num">14</span>
+          <div class="icon">🍳</div>
+          <div class="name">Cocina Express</div></a
+        >
+        <a href="juego15.html" class="game-btn" data-save="grizzy_castle"
+          ><span class="num">15</span>
+          <div class="icon">🏰</div>
+          <div class="name">Escape Castillo</div></a
+        >
+        <a href="juego16.html" class="game-btn" data-save="grizzy_dragon"
+          ><span class="num">16</span>
+          <div class="icon">🐲</div>
+          <div class="name">Dragón Dormilón</div></a
+        >
+        <a href="juego17.html" class="game-btn" data-save="grizzy_planet_best"
+          ><span class="num">17</span>
+          <div class="icon">🪐</div>
+          <div class="name">Planeta Saltarín</div></a
+        >
+        <a href="juego18.html" class="game-btn" data-save="grizzy_dino_race"
+          ><span class="num">18</span>
+          <div class="icon">🦕</div>
+          <div class="name">Carrera Dinosaurios</div></a
+        >
+        <a href="juego19.html" class="game-btn" data-save="grizzy_submarine"
+          ><span class="num">19</span>
+          <div class="icon">🌊</div>
+          <div class="name">Aventura Submarina</div></a
+        >
+        <a href="juego20.html" class="game-btn" data-save="grizzy_guardian"
+          ><span class="num">20</span>
+          <div class="icon">🌳</div>
+          <div class="name">Guardián Bosque</div></a
+        >
+      </div>
+
+      <div class="section-title">🌈 Aventuras Vol. 2</div>
+      <div class="games-grid" id="adv2Grid">
+        <a href="juego21.html" class="game-btn" data-save="grizzy_snail_best"
+          ><span class="num">21</span>
+          <div class="icon">🐌</div>
+          <div class="name">Caracol Veloz</div></a
+        >
+        <a href="juego22.html" class="game-btn" data-save="grizzy_balloons_best"
+          ><span class="num">22</span>
+          <div class="icon">🎈</div>
+          <div class="name">Globos al Cielo</div></a
+        >
+        <a href="juego23.html" class="game-btn" data-save="grizzy_train_best"
+          ><span class="num">23</span>
+          <div class="icon">🚂</div>
+          <div class="name">Trenito Feliz</div></a
+        >
+        <a href="juego24.html" class="game-btn" data-save="grizzy_cookie_best"
+          ><span class="num">24</span>
+          <div class="icon">🍪</div>
+          <div class="name">Caza de Galletas</div></a
+        >
+        <a href="juego25.html" class="game-btn" data-save="grizzy_cats"
+          ><span class="num">25</span>
+          <div class="icon">🐱</div>
+          <div class="name">Castillo Gatos</div></a
+        >
+        <a href="juego26.html" class="game-btn" data-save="grizzy_firefighter"
+          ><span class="num">26</span>
+          <div class="icon">🚒</div>
+          <div class="name">Mini Bomberos</div></a
+        >
+        <a href="juego27.html" class="game-btn" data-save="grizzy_penguin_best"
+          ><span class="num">27</span>
+          <div class="icon">🐧</div>
+          <div class="name">Pingüino Saltarín</div></a
+        >
+        <a href="juego28.html" class="game-btn" data-save="grizzy_rocket_best"
+          ><span class="num">28</span>
+          <div class="icon">🚀</div>
+          <div class="name">Carrera Cohetes</div></a
+        >
+        <a href="juego29.html" class="game-btn" data-save="grizzy_monster"
+          ><span class="num">29</span>
+          <div class="icon">👹</div>
+          <div class="name">Monstruo Frutas</div></a
+        >
+        <a href="juego30.html" class="game-btn" data-save="grizzy_bee_best"
+          ><span class="num">30</span>
+          <div class="icon">🐝</div>
+          <div class="name">Abeja Trabajadora</div></a
+        >
+        <a href="juego31.html" class="game-btn" data-save="grizzy_wizard"
+          ><span class="num">31</span>
+          <div class="icon">🧙</div>
+          <div class="name">Mini Magos</div></a
+        >
+        <a href="juego32.html" class="game-btn" data-save="grizzy_balance_best"
+          ><span class="num">32</span>
+          <div class="icon">🎪</div>
+          <div class="name">Perrito Equilibrista</div></a
+        >
+        <a href="juego33.html" class="game-btn" data-save="grizzy_hamster_best"
+          ><span class="num">33</span>
+          <div class="icon">🐹</div>
+          <div class="name">Carrera Hámster</div></a
+        >
+        <a href="juego34.html" class="game-btn" data-save="grizzy_dragon_best"
+          ><span class="num">34</span>
+          <div class="icon">🐉</div>
+          <div class="name">Dragón Recolector</div></a
+        >
+        <a href="juego35.html" class="game-btn" data-save="grizzy_scientist"
+          ><span class="num">35</span>
+          <div class="icon">🧪</div>
+          <div class="name">Mini Científicos</div></a
+        >
+        <a href="juego36.html" class="game-btn" data-save="grizzy_fox_best"
+          ><span class="num">36</span>
+          <div class="icon">🦊</div>
+          <div class="name">Zorro Aventurero</div></a
+        >
+        <a href="juego37.html" class="game-btn" data-save="grizzy_robot_race"
+          ><span class="num">37</span>
+          <div class="icon">🏁</div>
+          <div class="name">Carrera Robots</div></a
+        >
+        <a href="juego38.html" class="game-btn" data-save="grizzy_boat_best"
+          ><span class="num">38</span>
+          <div class="icon">⛵</div>
+          <div class="name">Barquito Explorador</div></a
+        >
+        <a href="juego39.html" class="game-btn" data-save="grizzy_astronaut_best"
+          ><span class="num">39</span>
+          <div class="icon">🧑‍🚀</div>
+          <div class="name">Mini Astronautas</div></a
+        >
+        <a href="juego40.html" class="game-btn" data-save="grizzy_bunny_best"
+          ><span class="num">40</span>
+          <div class="icon">🐰</div>
+          <div class="name">Conejo Saltón</div></a
+        >
+        <a href="juego41.html" class="game-btn" data-save="grizzy_brain"
+          ><span class="num">41</span>
+          <div class="icon">🧠</div>
+          <div class="name">Cerebro Brillante</div></a
+        >
+      </div>
+
+      <h2 class="section-title" style="font-size:22px;margin:30px 0 16px;text-align:center;color:#ffd700;text-shadow:0 0 20px rgba(255,215,0,0.3)">
+        🏰 <span style="background:linear-gradient(90deg,#7c4dff,#ffd700);-webkit-background-clip:text;-webkit-text-fill-color:transparent">MENTIS — El Desafío del Saber</span>
+      </h2>
+      <div class="games-grid">
+        <a href="mentis/index.html" class="game-btn" style="border-color:#7c4dff;background:linear-gradient(135deg,rgba(124,77,255,0.1),rgba(255,215,0,0.05))" data-save="mentis_played">
+          <div class="icon">🧠</div>
+          <div class="name" style="color:#f0e8d0">MENTIS</div>
+          <div style="font-size:10px;color:#a090b0;margin-top:4px">100 pisos · 5 categorías</div></a
+        >
+      </div>
+
+      <div class="footer">
+        🐻 Hecho con <b>❤️</b> para un gran amigo · 🎂 9 años · 🎮 <b>55 juegos</b> · ✅ Todo
+        guardado automáticamente
+      </div>
+    </div>
+
+    <div class="install-prompt" id="installPrompt">
+      <span>📲 Instala Grizzy's Arcade en tu pantalla de inicio</span>
+      <button class="btn" id="installConfirm">Instalar</button>
+      <button class="close" id="installDismiss">✕</button>
+    </div>
+
+    <button class="back-top" id="backTop" onclick="window.scrollTo({ top: 0, behavior: 'smooth' })">
+      ⬆
+    </button>
+
+    <script>
+      const colors = [
+        '#4CAF50',
+        '#FF9800',
+        '#8B5E3C',
+        '#FFC107',
+        '#7E8A9E',
+        '#E53935',
+        '#A67C52',
+        '#4DD0E1',
+      ]
+      function createLeaf() {
+        const leaf = document.createElement('div')
+        leaf.className = 'leaf'
+        leaf.style.left = Math.random() * 100 + 'vw'
+        leaf.style.background = colors[Math.floor(Math.random() * colors.length)]
+        leaf.style.width = Math.random() * 10 + 6 + 'px'
+        leaf.style.height = Math.random() * 10 + 6 + 'px'
+        leaf.style.animationDuration = Math.random() * 4 + 5 + 's'
+        leaf.style.animationDelay = Math.random() * 5 + 's'
+        leaf.style.transform = 'rotate(' + Math.random() * 360 + 'deg)'
+        document.body.appendChild(leaf)
+        setTimeout(() => leaf.remove(), 10000)
+      }
+      for (let i = 0; i < 25; i++) setTimeout(createLeaf, i * 150)
+      setInterval(createLeaf, 400)
+      const backBtn = document.getElementById('backTop')
+      window.addEventListener('scroll', () => {
+        backBtn.style.display = window.scrollY > 600 ? 'block' : 'none'
+      })
+
+      function countCompleted() {
+        let c = 0
+        document.querySelectorAll('[data-save]').forEach(function (el) {
+          try {
+            var v = parseInt(localStorage.getItem(el.dataset.save))
+            if (!isNaN(v) && v > 0) c++
+          } catch (e) {}
+        })
+        document.getElementById('completedCount').textContent = c
+      }
+      countCompleted()
+
+      if ('serviceWorker' in navigator) navigator.serviceWorker.register('service-worker.js')
+      let deferredPrompt
+      window.addEventListener('beforeinstallprompt', function (e) {
+        e.preventDefault()
+        deferredPrompt = e
+        document.getElementById('installBtn').style.display = 'inline-flex'
+      })
+      document.getElementById('installBtn').addEventListener('click', function () {
+        if (deferredPrompt) {
+          deferredPrompt.prompt()
+          deferredPrompt.userChoice.then(function () {
+            deferredPrompt = null
+            document.getElementById('installBtn').style.display = 'none'
+          })
+        }
+      })
+      window.addEventListener('appinstalled', function () {
+        document.getElementById('installBtn').textContent = '✓ Instalado'
+        document.getElementById('installBtn').style.borderColor = '#4CAF50'
+      })
+    </script>
+  </body>
+</html>

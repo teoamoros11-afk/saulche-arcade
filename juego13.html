@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tesoro Pirata - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #0a2a3a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      #gameWrap {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        max-width: 100vw;
+        max-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      canvas {
+        display: block;
+        background: #1a6b8a;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        image-rendering: pixelated;
+        cursor: pointer;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameWrap"><canvas id="c"></canvas></div>
+    <script>
+      const canvas = document.getElementById('c'),
+        ctx = canvas.getContext('2d')
+      const VW = 600,
+        VH = 400
+      let W = window.innerWidth,
+        H = window.innerHeight
+      function resize() {
+        W = window.innerWidth
+        H = window.innerHeight
+        canvas.width = W
+        canvas.height = H
+      }
+      resize()
+      window.addEventListener('resize', resize)
+
+      // Audio
+      const actx = new (window.AudioContext || window.webkitAudioContext)()
+      const master = actx.createGain()
+      master.gain.value = 0.3
+      master.connect(actx.destination)
+      function sfx(freq, dur, type, vol) {
+        const o = actx.createOscillator(),
+          g = actx.createGain()
+        o.type = type || 'square'
+        g.gain.value = vol || 0.2
+        o.frequency.value = freq
+        o.connect(g)
+        g.connect(master)
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur)
+        o.start()
+        o.stop(actx.currentTime + dur)
+      }
+      function sndCoin() {
+        sfx(1200, 0.1, 'square', 0.15)
+        setTimeout(() => sfx(1600, 0.1, 'square', 0.15), 60)
+      }
+      function sndHit() {
+        sfx(150, 0.3, 'sawtooth', 0.25)
+        sfx(80, 0.4, 'square', 0.2)
+      }
+      function sndCannon() {
+        sfx(100, 0.15, 'sawtooth', 0.15)
+        sfx(60, 0.25, 'square', 0.12)
+      }
+      function sndGameOver() {
+        sfx(400, 0.15, 'square', 0.2)
+        setTimeout(() => sfx(300, 0.15, 'square', 0.2), 150)
+        setTimeout(() => sfx(200, 0.3, 'square', 0.2), 300)
+      }
+      function sndLevel() {
+        sfx(800, 0.08, 'square', 0.12)
+        setTimeout(() => sfx(1000, 0.08, 'square', 0.12), 80)
+        setTimeout(() => sfx(1200, 0.12, 'square', 0.12), 160)
+      }
+
+      // State
+      const KEY = { up: false, down: false }
+      let state = 'menu',
+        score = 0,
+        best = parseInt(localStorage.getItem('grizzy_pirate_best')) || 0,
+        lives = 3,
+        level = 1,
+        dist = 0
+      let speed = 2,
+        scrollX = 0,
+        scrollSpeed = 0
+      let grizzy = { x: 80, y: 200, w: 40, h: 40, vy: 0 }
+      let obstacles = [],
+        chests = [],
+        enemies = [],
+        bullets = [],
+        particles = [],
+        clouds = [],
+        islands = [],
+        waves = [],
+        stars = []
+
+      // Stars bg
+      for (let i = 0; i < 30; i++)
+        stars.push({
+          x: Math.random() * VW,
+          y: Math.random() * VH * 0.4,
+          r: Math.random() * 2 + 1,
+          a: Math.random() * 0.5 + 0.3,
+        })
+
+      // Clouds
+      for (let i = 0; i < 4; i++)
+        clouds.push({
+          x: Math.random() * VW,
+          y: Math.random() * 60 + 10,
+          w: Math.random() * 60 + 40,
+          s: Math.random() * 0.3 + 0.1,
+        })
+
+      // Waves
+      for (let i = 0; i < 12; i++)
+        waves.push({
+          x: i * 55,
+          y: 0,
+          amp: Math.random() * 4 + 3,
+          phase: Math.random() * Math.PI * 2,
+          speed: Math.random() * 0.02 + 0.01,
+        })
+
+      // Islands
+      function spawnIsland() {
+        islands.push({
+          x: VW + 100,
+          y: Math.random() * 180 + 200,
+          w: Math.random() * 80 + 40,
+          h: Math.random() * 20 + 15,
+        })
+      }
+
+      // Particles
+      function emit(x, y, count, color, speedMul, lifeMul) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2,
+            sp = Math.random() * 2 + 1 * (speedMul || 1)
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: Math.random() * 30 + 20 * (lifeMul || 1),
+            maxLife: 50,
+            color: color || '#FFC107',
+            r: Math.random() * 3 + 2,
+          })
+        }
+      }
+
+      function explosion(x, y, color) {
+        for (let i = 0; i < 25; i++) {
+          const a = Math.random() * Math.PI * 2,
+            sp = Math.random() * 3 + 2
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp,
+            life: Math.random() * 40 + 20,
+            maxLife: 60,
+            color: color || '#FF4444',
+            r: Math.random() * 4 + 2,
+          })
+        }
+      }
+
+      // Spawn functions
+      function spawnRock() {
+        obstacles.push({
+          x: VW + 20,
+          y: Math.random() * (VH - 80) + 40,
+          w: Math.random() * 25 + 20,
+          h: Math.random() * 25 + 20,
+          type: 'rock',
+        })
+      }
+      function spawnChest() {
+        chests.push({
+          x: VW + 50,
+          y: Math.random() * (VH - 100) + 50,
+          w: 22,
+          h: 18,
+          type: 'chest',
+          bob: Math.random() * Math.PI * 2,
+        })
+      }
+      function spawnEnemy() {
+        const y = Math.random() * (VH - 120) + 60
+        enemies.push({
+          x: VW + 80,
+          y,
+          w: 50,
+          h: 30,
+          type: 'enemy',
+          fireTimer: Math.random() * 120 + 60,
+          hp: 1,
+        })
+      }
+      function spawnEnemyBullet(ex, ey) {
+        bullets.push({ x: ex - 20, y: ey + 15, w: 10, h: 10, type: 'bullet', vx: -3 })
+      }
+
+      function resetGame() {
+        score = 0
+        chestScore = 0
+        lives = 3
+        level = 1
+        dist = 0
+        speed = 2
+        scrollSpeed = 0
+        scrollX = 0
+        grizzy = { x: 80, y: 200, w: 40, h: 40, vy: 0 }
+        obstacles = []
+        chests = []
+        enemies = []
+        bullets = []
+        particles = []
+        islands = []
+        clouds = []
+        waves = []
+        for (let i = 0; i < 4; i++)
+          clouds.push({
+            x: Math.random() * VW,
+            y: Math.random() * 60 + 10,
+            w: Math.random() * 60 + 40,
+            s: Math.random() * 0.3 + 0.1,
+          })
+        for (let i = 0; i < 12; i++)
+          waves.push({
+            x: i * 55,
+            y: 0,
+            amp: Math.random() * 4 + 3,
+            phase: Math.random() * Math.PI * 2,
+            speed: Math.random() * 0.02 + 0.01,
+          })
+        for (let i = 0; i < 3; i++) spawnIsland()
+      }
+
+      function startGame() {
+        resetGame()
+        state = 'playing'
+      }
+
+      // Game logic
+      let frame = 0,
+        spawnTimer = 0,
+        enemySpawnTimer = 0,
+        levelUpTimer = 0,
+        chestScore = 0
+
+      function update() {
+        frame++
+        if (state === 'playing') {
+          scrollSpeed = speed
+          scrollX += scrollSpeed
+          dist += scrollSpeed * 0.1
+          spawnTimer++
+          enemySpawnTimer++
+          levelUpTimer++
+
+          // Level progression (40 levels)
+          if (levelUpTimer > 1800 && level < 40) {
+            level++
+            speed += 0.3
+            levelUpTimer = 0
+            sndLevel()
+          }
+
+          // Spawn rocks
+          if (spawnTimer > Math.max(30, 80 - level * 1.5)) {
+            if (Math.random() < 0.6) spawnRock()
+            spawnTimer = 0
+          }
+          // Spawn chests
+          if (Math.random() < 0.008) spawnChest()
+          // Spawn enemies (more frecuentes con nivel)
+          if (enemySpawnTimer > Math.max(120, 250 - level * 4)) {
+            if (Math.random() < 0.5) spawnEnemy()
+            enemySpawnTimer = 0
+          }
+
+          // Grizzy movement
+          grizzy.vy = 0
+          if (KEY.up && grizzy.y > 5) grizzy.vy = -3.5
+          else if (KEY.down && grizzy.y < VH - grizzy.h - 5) grizzy.vy = 3.5
+          grizzy.y += grizzy.vy
+
+          // Move obstacles & chests
+          obstacles.forEach((o) => (o.x -= scrollSpeed))
+          chests.forEach((c) => {
+            c.x -= scrollSpeed
+            c.bob += 0.05
+          })
+          enemies.forEach((e) => {
+            e.x -= scrollSpeed
+            e.fireTimer--
+            if (e.fireTimer <= 0) {
+              spawnEnemyBullet(e.x, e.y)
+              sndCannon()
+              e.fireTimer = Math.random() * 120 + 60
+            }
+          })
+          bullets.forEach((b) => (b.x -= scrollSpeed))
+
+          // Collision: rocks
+          for (let i = obstacles.length - 1; i >= 0; i--) {
+            const o = obstacles[i]
+            if (o.x + o.w < 0 || o.x > VW + 100) {
+              obstacles.splice(i, 1)
+              continue
+            }
+            if (rectCollide(grizzy, o)) {
+              sndHit()
+              explosion(o.x + o.w / 2, o.y + o.h / 2, '#FF8844')
+              lives--
+              obstacles.splice(i, 1)
+              if (lives <= 0) {
+                sndGameOver()
+                state = 'gameover'
+                if (score > best) {
+                  best = score
+                  localStorage.setItem('grizzy_pirate_best', best)
+                }
+              }
+            }
+          }
+
+          // Collision: chests
+          for (let i = chests.length - 1; i >= 0; i--) {
+            const c = chests[i]
+            if (c.x + c.w < 0 || c.x > VW + 100) {
+              chests.splice(i, 1)
+              continue
+            }
+            if (rectCollide(grizzy, c)) {
+              sndCoin()
+              chestScore += 10
+              emit(c.x + c.w / 2, c.y + c.h / 2, 15, '#FFC107', 1.5, 1.2)
+              chests.splice(i, 1)
+            }
+          }
+
+          // Collision: bullets
+          for (let i = bullets.length - 1; i >= 0; i--) {
+            const b = bullets[i]
+            if (b.x + b.w < 0 || b.x > VW + 100) {
+              bullets.splice(i, 1)
+              continue
+            }
+            if (rectCollide(grizzy, b)) {
+              sndHit()
+              explosion(b.x + b.w / 2, b.y + b.h / 2, '#FF4444')
+              lives--
+              bullets.splice(i, 1)
+              if (lives <= 0) {
+                sndGameOver()
+                state = 'gameover'
+                if (score > best) {
+                  best = score
+                  localStorage.setItem('grizzy_pirate_best', best)
+                }
+              }
+            }
+          }
+
+          // Collision: enemies
+          for (let i = enemies.length - 1; i >= 0; i--) {
+            const e = enemies[i]
+            if (e.x + e.w < 0 || e.x > VW + 100) {
+              enemies.splice(i, 1)
+              continue
+            }
+            if (rectCollide(grizzy, e)) {
+              sndHit()
+              explosion(e.x + e.w / 2, e.y + e.h / 2, '#7E8A9E')
+              lives--
+              enemies.splice(i, 1)
+              if (lives <= 0) {
+                sndGameOver()
+                state = 'gameover'
+                if (score > best) {
+                  best = score
+                  localStorage.setItem('grizzy_pirate_best', best)
+                }
+              }
+            }
+          }
+
+          // Update particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.05
+            p.life--
+            if (p.life <= 0) particles.splice(i, 1)
+          }
+
+          // Update clouds
+          clouds.forEach((c) => {
+            c.x -= c.s
+            if (c.x + c.w < 0) {
+              c.x = VW + 10
+              c.y = Math.random() * 60 + 10
+              c.w = Math.random() * 60 + 40
+            }
+          })
+
+          // Islands
+          islands.forEach((i) => {
+            i.x -= scrollSpeed * 0.3
+          })
+          if (islands.length < 3 || islands[islands.length - 1].x < VW - 200) spawnIsland()
+          islands = islands.filter((i) => i.x + i.w > -50)
+
+          score = Math.floor(dist) + chestScore
+        }
+      }
+
+      function rectCollide(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+      }
+
+      // Draw
+      function drawBackground() {
+        // Sky gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, VH * 0.6)
+        grad.addColorStop(0, '#87CEEB')
+        grad.addColorStop(0.5, '#B0E0FF')
+        grad.addColorStop(1, '#E0F4FF')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, VW, VH * 0.6)
+        // Stars
+        stars.forEach((s) => {
+          ctx.fillStyle = `rgba(255,255,255,${s.a})`
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        // Clouds
+        clouds.forEach((c) => {
+          ctx.fillStyle = 'rgba(255,255,255,0.7)'
+          ctx.beginPath()
+          ctx.ellipse(c.x + c.w * 0.3, c.y, c.w * 0.4, c.h || 15, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(c.x + c.w * 0.7, c.y - 5, c.w * 0.35, c.h || 14, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(c.x + c.w * 0.5, c.y - 8, c.w * 0.3, c.h || 12, 0, 0, Math.PI * 2)
+          ctx.fill()
+        })
+      }
+
+      function drawSea() {
+        // Sea
+        const grad = ctx.createLinearGradient(0, VH * 0.55, 0, VH)
+        grad.addColorStop(0, '#1A6B8A')
+        grad.addColorStop(0.5, '#125577')
+        grad.addColorStop(1, '#0A3A55')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, VH * 0.55, VW, VH * 0.45)
+        // Waves
+        ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+        ctx.lineWidth = 2
+        for (let w of waves) {
+          ctx.beginPath()
+          for (let x = 0; x <= VW; x += 10) {
+            const wy = VH * 0.55 + Math.sin(x * 0.03 + frame * w.speed + w.phase) * w.amp
+            x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy)
+          }
+          ctx.stroke()
+        }
+      }
+
+      function drawIslands() {
+        islands.forEach((i) => {
+          // Island base
+          ctx.fillStyle = '#8B7355'
+          ctx.beginPath()
+          ctx.ellipse(i.x + i.w / 2, i.y + i.h / 2, i.w / 2, i.h / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#6B8E23'
+          ctx.beginPath()
+          ctx.ellipse(i.x + i.w / 2, i.y + i.h / 2 - 3, i.w / 2 - 5, i.h / 2 - 5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Palm tree trunk
+          ctx.fillStyle = '#6B4226'
+          ctx.fillRect(i.x + i.w / 2 - 3, i.y - i.h * 0.3, 6, i.h * 0.6)
+          // Palm leaves
+          ctx.strokeStyle = '#2D5A1E'
+          ctx.lineWidth = 3
+          for (let a = -1; a <= 1; a += 0.5) {
+            ctx.beginPath()
+            ctx.moveTo(i.x + i.w / 2, i.y - i.h * 0.3)
+            const ex = i.x + i.w / 2 + Math.cos(a) * 20,
+              ey = i.y - i.h * 0.3 - 10 + Math.sin(a) * 10
+            ctx.quadraticCurveTo(i.x + i.w / 2 + Math.cos(a) * 25, i.y - i.h * 0.3 - 20, ex, ey)
+            ctx.stroke()
+          }
+          // Coconuts
+          ctx.fillStyle = '#5D3A1A'
+          ctx.beginPath()
+          ctx.arc(i.x + i.w / 2 - 4, i.y - i.h * 0.3 + 3, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(i.x + i.w / 2 + 4, i.y - i.h * 0.3 + 3, 3, 0, Math.PI * 2)
+          ctx.fill()
+        })
+      }
+
+      function drawGrizzy() {
+        const g = grizzy
+        // Ship hull
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.moveTo(g.x, g.y + 5)
+        ctx.lineTo(g.x + g.w, g.y + 5)
+        ctx.lineTo(g.x + g.w - 5, g.y + g.h)
+        ctx.lineTo(g.x + 5, g.y + g.h)
+        ctx.closePath()
+        ctx.fill()
+        ctx.strokeStyle = '#5C3A1E'
+        ctx.lineWidth = 2
+        ctx.stroke()
+        // Hull details
+        ctx.fillStyle = '#6B4226'
+        ctx.fillRect(g.x + 5, g.y + 12, g.w - 10, 3)
+        ctx.fillRect(g.x + 8, g.y + 20, g.w - 16, 3)
+        // Mast
+        ctx.fillStyle = '#5C3A1E'
+        ctx.fillRect(g.x + g.w / 2 - 2, g.y - 20, 4, g.h + 5)
+        // Sail
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'
+        ctx.beginPath()
+        ctx.moveTo(g.x + g.w / 2 - 15, g.y - 5)
+        ctx.lineTo(g.x + g.w / 2 - 15, g.y - 20)
+        ctx.lineTo(g.x + g.w / 2 + 2, g.y - 25)
+        ctx.lineTo(g.x + g.w / 2 + 2, g.y - 5)
+        ctx.closePath()
+        ctx.fill()
+        ctx.strokeStyle = '#CCC'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        // Flag
+        ctx.fillStyle = '#2A2A2A'
+        ctx.fillRect(g.x + g.w / 2 + 2, g.y - 28, 18, 12)
+        // Skull (bear skull) on flag
+        ctx.fillStyle = '#FFF'
+        ctx.beginPath()
+        ctx.arc(g.x + g.w / 2 + 11, g.y - 22, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#2A2A2A'
+        ctx.fillRect(g.x + g.w / 2 + 8, g.y - 23, 2, 4)
+        ctx.fillRect(g.x + g.w / 2 + 12, g.y - 23, 2, 4)
+        ctx.fillRect(g.x + g.w / 2 + 10, g.y - 20, 3, 2)
+        // Grizzy (bear pirate) on deck
+        const gx = g.x + g.w / 2,
+          gy = g.y + g.h - 15
+        // Body
+        ctx.fillStyle = '#8B6914'
+        ctx.beginPath()
+        ctx.arc(gx, gy, 8, 0, Math.PI * 2)
+        ctx.fill()
+        // Head
+        ctx.fillStyle = '#A0782C'
+        ctx.beginPath()
+        ctx.arc(gx, gy - 8, 7, 0, Math.PI * 2)
+        ctx.fill()
+        // Ears
+        ctx.beginPath()
+        ctx.arc(gx - 7, gy - 14, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(gx + 7, gy - 14, 4, 0, Math.PI * 2)
+        ctx.fill()
+        // Ear inner
+        ctx.fillStyle = '#C4965A'
+        ctx.beginPath()
+        ctx.arc(gx - 7, gy - 14, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(gx + 7, gy - 14, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Eye patch
+        ctx.fillStyle = '#1A1A1A'
+        ctx.beginPath()
+        ctx.arc(gx + 3, gy - 10, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#000'
+        ctx.beginPath()
+        ctx.arc(gx + 3, gy - 10, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        // Eye (good)
+        ctx.fillStyle = '#FFF'
+        ctx.beginPath()
+        ctx.arc(gx - 2, gy - 9, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(gx - 2, gy - 9, 1, 0, Math.PI * 2)
+        ctx.fill()
+        // Nose
+        ctx.fillStyle = '#2A1A0A'
+        ctx.beginPath()
+        ctx.arc(gx, gy - 6, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        // Pirate hat
+        ctx.fillStyle = '#1A1A1A'
+        ctx.beginPath()
+        ctx.ellipse(gx, gy - 14, 10, 3, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#2A2A2A'
+        ctx.beginPath()
+        ctx.moveTo(gx - 8, gy - 14)
+        ctx.lineTo(gx + 8, gy - 14)
+        ctx.lineTo(gx + 2, gy - 24)
+        ctx.closePath()
+        ctx.fill()
+        ctx.fillStyle = '#FFD700'
+        ctx.beginPath()
+        ctx.arc(gx + 1, gy - 23, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Saber
+        ctx.fillStyle = '#CCC'
+        ctx.strokeStyle = '#999'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(gx + 8, gy - 4)
+        ctx.lineTo(gx + 16, gy - 12)
+        ctx.stroke()
+        ctx.fillStyle = '#8B4513'
+        ctx.fillRect(gx + 6, gy - 6, 5, 3)
+        // Arms
+        ctx.fillStyle = '#A0782C'
+        ctx.fillRect(gx - 10, gy - 5, 5, 4)
+        ctx.fillRect(gx + 5, gy - 5, 5, 4)
+      }
+
+      function drawRocks() {
+        obstacles.forEach((o) => {
+          ctx.fillStyle = '#555'
+          ctx.beginPath()
+          // Irregular rock shape
+          ctx.moveTo(o.x + o.w * 0.1, o.y + o.h * 0.9)
+          ctx.lineTo(o.x + o.w * 0.4, o.y + o.h * 0.1)
+          ctx.lineTo(o.x + o.w * 0.7, o.y + o.h * 0.15)
+          ctx.lineTo(o.x + o.w * 0.9, o.y + o.h * 0.5)
+          ctx.lineTo(o.x + o.w * 0.8, o.y + o.h * 0.85)
+          ctx.lineTo(o.x + o.w * 0.3, o.y + o.h * 0.95)
+          ctx.closePath()
+          ctx.fill()
+          ctx.strokeStyle = '#3A3A3A'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          // Texture cracks
+          ctx.strokeStyle = '#444'
+          ctx.lineWidth = 0.5
+          ctx.beginPath()
+          ctx.moveTo(o.x + o.w * 0.3, o.y + o.h * 0.4)
+          ctx.lineTo(o.x + o.w * 0.5, o.y + o.h * 0.6)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(o.x + o.w * 0.6, o.y + o.h * 0.3)
+          ctx.lineTo(o.x + o.w * 0.4, o.y + o.h * 0.7)
+          ctx.stroke()
+        })
+      }
+
+      function drawChests() {
+        chests.forEach((c) => {
+          const by = c.y + Math.sin(c.bob) * 3
+          // Chest body
+          ctx.fillStyle = '#8B6914'
+          ctx.fillRect(c.x, c.y - 2, c.w, c.h + 2)
+          // Lid
+          ctx.fillStyle = '#A07828'
+          ctx.fillRect(c.x - 1, c.y - 6, c.w + 2, 6)
+          ctx.strokeStyle = '#6B4E0A'
+          ctx.lineWidth = 1
+          ctx.strokeRect(c.x - 1, c.y - 6, c.w + 2, 6)
+          // Gold shine
+          ctx.fillStyle = '#FFC107'
+          ctx.fillRect(c.x + 3, c.y - 4, c.w - 6, 3)
+          // Lock
+          ctx.fillStyle = '#FFD700'
+          ctx.fillRect(c.x + c.w / 2 - 3, c.y - 3, 6, 5)
+          ctx.fillStyle = '#B8860B'
+          ctx.beginPath()
+          ctx.arc(c.x + c.w / 2, c.y - 1, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // Gems
+          ctx.fillStyle = '#FF0040'
+          ctx.fillRect(c.x + 4, c.y + 2, 3, 3)
+          ctx.fillStyle = '#00BFFF'
+          ctx.fillRect(c.x + c.w - 7, c.y + 2, 3, 3)
+          // Sparkle
+          ctx.fillStyle = 'rgba(255,255,255,0.6)'
+          ctx.beginPath()
+          ctx.arc(c.x + 5, c.y - 3, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(c.x + c.w - 5, c.y - 3, 1, 0, Math.PI * 2)
+          ctx.fill()
+        })
+      }
+
+      function drawEnemies() {
+        enemies.forEach((e) => {
+          // Enemy ship (lemming pirate)
+          ctx.fillStyle = '#5C5C5C'
+          ctx.fillRect(e.x + 5, e.y + 5, e.w - 10, e.h - 10)
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.moveTo(e.x + 3, e.y + 8)
+          ctx.lineTo(e.x + e.w - 3, e.y + 8)
+          ctx.lineTo(e.x + e.w - 8, e.y + e.h - 5)
+          ctx.lineTo(e.x + 8, e.y + e.h - 5)
+          ctx.closePath()
+          ctx.fill()
+          ctx.strokeStyle = '#4A4A4A'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          // Mast
+          ctx.fillStyle = '#4A4A4A'
+          ctx.fillRect(e.x + e.w / 2 - 1, e.y - 12, 3, e.h - 5)
+          // Sail (dark)
+          ctx.fillStyle = 'rgba(80,80,80,0.8)'
+          ctx.beginPath()
+          ctx.moveTo(e.x + e.w / 2 - 10, e.y - 2)
+          ctx.lineTo(e.x + e.w / 2 - 10, e.y - 12)
+          ctx.lineTo(e.x + e.w / 2 + 2, e.y - 16)
+          ctx.lineTo(e.x + e.w / 2 + 2, e.y - 2)
+          ctx.closePath()
+          ctx.fill()
+          // Lemming crew
+          for (let lx of [e.x + 10, e.x + e.w - 10]) {
+            // Body
+            ctx.fillStyle = '#7E8A9E'
+            ctx.beginPath()
+            ctx.arc(lx, e.y + 10, 5, 0, Math.PI * 2)
+            ctx.fill()
+            // Head
+            ctx.beginPath()
+            ctx.arc(lx, e.y + 4, 4, 0, Math.PI * 2)
+            ctx.fill()
+            // Eye patch
+            ctx.fillStyle = '#1A1A1A'
+            ctx.beginPath()
+            ctx.arc(lx + 1, e.y + 3, 2, 0, Math.PI * 2)
+            ctx.fill()
+            // Tiny hat
+            ctx.fillStyle = '#1A1A1A'
+            ctx.beginPath()
+            ctx.moveTo(lx - 4, e.y + 1)
+            ctx.lineTo(lx + 4, e.y + 1)
+            ctx.lineTo(lx + 1, e.y - 4)
+            ctx.closePath()
+            ctx.fill()
+          }
+          // Cannon
+          ctx.fillStyle = '#2A2A2A'
+          ctx.fillRect(e.x - 3, e.y + e.h / 2 - 3, 8, 6)
+        })
+      }
+
+      function drawBullets() {
+        bullets.forEach((b) => {
+          ctx.fillStyle = '#1A1A1A'
+          ctx.beginPath()
+          ctx.arc(b.x + 5, b.y + 5, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#444'
+          ctx.beginPath()
+          ctx.arc(b.x + 5, b.y + 5, 3, 0, Math.PI * 2)
+          ctx.fill()
+          // Fuse spark
+          ctx.fillStyle = '#FF6600'
+          ctx.beginPath()
+          ctx.arc(b.x + b.w - 2, b.y + 3, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+        })
+      }
+
+      function drawParticles() {
+        particles.forEach((p) => {
+          const a = p.life / p.maxLife
+          ctx.globalAlpha = a
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r * a, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        ctx.globalAlpha = 1
+      }
+
+      function drawUI() {
+        // Score
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(5, 5, 160, 58)
+        ctx.strokeStyle = 'rgba(255,215,0,0.5)'
+        ctx.strokeRect(5, 5, 160, 58)
+        ctx.fillStyle = '#FFF'
+        ctx.font = 'bold 12px monospace'
+        ctx.fillText('TESORO PIRATA', 12, 20)
+        ctx.fillStyle = '#FFD700'
+        ctx.fillText('PUNTOS: ' + score, 12, 34)
+        ctx.fillStyle = '#FFF'
+        ctx.fillText('DISTANCIA: ' + Math.floor(dist), 12, 47)
+        ctx.fillStyle = '#87CEEB'
+        ctx.fillText('NIVEL: ' + level + '/40', 12, 60)
+
+        // Lives
+        for (let i = 0; i < lives; i++) {
+          const lx = VW - 80 + i * 22,
+            ly = 10
+          ctx.fillStyle = '#8B5E3C'
+          ctx.fillRect(lx, ly, 16, 14)
+          ctx.fillStyle = '#FF4444'
+          ctx.beginPath()
+          ctx.arc(lx + 8, ly + 7, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FFF'
+          ctx.beginPath()
+          ctx.arc(lx + 6, ly + 5, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        // Speed indicator
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'
+        ctx.fillRect(VW - 90, VH - 20, 85, 15)
+        ctx.fillStyle = '#FFF'
+        ctx.font = '9px monospace'
+        ctx.fillText('VEL: ' + speed.toFixed(1), VW - 85, VH - 9)
+      }
+
+      function drawMenu() {
+        ctx.fillStyle = '#0A2A3A'
+        ctx.fillRect(0, 0, VW, VH)
+        // Animated bg
+        for (let w of waves) {
+          ctx.strokeStyle = 'rgba(255,255,255,0.05)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          for (let x = 0; x <= VW; x += 15) {
+            const wy = VH / 2 + Math.sin(x * 0.02 + frame * w.speed + w.phase) * 15
+            x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy)
+          }
+          ctx.stroke()
+        }
+        // Title
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 36px monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText('TESORO PIRATA', VW / 2, 120)
+        ctx.fillStyle = '#FFF'
+        ctx.font = 'bold 16px monospace'
+        ctx.fillText('Grizzy & the Lemmings', VW / 2, 150)
+        // Grizzy icon
+        ctx.fillStyle = '#8B6914'
+        ctx.beginPath()
+        ctx.arc(VW / 2 - 20, 190, 12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(VW / 2 + 20, 190, 12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A0782C'
+        ctx.beginPath()
+        ctx.arc(VW / 2, 175, 14, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1A1A1A'
+        ctx.beginPath()
+        ctx.arc(VW / 2 + 4, 173, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFF'
+        ctx.beginPath()
+        ctx.arc(VW / 2 - 3, 174, 3, 0, Math.PI * 2)
+        ctx.fill()
+        // Instructions box
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.fillRect(VW / 2 - 150, 210, 300, 120)
+        ctx.strokeStyle = '#FFD700'
+        ctx.lineWidth = 1
+        ctx.strokeRect(VW / 2 - 150, 210, 300, 120)
+        ctx.fillStyle = '#FFF'
+        ctx.font = '13px monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'top'
+        const instrs = [
+          '↑ ↓ / W S : MOVER BARCO',
+          '⬡ ESQUIVA ROCAS Y BALAS',
+          '💰 RECOGE COFRES (+10)',
+          '⚔️ CUIDADO CON LEMMINGS!' + '\n',
+          '🏴‍☠️ ' + level + ' NIVELES',
+        ]
+        instrs.forEach((txt, i) => ctx.fillText(txt, VW / 2, 218 + i * 18))
+        // Start prompt
+        const pulse = Math.sin(frame * 0.05) * 0.3 + 0.7
+        ctx.globalAlpha = pulse
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 20px monospace'
+        ctx.fillText('TOCA / CLICK PARA EMPEZAR', VW / 2, 370)
+        ctx.globalAlpha = 1
+        // Best score
+        if (best > 0) {
+          ctx.fillStyle = 'rgba(255,215,0,0.5)'
+          ctx.font = '11px monospace'
+          ctx.fillText('RECORD: ' + best, VW / 2, 395)
+        }
+        ctx.textAlign = 'start'
+        ctx.textBaseline = 'alphabetic'
+      }
+
+      function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'
+        ctx.fillRect(0, 0, VW, VH)
+        ctx.textAlign = 'center'
+        ctx.fillStyle = '#FF4444'
+        ctx.font = 'bold 32px monospace'
+        ctx.fillText('GAME OVER', VW / 2, 140)
+        ctx.fillStyle = '#FFF'
+        ctx.font = '16px monospace'
+        ctx.fillText('PUNTOS: ' + score, VW / 2, 185)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '14px monospace'
+        ctx.fillText('NIVEL: ' + level + '  |  RECORD: ' + best, VW / 2, 210)
+        // Skull
+        ctx.fillStyle = '#DDD'
+        ctx.beginPath()
+        ctx.arc(VW / 2, 260, 25, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.fillRect(VW / 2 - 10, 248, 20, 3)
+        ctx.fillRect(VW / 2 - 10, 265, 20, 3)
+        ctx.fillRect(VW / 2 - 3, 256, 6, 6)
+        const pulse = Math.sin(frame * 0.05) * 0.3 + 0.7
+        ctx.globalAlpha = pulse
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 16px monospace'
+        ctx.fillText('TOCA PARA REINTENTAR', VW / 2, 320)
+        ctx.globalAlpha = 1
+        ctx.textAlign = 'start'
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, VW, VH)
+        if (state === 'menu') {
+          drawMenu()
+          return
+        }
+        drawBackground()
+        drawSea()
+        drawIslands()
+        drawChests()
+        drawEnemies()
+        drawBullets()
+        drawRocks()
+        drawGrizzy()
+        drawParticles()
+        drawUI()
+        if (state === 'gameover') drawGameOver()
+      }
+
+      function gameLoop() {
+        update()
+        // Scale drawing
+        ctx.save()
+        const scaleX = canvas.width / VW,
+          scaleY = canvas.height / VH,
+          scale = Math.min(scaleX, scaleY)
+        const ox = (canvas.width - VW * scale) / 2,
+          oy = (canvas.height - VH * scale) / 2
+        ctx.setTransform(scale, 0, 0, scale, ox, oy)
+        draw()
+        ctx.restore()
+        requestAnimationFrame(gameLoop)
+      }
+
+      // Input
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          KEY.up = true
+          e.preventDefault()
+        }
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+          KEY.down = true
+          e.preventDefault()
+        }
+        if (e.key === ' ' || e.key === 'Enter') {
+          if (state === 'menu') startGame()
+          else if (state === 'gameover') startGame()
+          e.preventDefault()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
+          KEY.up = false
+          e.preventDefault()
+        }
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
+          KEY.down = false
+          e.preventDefault()
+        }
+      })
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        const t = e.touches[0],
+          r = canvas.getBoundingClientRect()
+        const relY = (t.clientY - r.top) / r.height
+        if (state === 'menu') startGame()
+        else if (state === 'gameover') startGame()
+        else {
+          if (relY < 0.5) KEY.up = true
+          else KEY.down = true
+          setTimeout(() => {
+            KEY.up = false
+            KEY.down = false
+          }, 200)
+        }
+      })
+      canvas.addEventListener('click', (e) => {
+        if (state === 'menu') startGame()
+        else if (state === 'gameover') startGame()
+        // Resume audio context on first click
+        if (actx.state === 'suspended') actx.resume()
+      })
+      canvas.addEventListener('mousemove', (e) => {
+        if (state !== 'playing') return
+        const r = canvas.getBoundingClientRect()
+        const relY = (e.clientY - r.top) / r.height
+        const targetY = relY * (VH - grizzy.h)
+        grizzy.y = Math.max(0, Math.min(VH - grizzy.h, targetY))
+      })
+
+      // Init
+      resetGame()
+      gameLoop()
+    </script>
+  </body>
+</html>

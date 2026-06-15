@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Planeta Saltarín - Grizzy & the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0d0d2b;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Segoe UI', Arial, sans-serif;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        box-shadow:
+          0 0 60px rgba(76, 175, 80, 0.15),
+          0 0 120px rgba(21, 101, 192, 0.1);
+        max-width: 100vw;
+        max-height: 100vh;
+        cursor: pointer;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="g"></canvas>
+    <script>
+      const C = document.getElementById('g'),
+        X = C.getContext('2d')
+      const V = 600,
+        W = 600
+      C.width = W
+      C.height = V
+
+      function resize() {
+        const r = Math.min(window.innerWidth, window.innerHeight) / V
+        C.style.width = V * r + 'px'
+        C.style.height = V * r + 'px'
+        C.width = W
+        C.height = V
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      // --- AUDIO ---
+      const AC = new (window.AudioContext || window.webkitAudioContext)()
+      function tone(f, d, t) {
+        const o = AC.createOscillator(),
+          g = AC.createGain()
+        o.connect(g)
+        g.connect(AC.destination)
+        o.type = t || 'sine'
+        o.frequency.value = f
+        g.gain.setValueAtTime(0.15, AC.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + d)
+        o.start()
+        o.stop(AC.currentTime + d)
+      }
+      function sfxJump() {
+        tone(520, 0.12)
+        tone(680, 0.08, 'triangle')
+      }
+      function sfxLand() {
+        tone(260, 0.15, 'triangle')
+        tone(330, 0.1)
+      }
+      function sfxLemming() {
+        tone(150, 0.3, 'sawtooth')
+        tone(100, 0.4, 'square')
+      }
+      function sfxBonus() {
+        tone(880, 0.1)
+        setTimeout(() => {
+          tone(1100, 0.1)
+        }, 80)
+        setTimeout(() => {
+          tone(1320, 0.15)
+        }, 160)
+      }
+      function sfxDie() {
+        tone(300, 0.2, 'sawtooth')
+        setTimeout(() => {
+          tone(200, 0.3, 'sawtooth')
+        }, 150)
+        setTimeout(() => {
+          tone(100, 0.5, 'sawtooth')
+        }, 350)
+      }
+
+      // --- STARS BACKGROUND ---
+      class Stars {
+        constructor() {
+          this.s = []
+          for (let i = 0; i < 200; i++)
+            this.s.push({
+              x: Math.random() * W,
+              y: Math.random() * V,
+              r: Math.random() * 1.8 + 0.3,
+              a: Math.random() * 0.7 + 0.3,
+              s: Math.random() * 0.015 + 0.003,
+              p: Math.random() * Math.PI * 2,
+            })
+        }
+        draw(t) {
+          for (const s of this.s) {
+            s.a = 0.3 + 0.4 * (0.5 + 0.5 * Math.sin(t * s.s + s.p))
+            X.fillStyle = `rgba(255,255,255,${s.a})`
+            X.beginPath()
+            X.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+            X.fill()
+          }
+        }
+      }
+      const stars = new Stars()
+
+      // --- SHOOTING STARS ---
+      let shootingStars = []
+      function spawnShootingStar() {
+        shootingStars.push({
+          x: Math.random() * W,
+          y: 0,
+          ex: Math.random() * 200 - 100,
+          ey: 100 + Math.random() * 100,
+          l: 60 + Math.random() * 80,
+          a: 1,
+          sp: 2 + Math.random() * 2,
+        })
+      }
+      let ssTimer = 0
+
+      // --- GAME STATE ---
+      const G = {
+        screen: 'menu', // menu|playing|gameover
+        score: 0,
+        best: parseInt(localStorage.getItem('grizzy_planet_best')) || 0,
+        level: 1,
+        planetCount: 0,
+        grizzyPlanet: -1,
+        jumpAngle: 0,
+        isJumping: false,
+        jumpProgress: 0,
+        jumpFrom: { x: W / 2, y: V / 2 },
+        trail: [],
+        time: 0,
+        coyote: 0,
+        particles: [],
+        flashTimer: 0,
+      }
+
+      // --- GRIZZY ---
+      const GRIZZY = {
+        x: W / 2,
+        y: V / 2 - 80,
+        r: 14,
+        angle: 0,
+        vy: 0,
+        vx: 0,
+        onPlanet: -1,
+        planetDist: 0,
+      }
+      function resetGrizzy() {
+        GRIZZY.x = W / 2
+        GRIZZY.y = V / 2 - 80
+        GRIZZY.vy = 0
+        GRIZZY.vx = 0
+        GRIZZY.onPlanet = -1
+        GRIZZY.planetDist = 0
+        GRIZZY.angle = 0
+        G.trail = []
+        G.isJumping = false
+        G.jumpProgress = 0
+        G.particles = []
+      }
+
+      // --- PLANETS ---
+      let planets = []
+
+      function createPlanets() {
+        planets = []
+        const count = 4 + G.level
+        for (let i = 0; i < count; i++) {
+          let x, y, overlap
+          let attempts = 0
+          do {
+            x = 50 + Math.random() * (W - 100)
+            y = 50 + Math.random() * (V - 100)
+            overlap = false
+            for (const p of planets) {
+              const d = Math.hypot(x - p.x, y - p.y)
+              if (d < p.r + 40) {
+                overlap = true
+                break
+              }
+            }
+            attempts++
+          } while (overlap && attempts < 50)
+          const r = 22 + Math.random() * 18
+          const isLemming = i > 0 && i % 4 === 0 && G.level > 1
+          const isGolden = i > 0 && G.planetCount > 0 && G.planetCount % 5 === 0 && i === count - 1
+          let color
+          if (isGolden) color = '#FFC107'
+          else if (isLemming) color = '#7E8A9E'
+          else color = ['#4CAF50', '#1565C0', '#E53935', '#FF9800'][Math.floor(Math.random() * 4)]
+          const speed = 0.002 + Math.random() * 0.004
+          planets.push({
+            x,
+            y,
+            r,
+            color,
+            vx: (Math.random() - 0.5) * speed,
+            vy: (Math.random() - 0.5) * speed,
+            angle: Math.random() * Math.PI * 2,
+            rotSpeed: (Math.random() - 0.5) * 0.01,
+            isLemming,
+            isGolden,
+            img: Math.floor(Math.random() * 3),
+          })
+        }
+        // ensure first planet under grizzy
+        planets[0] = {
+          ...planets[0],
+          x: W / 2,
+          y: V / 2 - 70,
+          r: 30,
+          color: '#4CAF50',
+          vx: 0,
+          vy: 0,
+          isLemming: false,
+          isGolden: false,
+        }
+      }
+
+      // --- PARTICLES ---
+      function emitParticles(x, y, count, color, spd) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = spd || 1 + Math.random() * 3
+          G.particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            l: 30 + Math.random() * 40,
+            a: 1,
+            color: color || '#fff',
+            r: 1 + Math.random() * 2,
+          })
+        }
+      }
+
+      // --- PHYSICS ---
+      function getGravity(px, py) {
+        let best = null,
+          bestD = Infinity,
+          idx = -1
+        for (let i = 0; i < planets.length; i++) {
+          const p = planets[i],
+            d = Math.hypot(px - p.x, py - p.y)
+          if (d < p.r + 200 && d < bestD) {
+            bestD = d
+            best = p
+            idx = i
+          }
+        }
+        return { planet: best, dist: bestD, idx }
+      }
+
+      function update(dt) {
+        G.time += dt
+        // rotate planets
+        for (const p of planets) {
+          p.x += p.vx
+          p.y += p.vy
+          if (p.x < 0 || p.x > W) p.vx *= -1
+          if (p.y < 0 || p.y > V) p.vy *= -1
+          p.angle += p.rotSpeed
+        }
+        // shooting stars
+        ssTimer += dt
+        if (ssTimer > 3 + Math.random() * 5) {
+          spawnShootingStar()
+          ssTimer = 0
+        }
+        for (let i = shootingStars.length - 1; i >= 0; i--) {
+          const s = shootingStars[i]
+          s.x += s.sp
+          s.y += (s.sp * s.ey) / s.ex
+          s.a -= 0.008
+          if (s.a <= 0) shootingStars.splice(i, 1)
+        }
+        // gravity
+        if (!G.isJumping) {
+          const g = getGravity(GRIZZY.x, GRIZZY.y)
+          if (g.planet && g.dist < g.planet.r + 5) {
+            GRIZZY.onPlanet = g.idx
+            GRIZZY.planetDist = g.dist
+            const a = Math.atan2(GRIZZY.y - g.planet.y, GRIZZY.x - g.planet.x)
+            GRIZZY.x = g.planet.x + Math.cos(a) * g.planet.r
+            GRIZZY.y = g.planet.y + Math.sin(a) * g.planet.r
+            GRIZZY.vy = 0
+            GRIZZY.vx = 0
+            G.coyote = 0.15
+          } else if (g.planet && g.dist < g.planet.r + 50) {
+            const a = Math.atan2(GRIZZY.y - g.planet.y, GRIZZY.x - g.planet.x)
+            const force = 0.12 * (1 - g.dist / (g.planet.r + 50))
+            GRIZZY.vx -= Math.cos(a) * force
+            GRIZZY.vy -= Math.sin(a) * force
+            GRIZZY.onPlanet = -1
+            G.coyote -= dt
+          } else {
+            GRIZZY.onPlanet = -1
+            G.coyote -= dt
+          }
+        }
+        if (GRIZZY.onPlanet < 0 || G.isJumping) {
+          GRIZZY.x += GRIZZY.vx
+          GRIZZY.y += GRIZZY.vy
+          GRIZZY.vy += 0.04
+        }
+        // check landing
+        if (GRIZZY.onPlanet < 0 && !G.isJumping) {
+          for (let i = 0; i < planets.length; i++) {
+            const p = planets[i],
+              d = Math.hypot(GRIZZY.x - p.x, GRIZZY.y - p.y)
+            if (d < p.r + 2 && GRIZZY.vy > 0) {
+              GRIZZY.x = p.x + ((GRIZZY.x - p.x) / d) * p.r
+              GRIZZY.y = p.y + ((GRIZZY.y - p.y) / d) * p.r
+              GRIZZY.vy = 0
+              GRIZZY.vx = 0
+              GRIZZY.onPlanet = i
+              GRIZZY.angle = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+              G.coyote = 0.15
+              G.isJumping = false
+              G.jumpProgress = 0
+              if (p.isLemming) {
+                sfxLemming()
+                G.flashTimer = 0.3
+                setTimeout(() => gameOver(), 200)
+              } else if (p.isGolden) {
+                sfxBonus()
+                G.score += 50
+                emitParticles(GRIZZY.x, GRIZZY.y, 25, '#FFC107', 4)
+              } else {
+                sfxLand()
+                emitParticles(GRIZZY.x, GRIZZY.y, 10, p.color, 2)
+                G.planetCount++
+              }
+              G.trail = []
+              break
+            }
+          }
+        }
+        // jump
+        if (G.isJumping) {
+          G.jumpProgress += 0.02
+          const p = G.jumpFrom
+          const a = G.jumpAngle
+          const dist = G.jumpProgress * 220
+          GRIZZY.x = p.x + Math.cos(a) * dist
+          GRIZZY.y = p.y + Math.sin(a) * dist
+          GRIZZY.vx = Math.cos(a) * 3.5
+          GRIZZY.vy = Math.sin(a) * 3.5
+          if (G.jumpProgress >= 1) {
+            G.isJumping = false
+            G.jumpProgress = 0
+            GRIZZY.vx = Math.cos(a) * 2.5
+            GRIZZY.vy = Math.sin(a) * 2.5
+          }
+        }
+        // trail
+        if (G.isJumping || GRIZZY.onPlanet >= 0) {
+          G.trail.push({ x: GRIZZY.x, y: GRIZZY.y, l: 20, a: 0.5 })
+          if (G.trail.length > 15) G.trail.shift()
+        }
+        // out of bounds
+        if (GRIZZY.y > V + 50 || GRIZZY.x < -50 || GRIZZY.x > W + 50) {
+          gameOver()
+          return
+        }
+        // particles
+        for (let i = G.particles.length - 1; i >= 0; i--) {
+          const p = G.particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.a -= 0.025
+          p.l--
+          if (p.l <= 0 || p.a <= 0) G.particles.splice(i, 1)
+        }
+        if (G.flashTimer > 0) G.flashTimer -= dt
+      }
+
+      // --- DRAW ---
+      function drawPlanet(p) {
+        X.save()
+        X.translate(p.x, p.y)
+        X.rotate(p.angle)
+        // atmosphere glow
+        const grd = X.createRadialGradient(0, 0, p.r * 0.3, 0, 0, p.r * 1.5)
+        grd.addColorStop(
+          0,
+          p.isGolden
+            ? 'rgba(255,193,7,0.4)'
+            : p.isLemming
+              ? 'rgba(126,138,158,0.3)'
+              : 'rgba(255,255,255,0.08)',
+        )
+        grd.addColorStop(1, 'rgba(255,255,255,0)')
+        X.fillStyle = grd
+        X.beginPath()
+        X.arc(0, 0, p.r * 1.5, 0, Math.PI * 2)
+        X.fill()
+        // planet body
+        X.beginPath()
+        X.arc(0, 0, p.r, 0, Math.PI * 2)
+        const grad = X.createRadialGradient(-p.r * 0.3, -p.r * 0.3, p.r * 0.1, 0, 0, p.r)
+        if (p.isGolden) {
+          grad.addColorStop(0, '#FFE082')
+          grad.addColorStop(0.5, '#FFC107')
+          grad.addColorStop(1, '#FF8F00')
+        } else if (p.isLemming) {
+          grad.addColorStop(0, '#B0BEC5')
+          grad.addColorStop(0.5, '#7E8A9E')
+          grad.addColorStop(1, '#546E7A')
+        } else {
+          grad.addColorStop(0, lighten(p.color, 40))
+          grad.addColorStop(0.5, p.color)
+          grad.addColorStop(1, darken(p.color, 30))
+        }
+        X.fillStyle = grad
+        X.fill()
+        X.strokeStyle = 'rgba(255,255,255,0.15)'
+        X.lineWidth = 1.5
+        X.stroke()
+        // ring
+        X.save()
+        X.scale(1, 0.4)
+        X.beginPath()
+        X.arc(0, 0, p.r * 1.5, 0, Math.PI * 2)
+        X.strokeStyle = 'rgba(255,255,255,0.12)'
+        X.lineWidth = 3
+        X.setLineDash([4, 6])
+        X.stroke()
+        X.setLineDash([])
+        X.restore()
+        // craters / decor
+        if (p.img === 0) {
+          X.fillStyle = 'rgba(0,0,0,0.12)'
+          X.beginPath()
+          X.arc(p.r * 0.3, -p.r * 0.2, p.r * 0.2, 0, Math.PI * 2)
+          X.fill()
+          X.beginPath()
+          X.arc(-p.r * 0.4, p.r * 0.25, p.r * 0.15, 0, Math.PI * 2)
+          X.fill()
+        } else if (p.img === 1) {
+          X.fillStyle = 'rgba(255,255,255,0.08)'
+          X.beginPath()
+          X.ellipse(p.r * 0.2, -p.r * 0.3, p.r * 0.35, p.r * 0.1, 0.3, 0, Math.PI * 2)
+          X.fill()
+          X.beginPath()
+          X.ellipse(-p.r * 0.25, p.r * 0.2, p.r * 0.3, p.r * 0.08, -0.2, 0, Math.PI * 2)
+          X.fill()
+        }
+        // lemming face
+        if (p.isLemming) {
+          X.fillStyle = '#37474F'
+          X.beginPath()
+          X.arc(-5, -5, 3, 0, Math.PI * 2)
+          X.fill()
+          X.beginPath()
+          X.arc(5, -5, 3, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = '#fff'
+          X.beginPath()
+          X.arc(-5, -5, 1.2, 0, Math.PI * 2)
+          X.fill()
+          X.beginPath()
+          X.arc(5, -5, 1.2, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = '#B71C1C'
+          X.beginPath()
+          X.arc(0, 3, 3, 0, Math.PI)
+          X.fill()
+          X.strokeStyle = '#37474F'
+          X.lineWidth = 1
+          X.beginPath()
+          X.moveTo(-4, 4)
+          X.lineTo(4, 4)
+          X.stroke()
+          const s = 5
+          for (let i = 0; i < 3; i++) {
+            X.fillStyle = '#fff'
+            X.fillRect(-2 + i * s, 6, 2, 3)
+          }
+        }
+        // golden glow
+        if (p.isGolden) {
+          X.shadowColor = '#FFC107'
+          X.shadowBlur = 30
+          X.beginPath()
+          X.arc(0, 0, p.r, 0, Math.PI * 2)
+          X.fillStyle = 'rgba(255,193,7,0.2)'
+          X.fill()
+          X.shadowBlur = 0
+        }
+        X.restore()
+      }
+
+      function drawGrizzy() {
+        if (GRIZZY.onPlanet >= 0) {
+          const p = planets[GRIZZY.onPlanet]
+          GRIZZY.angle = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+          if (p.isLemming) return
+        }
+        X.save()
+        X.translate(GRIZZY.x, GRIZZY.y)
+        const a = G.isJumping ? G.jumpAngle : GRIZZY.angle + Math.PI / 2
+        X.rotate(a - Math.PI / 2)
+        // body
+        X.fillStyle = '#5D4037'
+        X.beginPath()
+        X.ellipse(0, 0, 9, 12, 0, 0, Math.PI * 2)
+        X.fill()
+        // belly
+        X.fillStyle = '#8D6E63'
+        X.beginPath()
+        X.ellipse(0, 2, 5, 7, 0, 0, Math.PI * 2)
+        X.fill()
+        // head
+        X.fillStyle = '#5D4037'
+        X.beginPath()
+        X.arc(0, -13, 9, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#8D6E63'
+        X.beginPath()
+        X.arc(1, -12, 5, 0, Math.PI * 2)
+        X.fill()
+        // ears
+        X.fillStyle = '#5D4037'
+        X.beginPath()
+        X.arc(-7, -18, 4, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -18, 4, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#8D6E63'
+        X.beginPath()
+        X.arc(-7, -18, 2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -18, 2, 0, Math.PI * 2)
+        X.fill()
+        // eyes
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-3, -14, 3.5, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(3, -14, 3.5, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#1A1A1A'
+        X.beginPath()
+        X.arc(-2, -13.5, 1.8, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(4, -13.5, 1.8, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-1.5, -14.5, 0.8, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(4.5, -14.5, 0.8, 0, Math.PI * 2)
+        X.fill()
+        // nose
+        X.fillStyle = '#1A1A1A'
+        X.beginPath()
+        X.ellipse(0, -11, 2.5, 1.8, 0, 0, Math.PI * 2)
+        X.fill()
+        // helmet bubble
+        X.strokeStyle = 'rgba(200,230,255,0.35)'
+        X.lineWidth = 2
+        X.beginPath()
+        X.arc(0, -13, 14, 0, Math.PI * 2)
+        X.stroke()
+        X.fillStyle = 'rgba(200,230,255,0.07)'
+        X.beginPath()
+        X.arc(0, -13, 14, 0, Math.PI * 2)
+        X.fill()
+        X.strokeStyle = 'rgba(255,255,255,0.2)'
+        X.lineWidth = 1
+        X.beginPath()
+        X.arc(0, -13, 10, 0.3, 1.2)
+        X.stroke()
+        // arms
+        const wa = G.isJumping ? Math.sin(G.time * 8) * 0.5 : 0.2
+        X.strokeStyle = '#5D4037'
+        X.lineWidth = 3
+        X.lineCap = 'round'
+        X.beginPath()
+        X.moveTo(-8, 0)
+        X.lineTo(-16, 8 + Math.sin(G.time * 4 + wa) * 4)
+        X.stroke()
+        X.beginPath()
+        X.moveTo(8, 0)
+        X.lineTo(16, 8 + Math.cos(G.time * 4 + wa) * 4)
+        X.stroke()
+        // legs
+        X.beginPath()
+        X.moveTo(-5, 10)
+        X.lineTo(-10, 20 + Math.sin(G.time * 4 + wa) * 3)
+        X.stroke()
+        X.beginPath()
+        X.moveTo(5, 10)
+        X.lineTo(10, 20 + Math.cos(G.time * 4 + wa) * 3)
+        X.stroke()
+        // helmet antenna
+        X.strokeStyle = '#90CAF9'
+        X.lineWidth = 1.5
+        X.beginPath()
+        X.moveTo(0, -27)
+        X.lineTo(0, -32)
+        X.stroke()
+        X.fillStyle = '#E53935'
+        X.beginPath()
+        X.arc(0, -33, 2.5, 0, Math.PI * 2)
+        X.fill()
+        X.restore()
+      }
+
+      function lighten(c, p) {
+        const n = parseInt(c.slice(1), 16),
+          r = (n >> 16) & 255,
+          g = (n >> 8) & 255,
+          b = n & 255
+        return `rgb(${Math.min(255, r + p)},${Math.min(255, g + p)},${Math.min(255, b + p)})`
+      }
+      function darken(c, p) {
+        const n = parseInt(c.slice(1), 16),
+          r = (n >> 16) & 255,
+          g = (n >> 8) & 255,
+          b = n & 255
+        return `rgb(${Math.max(0, r - p)},${Math.max(0, g - p)},${Math.max(0, b - p)})`
+      }
+
+      // --- SCREENS ---
+      function drawMenu() {
+        X.fillStyle = '#0D0D2B'
+        X.fillRect(0, 0, W, V)
+        stars.draw(G.time)
+        for (const s of shootingStars) {
+          X.save()
+          X.globalAlpha = s.a
+          X.strokeStyle = '#fff'
+          X.lineWidth = 2
+          X.beginPath()
+          X.moveTo(s.x, s.y)
+          X.lineTo(s.x - (s.ex * s.l) / 100, s.y - (s.ey * s.l) / 100)
+          X.stroke()
+          X.restore()
+        }
+        // title
+        X.save()
+        X.shadowColor = '#4CAF50'
+        X.shadowBlur = 40
+        X.fillStyle = '#fff'
+        X.font = 'bold 42px "Segoe UI",Arial,sans-serif'
+        X.textAlign = 'center'
+        X.textBaseline = 'middle'
+        X.fillText('PLANETA SALTARÍN', W / 2, 130)
+        X.shadowBlur = 0
+        X.fillStyle = '#90CAF9'
+        X.font = '18px "Segoe UI",Arial,sans-serif'
+        X.fillText('Grizzy & the Lemmings', W / 2, 180)
+        // draw sample grizzy
+        GRIZZY.x = W / 2
+        GRIZZY.y = 270
+        GRIZZY.angle = 0
+        drawGrizzy()
+        // planets
+        const pp = [
+          {
+            x: W / 2 - 120,
+            y: 270,
+            r: 22,
+            color: '#4CAF50',
+            angle: 0,
+            rotSpeed: 0,
+            isLemming: false,
+            isGolden: false,
+            img: 0,
+            vx: 0,
+            vy: 0,
+          },
+          {
+            x: W / 2 + 120,
+            y: 270,
+            r: 20,
+            color: '#7E8A9E',
+            angle: 0,
+            rotSpeed: 0,
+            isLemming: true,
+            isGolden: false,
+            img: 1,
+            vx: 0,
+            vy: 0,
+          },
+          {
+            x: W / 2 + 60,
+            y: 360,
+            r: 18,
+            color: '#FFC107',
+            angle: 0,
+            rotSpeed: 0,
+            isLemming: false,
+            isGolden: true,
+            img: 2,
+            vx: 0,
+            vy: 0,
+          },
+        ]
+        for (const p of pp) drawPlanet(p)
+        // instructions
+        X.fillStyle = 'rgba(255,255,255,0.7)'
+        X.font = '16px "Segoe UI",Arial,sans-serif'
+        X.fillText('ESPACIO / CLIC para saltar   ← → / A D para ángulo', W / 2, 430)
+        X.fillStyle = 'rgba(255,255,255,0.5)'
+        X.font = '14px "Segoe UI",Arial,sans-serif'
+        X.fillText('¡Cuidado con los Lemmings disfrazados!', W / 2, 460)
+        // best score
+        if (G.best > 0) {
+          X.fillStyle = '#FFC107'
+          X.font = '16px "Segoe UI",Arial,sans-serif'
+          X.fillText('🏆 Mejor: ' + G.best, W / 2, 500)
+        }
+        // level
+        X.fillStyle = 'rgba(255,255,255,0.15)'
+        X.font = '13px "Segoe UI",Arial,sans-serif'
+        X.fillText('Nivel ' + G.level + ' / 40', W / 2, 530)
+        // pulse start
+        const pA = 0.5 + 0.5 * Math.sin(G.time * 3)
+        X.fillStyle = `rgba(76,175,80,${pA})`
+        X.font = 'bold 24px "Segoe UI",Arial,sans-serif'
+        X.fillText('[ PRESIONA ESPACIO O CLIC ]', W / 2, 570)
+        X.restore()
+      }
+
+      function drawGameOver() {
+        X.fillStyle = 'rgba(13,13,43,0.85)'
+        X.fillRect(0, 0, W, V)
+        X.save()
+        X.shadowColor = '#E53935'
+        X.shadowBlur = 50
+        X.fillStyle = '#fff'
+        X.font = 'bold 48px "Segoe UI",Arial,sans-serif'
+        X.textAlign = 'center'
+        X.textBaseline = 'middle'
+        X.fillText('GAME OVER', W / 2, 200)
+        X.shadowBlur = 0
+        X.fillStyle = '#FFC107'
+        X.font = '36px "Segoe UI",Arial,sans-serif'
+        X.fillText('⭐ ' + G.score, W / 2, 280)
+        if (G.score >= G.best && G.score > 0) {
+          X.fillStyle = '#4CAF50'
+          X.font = '18px "Segoe UI",Arial,sans-serif'
+          X.fillText('¡NUEVO RÉCORD!', W / 2, 330)
+        }
+        X.fillStyle = 'rgba(255,255,255,0.5)'
+        X.font = '14px "Segoe UI",Arial,sans-serif'
+        X.fillText('Mejor: ' + G.best, W / 2, 365)
+        X.fillStyle = '#90CAF9'
+        X.font = '18px "Segoe UI",Arial,sans-serif'
+        X.fillText('Nivel alcanzado: ' + G.level, W / 2, 410)
+        const a = 0.5 + 0.5 * Math.sin(G.time * 3)
+        X.fillStyle = `rgba(255,255,255,${a})`
+        X.font = '20px "Segoe UI",Arial,sans-serif'
+        X.fillText('ESPACIO o CLIC para reiniciar', W / 2, 500)
+        X.fillStyle = 'rgba(255,255,255,0.3)'
+        X.font = '14px "Segoe UI",Arial,sans-serif'
+        X.fillText('Menú: ESC', W / 2, 540)
+        X.restore()
+      }
+
+      // --- GAME LOGIC ---
+      function startGame() {
+        G.screen = 'playing'
+        G.score = 0
+        G.level = 1
+        G.planetCount = 0
+        G.flashTimer = 0
+        resetGrizzy()
+        createPlanets()
+        // place grizzy on first planet
+        GRIZZY.onPlanet = 0
+        const p = planets[0]
+        GRIZZY.x = p.x + p.r
+        GRIZZY.y = p.y
+        GRIZZY.angle = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+        emitParticles(GRIZZY.x, GRIZZY.y, 8, p.color, 2)
+      }
+
+      function gameOver() {
+        if (G.screen !== 'playing') return
+        G.screen = 'gameover'
+        G.isJumping = false
+        sfxDie()
+        if (G.score > G.best) {
+          G.best = G.score
+          localStorage.setItem('grizzy_planet_best', G.best)
+        }
+        // explosion particles
+        emitParticles(GRIZZY.x, GRIZZY.y, 30, '#E53935', 5)
+      }
+
+      function jump() {
+        if (G.screen === 'menu') {
+          startGame()
+          return
+        }
+        if (G.screen === 'gameover') {
+          startGame()
+          return
+        }
+        if (G.screen !== 'playing') return
+        if (G.isJumping) return
+        const onP = GRIZZY.onPlanet
+        if (onP < 0 && G.coyote <= 0) return
+        const p = planets[onP >= 0 ? onP : 0]
+        G.jumpFrom = { x: GRIZZY.x, y: GRIZZY.y }
+        G.isJumping = true
+        G.jumpProgress = 0
+        GRIZZY.onPlanet = -1
+        sfxJump()
+        emitParticles(GRIZZY.x, GRIZZY.y, 12, p.color, 3)
+        if (p.isLemming) {
+          G.flashTimer = 0.3
+          setTimeout(() => gameOver(), 200)
+        }
+      }
+
+      // difficulty scaling
+      function advanceLevel() {
+        G.level++
+        G.planetCount = 0
+        if (G.level > 40) G.level = 1
+        createPlanets()
+        resetGrizzy()
+        GRIZZY.onPlanet = 0
+        const p = planets[0]
+        GRIZZY.x = p.x + p.r
+        GRIZZY.y = p.y
+        GRIZZY.angle = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+        emitParticles(GRIZZY.x, GRIZZY.y, 8, p.color, 2)
+        G.screen = 'playing'
+      }
+
+      // check level up
+      let levelCheckTimer = 0
+
+      // --- INPUT ---
+      const keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === ' ' || e.key === 'Space') {
+          e.preventDefault()
+          jump()
+        }
+        if (e.key === 'Escape' && G.screen === 'gameover') {
+          G.screen = 'menu'
+          resetGrizzy()
+        }
+        if (e.key === 'Escape' && G.screen === 'playing') {
+          G.screen = 'menu'
+          resetGrizzy()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+      })
+      C.addEventListener('click', jump)
+      C.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        jump()
+      })
+
+      // --- MAIN LOOP ---
+      let last = 0
+      function loop(t) {
+        const dt = Math.min((t - last) / 16.667, 3)
+        last = t
+        // update
+        if (G.screen === 'playing') {
+          // angle control
+          if (GRIZZY.onPlanet >= 0 && !G.isJumping) {
+            const a = 0.06
+            if (keys['ArrowLeft'] || keys['a'] || keys['A']) {
+              GRIZZY.angle -= a
+              const p = planets[GRIZZY.onPlanet]
+              const ga = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+              if (Math.abs(GRIZZY.angle - ga) > 0.8)
+                GRIZZY.angle = ga + 0.8 * (GRIZZY.angle > ga ? 1 : -1)
+            }
+            if (keys['ArrowRight'] || keys['d'] || keys['D']) {
+              GRIZZY.angle += a
+              const p = planets[GRIZZY.onPlanet]
+              const ga = Math.atan2(GRIZZY.y - p.y, GRIZZY.x - p.x)
+              if (Math.abs(GRIZZY.angle - ga) > 0.8)
+                GRIZZY.angle = ga - 0.8 * (GRIZZY.angle > ga ? 1 : -1)
+            }
+            G.jumpAngle = GRIZZY.angle - Math.PI / 2
+          }
+          update(dt)
+          // planet count level up
+          if (G.planetCount >= 5 + G.level) {
+            advanceLevel()
+          }
+        }
+        // draw
+        X.fillStyle = '#0D0D2B'
+        X.fillRect(0, 0, W, V)
+        stars.draw(G.time)
+        // shooting stars
+        for (const s of shootingStars) {
+          X.save()
+          X.globalAlpha = s.a
+          X.strokeStyle = '#fff'
+          X.lineWidth = 2
+          X.beginPath()
+          X.moveTo(s.x, s.y)
+          X.lineTo(s.x - (s.ex * s.l) / 100, s.y - (s.ey * s.l) / 100)
+          X.stroke()
+          X.fillStyle = '#fff'
+          X.beginPath()
+          X.arc(s.x, s.y, 2, 0, Math.PI * 2)
+          X.fill()
+          X.restore()
+        }
+        // planets
+        for (const p of planets) drawPlanet(p)
+        // trail
+        for (let i = 0; i < G.trail.length; i++) {
+          const tr = G.trail[i],
+            a = tr.a * (i / G.trail.length)
+          X.fillStyle = `rgba(255,255,255,${a * 0.2})`
+          X.beginPath()
+          X.arc(tr.x, tr.y, 1.5, 0, Math.PI * 2)
+          X.fill()
+        }
+        // particles
+        for (const p of G.particles) {
+          X.globalAlpha = p.a
+          X.fillStyle = p.color
+          X.beginPath()
+          X.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+          X.fill()
+        }
+        X.globalAlpha = 1
+        // flash
+        if (G.flashTimer > 0) {
+          X.fillStyle = `rgba(255,0,0,${G.flashTimer * 0.5})`
+          X.fillRect(0, 0, W, V)
+        }
+        // grizzy
+        if (G.screen === 'playing' || G.screen === 'menu') drawGrizzy()
+        // HUD
+        if (G.screen === 'playing') {
+          X.fillStyle = 'rgba(0,0,0,0.4)'
+          X.fillRect(0, 0, W, 36)
+          X.fillStyle = '#fff'
+          X.font = '15px "Segoe UI",Arial,sans-serif'
+          X.textAlign = 'left'
+          X.textBaseline = 'middle'
+          X.fillText('⭐ ' + G.score, 12, 18)
+          X.textAlign = 'center'
+          X.fillStyle = '#90CAF9'
+          X.fillText('🌍 ' + (G.planetCount % 5) + '/' + ((5 + G.level) % 5 || 5), W / 2, 18)
+          X.textAlign = 'right'
+          X.fillStyle = 'rgba(255,255,255,0.5)'
+          X.fillText('Nv.' + G.level + '/40', W - 12, 18)
+          // planet indicator
+          if (GRIZZY.onPlanet >= 0) {
+            const p = planets[GRIZZY.onPlanet]
+            X.textAlign = 'left'
+            X.fillStyle = 'rgba(255,255,255,0.4)'
+            X.font = '11px "Segoe UI",Arial,sans-serif'
+            X.fillText(p.isLemming ? '⚠️ LEMMING!' : p.isGolden ? '✨ DORADO' : '', 12, V - 10)
+          }
+          // angle indicator
+          if (GRIZZY.onPlanet >= 0 && !G.isJumping) {
+            const p = planets[GRIZZY.onPlanet]
+            const a = GRIZZY.angle
+            X.save()
+            X.translate(p.x, p.y)
+            X.strokeStyle = 'rgba(255,255,255,0.25)'
+            X.lineWidth = 1
+            X.setLineDash([3, 5])
+            X.beginPath()
+            X.arc(0, 0, p.r + 30, 0, Math.PI * 2)
+            X.stroke()
+            X.setLineDash([])
+            X.strokeStyle = 'rgba(255,255,255,0.6)'
+            X.lineWidth = 2
+            X.beginPath()
+            X.moveTo(Math.cos(a) * p.r, Math.sin(a) * p.r)
+            X.lineTo(Math.cos(a) * (p.r + 35), Math.sin(a) * (p.r + 35))
+            X.stroke()
+            // arrow tip
+            const ta = a
+            X.fillStyle = 'rgba(255,255,255,0.6)'
+            X.beginPath()
+            X.moveTo(Math.cos(ta) * (p.r + 40), Math.sin(ta) * (p.r + 40))
+            X.lineTo(Math.cos(ta - 0.3) * (p.r + 33), Math.sin(ta - 0.3) * (p.r + 33))
+            X.lineTo(Math.cos(ta + 0.3) * (p.r + 33), Math.sin(ta + 0.3) * (p.r + 33))
+            X.closePath()
+            X.fill()
+            X.restore()
+          }
+        }
+        if (G.screen === 'menu') drawMenu()
+        if (G.screen === 'gameover') drawGameOver()
+        requestAnimationFrame(loop)
+      }
+      requestAnimationFrame(loop)
+    </script>
+  </body>
+</html>

@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Grizzy &amp; the Lemmings - Breakout</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #2d1b0e;
+        font-family:
+          Segoe UI,
+          sans-serif;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #wrap {
+        position: relative;
+        width: min(100vw, calc(100vh * 1.333));
+        height: min(100vh, calc(100vw / 1.333));
+      }
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+        border: 3px solid #ff9800;
+        border-radius: 8px;
+        display: block;
+      }
+      #hud {
+        position: absolute;
+        top: 6px;
+        left: 0;
+        width: 100%;
+        pointer-events: none;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 12px;
+        box-sizing: border-box;
+        color: #fff8e1;
+      }
+      #hud > div {
+        background: rgba(45, 27, 14, 0.75);
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: clamp(10px, 1.2vw, 16px);
+        border: 1px solid rgba(255, 152, 0, 0.25);
+      }
+      .hl {
+        color: #ff9800;
+        font-weight: 700;
+      }
+      #ctl {
+        position: absolute;
+        bottom: 6px;
+        left: 12px;
+        pointer-events: none;
+        color: rgba(255, 248, 225, 0.3);
+        font-size: clamp(8px, 0.85vw, 12px);
+      }
+      #rst {
+        position: absolute;
+        bottom: 2px;
+        right: 10px;
+        pointer-events: all;
+        background: #ff9800;
+        border: 2px solid #e65100;
+        color: #2d1b0e;
+        padding: 2px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 700;
+        font-size: clamp(9px, 0.9vw, 13px);
+        line-height: 1.4;
+      }
+      #rst:hover {
+        background: #ffb74d;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="c" width="800" height="600"></canvas>
+      <div id="hud">
+        <div>
+          &#x1F3C6; <span id="sc">0</span> &middot; &#x2764;&#xFE0F; <span id="li">3</span> &middot;
+          &#x1F9F1; <span id="br">0</span>
+        </div>
+        <div>&#x1F33F; Nv <span id="lv">1</span>/40 &middot; <span id="tn"></span></div>
+      </div>
+      <div id="ctl">&larr; &rarr; mover &middot; ENTER continuar</div>
+      <button id="rst">&#x1F504;</button>
+    </div>
+    <script>
+      ;(function () {
+        const W = 800,
+          H = 600,
+          PH = 18,
+          GAP = 3,
+          TOP = 40,
+          BH = 20,
+          BR = 8,
+          SAVE = 'breakout_grizzy'
+        const c = document.getElementById('c'),
+          ctx = c.getContext('2d')
+        let actx = null
+        function sfx(f, d) {
+          try {
+            if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
+            const o = actx.createOscillator(),
+              g = actx.createGain()
+            o.connect(g)
+            g.connect(actx.destination)
+            o.frequency.value = f
+            o.type = 'triangle'
+            g.gain.setValueAtTime(0.07, actx.currentTime)
+            g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + (d || 0.12))
+            o.start()
+            o.stop(actx.currentTime + (d || 0.12))
+          } catch (e) {}
+        }
+        let pfx = []
+        function part(x, y, c, n) {
+          n = n || 8
+          for (let i = 0; i < n; i++) {
+            const a = Math.random() * 6.28,
+              s = 1 + Math.random() * 4
+            pfx.push({
+              x,
+              y,
+              vx: Math.cos(a) * s,
+              vy: Math.sin(a) * s - 2,
+              life: 25,
+              c: c || '#FFC107',
+              r: 2 + Math.random() * 3,
+            })
+          }
+        }
+        function drP() {
+          for (let i = pfx.length - 1; i >= 0; i--) {
+            const p = pfx[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.12
+            p.life--
+            if (p.life <= 0) pfx.splice(i, 1)
+            else {
+              ctx.save()
+              ctx.globalAlpha = p.life / 25
+              ctx.fillStyle = p.c
+              ctx.beginPath()
+              ctx.arc(p.x, p.y, p.r, 0, 6.28)
+              ctx.fill()
+              ctx.restore()
+            }
+          }
+        }
+        function rr(x, y, w, h, r) {
+          if (w < 2 * r) r = w / 2
+          if (h < 2 * r) r = h / 2
+          ctx.beginPath()
+          ctx.moveTo(x + r, y)
+          ctx.lineTo(x + w - r, y)
+          ctx.quadraticCurveTo(x + w, y, x + w, y + r)
+          ctx.lineTo(x + w, y + h - r)
+          ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+          ctx.lineTo(x + r, y + h)
+          ctx.quadraticCurveTo(x, y + h, x, y + h - r)
+          ctx.lineTo(x, y + r)
+          ctx.quadraticCurveTo(x, y, x + r, y)
+          ctx.closePath()
+        }
+        function drawGrizzyPaddle(x, y, w, h) {
+          const hr = h * 0.65,
+            hx = x + w - hr,
+            hy = y + h / 2
+          ctx.fillStyle = '#8B5E3C'
+          rr(x, y, hx - x, h, 4)
+          ctx.fill()
+          ctx.fillStyle = '#A67C52'
+          rr(x + 3, y + 3, hx - x - 8, h - 6, 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.arc(hx, hy, hr, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.arc(hx + 2, hy - hr - 1, 3.5, 0, 6.28)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(hx + 6, hy - hr - 1, 2.5, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(hx + 2, hy - 2, 2.5, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#000'
+          ctx.beginPath()
+          ctx.arc(hx + 3, hy - 2, 1.5, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#3E2723'
+          ctx.beginPath()
+          ctx.arc(hx + hr - 2, hy + 1, 2, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.arc(x + 4, y + h - 2, 3, 0, 6.28)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + 9, y + h - 2, 3, 0, 6.28)
+          ctx.fill()
+        }
+        function drawHoneyPot(x, y, r) {
+          ctx.save()
+          ctx.shadowColor = '#FFC107'
+          ctx.shadowBlur = 8
+          const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r)
+          g.addColorStop(0, '#FFE082')
+          g.addColorStop(0.5, '#FFC107')
+          g.addColorStop(1, '#FF8F00')
+          ctx.fillStyle = g
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, 6.28)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          ctx.fillStyle = 'rgba(255,255,255,0.4)'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.3, y - r * 0.3, r * 0.25, 0, 6.28)
+          ctx.fill()
+          ctx.fillStyle = '#FFF8E1'
+          rr(x - r * 0.35, y - r * 0.1, r * 0.7, r * 0.18, 2)
+          ctx.fill()
+          ctx.fillStyle = '#E65100'
+          ctx.font = 'bold ' + r * 0.16 + 'px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('\uD83C\uDF6F', x, y + r * 0.02)
+          ctx.restore()
+        }
+        function drawLemmingBrick(x, y, w, h, hp, gold) {
+          const cx = x + w / 2,
+            cy = y + h / 2
+          if (gold) {
+            ctx.fillStyle = '#FFD700'
+            rr(x, y, w, h, 3)
+            ctx.fill()
+            ctx.fillStyle = 'rgba(255,255,255,0.15)'
+            rr(x + 1, y + 1, w - 2, h * 0.25, 2)
+            ctx.fill()
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(cx - 4, cy - 1, 8, 3)
+            ctx.fillStyle = '#E65100'
+            ctx.font = 'bold 5px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('\uD83C\uDF6F', cx, cy + 1)
+            return
+          }
+          ctx.fillStyle = '#7E8A9E'
+          rr(x, y, w, h, 3)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255,255,255,0.12)'
+          rr(x + 1, y + 1, w - 2, h * 0.25, 2)
+          ctx.fill()
+          const ang = hp > 1
+          ctx.fillStyle = '#000'
+          const er = Math.max(1.5, w * 0.04)
+          ctx.beginPath()
+          ctx.arc(cx - w * 0.14, cy - h * 0.12, er, 0, 6.28)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(cx + w * 0.14, cy - h * 0.12, er, 0, 6.28)
+          ctx.fill()
+          if (ang) {
+            ctx.strokeStyle = '#000'
+            ctx.lineWidth = 1.2
+            ctx.beginPath()
+            ctx.moveTo(cx - w * 0.2, cy - h * 0.28)
+            ctx.lineTo(cx - w * 0.08, cy - h * 0.2)
+            ctx.moveTo(cx + w * 0.2, cy - h * 0.28)
+            ctx.lineTo(cx + w * 0.08, cy - h * 0.2)
+            ctx.stroke()
+          }
+          ctx.fillStyle = '#FFB74D'
+          ctx.beginPath()
+          ctx.arc(cx, cy + h * 0.05, Math.max(1.5, w * 0.04), 0, 6.28)
+          ctx.fill()
+          ctx.strokeStyle = '#000'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          if (ang) ctx.arc(cx, cy + h * 0.22, w * 0.07, Math.PI * 0.85, Math.PI * 1.15)
+          else ctx.arc(cx, cy + h * 0.18, w * 0.07, 0.15, Math.PI - 0.15)
+          ctx.stroke()
+          if (!ang) {
+            ctx.fillStyle = '#fff'
+            ctx.fillRect(cx - 2, cy + h * 0.17, 1.2, 2)
+            ctx.fillRect(cx + 0.8, cy + h * 0.17, 1.2, 2)
+          }
+        }
+        const TIERS = [
+          {
+            name: '\uD83D\uDFE2 El Bosque',
+            range: [1, 10],
+            pw: 90,
+            spd: 4,
+            rows: 4,
+            cols: 7,
+            maxHp: 2,
+          },
+          {
+            name: '\uD83D\uDFE1 La Caba\u00F1a',
+            range: [11, 20],
+            pw: 80,
+            spd: 5,
+            rows: 5,
+            cols: 8,
+            maxHp: 3,
+          },
+          {
+            name: '\uD83D\uDD34 La Cueva',
+            range: [21, 30],
+            pw: 70,
+            spd: 6,
+            rows: 6,
+            cols: 9,
+            maxHp: 4,
+          },
+          {
+            name: '\uD83D\uDFE3 La Fortaleza',
+            range: [31, 40],
+            pw: 55,
+            spd: 7,
+            rows: 7,
+            cols: 10,
+            maxHp: 5,
+          },
+        ]
+        function getTier(lv) {
+          for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+          return TIERS[3]
+        }
+        function randHp(mx) {
+          const r = Math.random()
+          if (r < 0.4) return 1
+          if (r < 0.7) return Math.min(mx, 2)
+          if (r < 0.85) return Math.min(mx, 3)
+          return Math.min(mx, 4)
+        }
+        let paddle,
+          ball,
+          bricks,
+          rewards,
+          score,
+          lives,
+          level,
+          gameOver,
+          win,
+          keys,
+          loopId,
+          lastTime
+        let pauseTimer, saveTimer, msgT, msgM, msgS, curSpd, powerUp, powerUpTimer
+        function init() {
+          level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+          score = 0
+          lives = 3
+          rewards = []
+          keys = {}
+          powerUp = null
+          powerUpTimer = 0
+          startLevel()
+          lastTime = 0
+          if (loopId) cancelAnimationFrame(loopId)
+          loopId = requestAnimationFrame(gameLoop)
+        }
+        function startLevel() {
+          const t = getTier(level)
+          powerUp = null
+          powerUpTimer = 0
+          rewards = []
+          keys = {}
+          const pw = t.pw
+          paddle = { x: (W - pw) / 2, y: H - 28, w: pw, h: PH }
+          curSpd = t.spd
+          const ang = (Math.random() - 0.5) * 0.6
+          const dir = Math.random() > 0.5 ? 1 : -1
+          ball = {
+            x: W / 2,
+            y: H - 45,
+            r: BR,
+            vx: dir * curSpd * Math.cos(ang),
+            vy: -Math.abs(curSpd * Math.sin(ang)) - curSpd * 0.5,
+          }
+          if (Math.abs(ball.vy) < 2) ball.vy = -curSpd
+          bricks = []
+          const margin = 10,
+            bw = (W - 2 * margin - (t.cols - 1) * GAP) / t.cols
+          for (let r = 0; r < t.rows; r++)
+            for (let c = 0; c < t.cols; c++) {
+              const hp = randHp(t.maxHp)
+              const gold = Math.random() < 0.08
+              bricks.push({
+                x: margin + c * (bw + GAP),
+                y: TOP + r * (BH + GAP),
+                w: bw,
+                h: BH,
+                hp: Math.max(1, gold ? t.maxHp : hp),
+                maxHp: gold ? t.maxHp : hp,
+                gold: gold,
+              })
+            }
+          gameOver = false
+          win = false
+          pauseTimer = 60
+          msgT = 60
+          msgM = '\uD83C\uDF3F Nivel ' + level
+          msgS = t.name
+          updateUI()
+        }
+        function updateUI() {
+          document.getElementById('sc').textContent = score
+          document.getElementById('li').textContent = lives
+          document.getElementById('lv').textContent = level
+          document.getElementById('tn').textContent = getTier(level).name
+          const alive = bricks.filter(function (b) {
+            return b.hp > 0
+          }).length
+          document.getElementById('br').textContent = alive
+        }
+        function flash() {}
+        function gameLoop(t) {
+          if (!lastTime) lastTime = t
+          const dt = t - lastTime
+          if (dt >= 16) {
+            lastTime = t - Math.min(dt - 16, 4)
+            if (!gameOver) tick()
+            draw()
+          }
+          loopId = requestAnimationFrame(gameLoop)
+        }
+        function tick() {
+          if (pauseTimer > 0) {
+            pauseTimer--
+            return
+          }
+          const t = getTier(level)
+          // Power-up
+          if (powerUpTimer > 0) {
+            powerUpTimer--
+            if (powerUpTimer <= 0) {
+              if (powerUp === 'big') {
+                paddle.w = t.pw
+              }
+              powerUp = null
+            }
+          }
+          // Paddle
+          if (keys['ArrowLeft']) {
+            paddle.x -= 6
+          }
+          if (keys['ArrowRight']) {
+            paddle.x += 6
+          }
+          if (paddle.x < 0) paddle.x = 0
+          if (paddle.x > W - paddle.w) paddle.x = W - paddle.w
+          // Ball
+          ball.x += ball.vx
+          ball.y += ball.vy
+          if (ball.x - ball.r < 0) {
+            ball.x = ball.r
+            ball.vx = -ball.vx
+          }
+          if (ball.x + ball.r > W) {
+            ball.x = W - ball.r
+            ball.vx = -ball.vx
+          }
+          if (ball.y - ball.r < 0) {
+            ball.y = ball.r
+            ball.vy = -ball.vy
+          }
+          if (ball.y + ball.r > H + 30) {
+            lives--
+            sfx(150, 0.15)
+            updateUI()
+            if (lives <= 0) {
+              gameOver = true
+              msgT = 9999
+              msgM = '\uD83D\uDC80 Game Over'
+              msgS = 'Nivel ' + level + ' - ENTER para reintentar'
+              sfx(110, 0.3)
+              return
+            }
+            curSpd = t.spd
+            powerUp = null
+            powerUpTimer = 0
+            paddle.w = t.pw
+            const ang = (Math.random() - 0.5) * 0.6
+            const dir = Math.random() > 0.5 ? 1 : -1
+            ball.x = W / 2
+            ball.y = H - 45
+            ball.r = BR
+            ball.vx = dir * curSpd * Math.cos(ang)
+            ball.vy = -Math.abs(curSpd * Math.sin(ang)) - curSpd * 0.5
+            if (Math.abs(ball.vy) < 2) ball.vy = -curSpd
+            return
+          }
+          // Paddle hit
+          if (
+            ball.vy > 0 &&
+            ball.y + ball.r >= paddle.y &&
+            ball.y - ball.r <= paddle.y + paddle.h &&
+            ball.x + ball.r > paddle.x &&
+            ball.x - ball.r < paddle.x + paddle.w
+          ) {
+            const rel = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2)
+            ball.vy = -curSpd
+            ball.vx = rel * curSpd * 0.7
+            if (Math.abs(ball.vx) < 1.5) ball.vx = ball.vx > 0 ? 1.5 : -1.5
+            ball.y = paddle.y - ball.r
+            sfx(330, 0.08)
+          }
+          // Bricks
+          let alive = 0
+          for (let i = 0; i < bricks.length; i++) {
+            const b = bricks[i]
+            if (b.hp <= 0) continue
+            alive++
+            const cx = Math.max(b.x, Math.min(ball.x, b.x + b.w))
+            const cy = Math.max(b.y, Math.min(ball.y, b.y + b.h))
+            const dx = ball.x - cx,
+              dy = ball.y - cy
+            if (dx * dx + dy * dy < ball.r * ball.r) {
+              const ox = ball.r - Math.abs(dx),
+                oy = ball.r - Math.abs(dy)
+              if (ox < oy) ball.vx = -ball.vx
+              else ball.vy = -ball.vy
+              b.hp--
+              if (b.hp <= 0) {
+                score += 10 * level
+                sfx(440, 0.08)
+                part(b.x + b.w / 2, b.y + b.h / 2, b.gold ? '#FFD700' : '#7E8A9E', 10)
+                if (!b.gold && Math.random() < 0.2) {
+                  const types = ['life', 'big', 'slow']
+                  rewards.push({
+                    x: b.x + b.w / 2 - 6,
+                    y: b.y,
+                    type: types[Math.floor(Math.random() * 3)],
+                  })
+                }
+                if (b.gold) {
+                  rewards.push({ x: b.x + b.w / 2 - 6, y: b.y, type: 'life' })
+                }
+                updateUI()
+              } else {
+                sfx(330, 0.06)
+              }
+            }
+          }
+          // Rewards
+          for (let i = rewards.length - 1; i >= 0; i--) {
+            const r = rewards[i]
+            r.y += 1.5
+            if (
+              r.y + 7 > paddle.y &&
+              r.y - 7 < paddle.y + paddle.h &&
+              r.x + 7 > paddle.x &&
+              r.x - 7 < paddle.x + paddle.w
+            ) {
+              sfx(660, 0.1)
+              part(r.x + 7, r.y + 7, '#FFD700', 8)
+              if (r.type === 'life') {
+                lives++
+                score += 20
+              } else if (r.type === 'big') {
+                paddle.w = Math.min(200, t.pw * 1.6)
+                powerUp = 'big'
+                powerUpTimer = 600
+              } else if (r.type === 'slow') {
+                curSpd = Math.max(2, t.spd * 0.6)
+                powerUp = 'slow'
+                powerUpTimer = 600
+                const mag = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy)
+                if (mag > 0) {
+                  ball.vx = (ball.vx / mag) * curSpd
+                  ball.vy = (ball.vy / mag) * curSpd
+                }
+              }
+              rewards.splice(i, 1)
+              updateUI()
+            } else if (r.y > H + 20) rewards.splice(i, 1)
+          }
+          if (alive === 0) {
+            win = true
+            gameOver = true
+            const cur = parseInt(localStorage.getItem(SAVE)) || 0
+            if (level >= cur) {
+              localStorage.setItem(SAVE, level + 1)
+              saveTimer = 90
+              sfx(880, 0.15)
+            }
+            sfx(660, 0.15)
+            setTimeout(function () {
+              sfx(880, 0.15)
+            }, 200)
+            if (level >= 40) {
+              msgT = 9999
+              msgM = '\uD83C\uDFC6 \u00A1CAMPE\u00D3N!'
+              msgS = 'Completaste todos los niveles'
+            } else {
+              msgT = 9999
+              msgM = '\uD83C\uDF89 Nivel ' + level + ' Completado'
+              msgS = 'ENTER para continuar'
+            }
+            updateUI()
+          }
+          if (saveTimer > 0) saveTimer--
+          if (msgT > 0 && msgT < 9990) msgT--
+        }
+        function draw() {
+          ctx.clearRect(0, 0, W, H)
+          ctx.fillStyle = '#2D1B0E'
+          ctx.fillRect(0, 0, W, H)
+          // Bricks
+          for (const b of bricks) {
+            if (b.hp <= 0) continue
+            if (b.gold) drawLemmingBrick(b.x, b.y, b.w, b.h, b.hp, true)
+            else drawLemmingBrick(b.x, b.y, b.w, b.h, b.hp, false)
+          }
+          // Rewards
+          for (const r of rewards) {
+            const cx = r.x + 7,
+              cy = r.y + 7
+            if (r.type === 'life') {
+              ctx.fillStyle = '#FF5252'
+              ctx.beginPath()
+              ctx.arc(cx, cy, 7, 0, 6.28)
+              ctx.fill()
+              ctx.fillStyle = '#fff'
+              ctx.font = 'bold 10px sans-serif'
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText('\u2764', cx, cy + 1)
+            } else if (r.type === 'big') {
+              ctx.fillStyle = '#4D96FF'
+              ctx.beginPath()
+              ctx.arc(cx, cy, 7, 0, 6.28)
+              ctx.fill()
+              ctx.fillStyle = '#fff'
+              ctx.font = 'bold 10px sans-serif'
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText('\u2B1C', cx, cy + 1)
+            } else {
+              ctx.fillStyle = '#A29BFE'
+              ctx.beginPath()
+              ctx.arc(cx, cy, 7, 0, 6.28)
+              ctx.fill()
+              ctx.fillStyle = '#fff'
+              ctx.font = 'bold 10px sans-serif'
+              ctx.textAlign = 'center'
+              ctx.textBaseline = 'middle'
+              ctx.fillText('\u2B07', cx, cy + 1)
+            }
+          }
+          // Paddle
+          drawGrizzyPaddle(paddle.x, paddle.y, paddle.w, paddle.h)
+          if (powerUp === 'big') {
+            ctx.strokeStyle = 'rgba(77,150,255,0.4)'
+            ctx.lineWidth = 2
+            ctx.setLineDash([4, 4])
+            rr(paddle.x - 2, paddle.y - 2, paddle.w + 4, paddle.h + 4, 5)
+            ctx.stroke()
+            ctx.setLineDash([])
+          }
+          // Ball
+          drawHoneyPot(ball.x, ball.y, ball.r)
+          // Particles
+          drP()
+          // Score
+          ctx.fillStyle = 'rgba(255,248,225,0.06)'
+          ctx.font = 'bold 48px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(score, W / 2, 45)
+          // Save
+          if (saveTimer > 0) {
+            ctx.save()
+            ctx.globalAlpha = Math.min(1, saveTimer / 30)
+            ctx.fillStyle = '#6bcb77'
+            ctx.font = 'bold 13px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('\u2705 Guardado', W / 2, 16)
+            ctx.restore()
+          }
+          // Power-up indicator
+          if (powerUpTimer > 0 && powerUp === 'slow') {
+            ctx.fillStyle = 'rgba(162,155,254,0.5)'
+            ctx.font = 'bold 11px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('\uD83D\uDC0C Bola lenta', W / 2, 32)
+          }
+          // Message
+          if (msgT > 0 && msgM) {
+            ctx.fillStyle = 'rgba(0,0,0,0.6)'
+            ctx.fillRect(0, 0, W, H)
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillStyle = '#FFF8E1'
+            ctx.font = 'bold 30px sans-serif'
+            ctx.fillText(msgM, W / 2, H / 2 - 15)
+            if (msgS) {
+              ctx.fillStyle = '#FF9800'
+              ctx.font = '15px sans-serif'
+              ctx.fillText(msgS, W / 2, H / 2 + 25)
+            }
+          }
+        }
+        document.addEventListener('keydown', function (e) {
+          keys[e.key] = true
+          if (e.key === 'Enter' && gameOver) {
+            if (win && level < 40) {
+              level++
+              startLevel()
+            } else if (level >= 40 && win) {
+              level = 1
+              init()
+            } else startLevel()
+          }
+          if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') e.preventDefault()
+        })
+        document.addEventListener('keyup', function (e) {
+          keys[e.key] = false
+        })
+        document.getElementById('rst').addEventListener('click', init)
+        document.addEventListener(
+          'click',
+          function () {
+            if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
+          },
+          { once: true },
+        )
+        init()
+      })()
+    </script>
+  </body>
+</html>

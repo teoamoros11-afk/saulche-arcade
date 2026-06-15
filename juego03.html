@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pesca Mágica - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      canvas {
+        display: block;
+        cursor: crosshair;
+        image-rendering: pixelated;
+      }
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+      #scoreDisplay,
+      #timerDisplay,
+      #bestDisplay {
+        position: absolute;
+        color: #fff;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px #000;
+        font-size: clamp(14px, 3vw, 24px);
+        background: rgba(0, 0, 0, 0.5);
+        padding: 6px 14px;
+        border-radius: 8px;
+        z-index: 10;
+      }
+      #scoreDisplay {
+        top: 12px;
+        left: 12px;
+      }
+      #timerDisplay {
+        top: 12px;
+        right: 12px;
+      }
+      #bestDisplay {
+        top: 48px;
+        left: 12px;
+        font-size: clamp(11px, 2vw, 16px);
+        background: rgba(0, 0, 0, 0.35);
+      }
+      #overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 20;
+        pointer-events: auto;
+      }
+      #overlay.hidden {
+        display: none;
+      }
+      #overlay h1 {
+        color: #f5c842;
+        font-size: clamp(28px, 6vw, 56px);
+        text-shadow:
+          3px 3px 0 #8b4513,
+          0 0 30px rgba(245, 200, 66, 0.5);
+        margin-bottom: 8px;
+        text-align: center;
+      }
+      #overlay h2 {
+        color: #ff6b35;
+        font-size: clamp(18px, 4vw, 36px);
+        text-shadow: 2px 2px 0 #000;
+        margin-bottom: 4px;
+        text-align: center;
+      }
+      #overlay .sub {
+        color: #aaddff;
+        font-size: clamp(12px, 2vw, 20px);
+        margin-bottom: 18px;
+        text-align: center;
+      }
+      #overlay .finalScore {
+        color: #fff;
+        font-size: clamp(24px, 5vw, 48px);
+        font-weight: bold;
+        text-shadow: 2px 2px 8px #000;
+        margin: 6px 0;
+      }
+      #overlay .bestScore {
+        color: #f5c842;
+        font-size: clamp(14px, 2.5vw, 24px);
+        margin-bottom: 12px;
+      }
+      #overlay button {
+        background: linear-gradient(135deg, #f5c842, #d4941a);
+        border: none;
+        color: #2d1406;
+        font-size: clamp(16px, 3vw, 28px);
+        font-weight: bold;
+        padding: 12px 40px;
+        border-radius: 30px;
+        cursor: pointer;
+        box-shadow:
+          0 6px 0 #8b5e00,
+          0 8px 20px rgba(0, 0, 0, 0.5);
+        transition: all 0.08s;
+        pointer-events: auto;
+        margin: 4px;
+      }
+      #overlay button:hover {
+        transform: translateY(-2px);
+        box-shadow:
+          0 8px 0 #8b5e00,
+          0 12px 28px rgba(0, 0, 0, 0.5);
+      }
+      #overlay button:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 #8b5e00;
+      }
+      #overlay .controls {
+        color: #ccc;
+        font-size: clamp(10px, 1.5vw, 16px);
+        margin-top: 14px;
+        text-align: center;
+        line-height: 1.6;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="ui">
+      <div id="scoreDisplay">🐟 0</div>
+      <div id="timerDisplay">⏱ 60</div>
+      <div id="bestDisplay">🏆 Mejor: 0</div>
+    </div>
+    <div id="overlay">
+      <h1>🎣 PESCA MÁGICA</h1>
+      <div class="sub">Grizzy &amp; the Lemmings</div>
+      <h2 id="overlayTitle">¡A pescar!</h2>
+      <div class="finalScore" id="finalScore"></div>
+      <div class="bestScore" id="bestScore"></div>
+      <button id="startBtn">▶ JUGAR</button>
+      <div class="controls">↑↓ / W S · Click ratón<br />Atrapa peces ★ Evita Lemmings</div>
+    </div>
+    <script>
+      const canvas = document.getElementById('c')
+      const ctx = canvas.getContext('2d')
+      const overlay = document.getElementById('overlay')
+      const overlayTitle = document.getElementById('overlayTitle')
+      const finalScore = document.getElementById('finalScore')
+      const bestScore = document.getElementById('bestScore')
+      const startBtn = document.getElementById('startBtn')
+      const scoreDisplay = document.getElementById('scoreDisplay')
+      const timerDisplay = document.getElementById('timerDisplay')
+      const bestDisplay = document.getElementById('bestDisplay')
+
+      const W = 500,
+        H = 500
+      let cw, ch, scale
+
+      function resize() {
+        cw = window.innerWidth
+        ch = window.innerHeight
+        canvas.width = cw
+        canvas.height = ch
+        scale = Math.min(cw / W, ch / H)
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      const BEST_KEY = 'grizzy_fishing_best'
+      let best = parseInt(localStorage.getItem(BEST_KEY)) || 0
+      bestDisplay.textContent = '🏆 Mejor: ' + best
+
+      let state = 'start' // start | playing | over
+      let score = 0,
+        timer = 60,
+        lastTime = 0
+      let hook = { x: 250, y: 60, angle: 0, targetY: 60, speed: 0, goingDown: false }
+      let fish = [],
+        lemmings = [],
+        bubbles = [],
+        particles = [],
+        seaweeds = []
+      let hookGrabbed = null
+      let warningPlayed = false
+      let frameCount = 0
+
+      const SND = {
+        catch: null,
+        hit: null,
+        over: null,
+        warn: null,
+        init() {
+          for (const [k, f] of Object.entries({
+            catch: 'C4,E4,G4',
+            hit: 'A3,D3,F3',
+            over: 'F3,D3,A2',
+            warn: 'E5,E5,E5',
+          })) {
+            this[k] = new (window.AudioContext || window.webkitAudioContext)()
+            this[k] = null
+          }
+          const actx = new (window.AudioContext || window.webkitAudioContext)()
+          this._actx = actx
+          this._vol = 0.25
+        },
+        _tone(note, dur, type = 'square') {
+          if (!this._actx) return
+          try {
+            const actx = this._actx
+            const osc = actx.createOscillator()
+            const gain = actx.createGain()
+            osc.type = type
+            const freq =
+              {
+                C4: 262,
+                E4: 330,
+                G4: 392,
+                A3: 220,
+                D3: 147,
+                F3: 175,
+                A2: 110,
+                E5: 659,
+                D4: 294,
+                B3: 247,
+                F4: 349,
+              }[note] || 440
+            osc.frequency.value = freq
+            gain.gain.value = this._vol
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur)
+            osc.connect(gain)
+            gain.connect(actx.destination)
+            osc.start(actx.currentTime)
+            osc.stop(actx.currentTime + dur)
+          } catch (e) {}
+        },
+        play(name) {
+          if (!this._actx) return
+          if (this._actx.state === 'suspended') this._actx.resume()
+          const map = {
+            catch: ['C4', 'E4', 'G4'],
+            hit: ['A3', 'D3', 'F3'],
+            over: ['F3', 'D3', 'A2'],
+            warn: ['E5', 'E5', 'E5'],
+          }
+          const notes = map[name]
+          if (!notes) return
+          notes.forEach((n, i) => this._tone(n, 0.15 + 0.05 * i, 'square'))
+        },
+      }
+      SND.init()
+
+      for (let i = 0; i < 8; i++) {
+        seaweeds.push({
+          x: 30 + Math.random() * 440,
+          h: 40 + Math.random() * 80,
+          phase: Math.random() * Math.PI * 2,
+          speed: 0.5 + Math.random() * 0.5,
+          color: 'hsl(' + (120 + Math.random() * 40) + ',70%,' + (30 + Math.random() * 30) + '%)',
+        })
+      }
+
+      function spawnFish() {
+        if (fish.length >= 8) return
+        const big = Math.random() < 0.25
+        const colors = ['#ff4444', '#4488ff', '#ffdd44', '#44dd66']
+        const bigColors = ['#ffaa00', '#ffcc44', '#ffbb22']
+        const color = big
+          ? bigColors[Math.floor(Math.random() * bigColors.length)]
+          : colors[Math.floor(Math.random() * colors.length)]
+        const speed = 40 + Math.random() * 60 + (big ? 15 : 0)
+        const dir = Math.random() < 0.5 ? 1 : -1
+        fish.push({
+          x: dir === 1 ? -40 : 540,
+          y: 120 + Math.random() * 280,
+          w: big ? 40 : 28,
+          h: big ? 20 : 14,
+          speed: speed * dir,
+          color,
+          points: big ? 15 + Math.floor(Math.random() * 11) : 3 + Math.floor(Math.random() * 5),
+          big,
+          dir,
+          alive: true,
+        })
+      }
+
+      function spawnLemming() {
+        if (lemmings.length >= 4) return
+        if (Math.random() > 0.008) return
+        lemmings.push({
+          x: Math.random() < 0.5 ? -40 : 540,
+          y: 130 + Math.random() * 260,
+          w: 30,
+          h: 22,
+          speed: (30 + Math.random() * 40) * (Math.random() < 0.5 ? 1 : -1),
+          alive: true,
+          angle: 0,
+        })
+      }
+
+      function spawnBubbles() {
+        bubbles.push({
+          x: 50 + Math.random() * 400,
+          y: 480,
+          r: 2 + Math.random() * 5,
+          speed: 0.3 + Math.random() * 0.6,
+          alpha: 0.6 + Math.random() * 0.4,
+        })
+      }
+
+      function spawnParticles(x, y, count, color) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2
+          const spd = 30 + Math.random() * 80
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd,
+            life: 1,
+            decay: 0.015 + Math.random() * 0.02,
+            r: 2 + Math.random() * 4,
+            color,
+          })
+        }
+      }
+
+      function explodeLemming(lm) {
+        spawnParticles(lm.x, lm.y, 20, '#888')
+        for (let i = 0; i < 5; i++) {
+          const a = Math.random() * Math.PI * 2
+          const spd = 40 + Math.random() * 60
+          particles.push({
+            x: lm.x,
+            y: lm.y,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd - 30,
+            life: 1,
+            decay: 0.02,
+            r: 4,
+            color: '#ff4444',
+          })
+        }
+      }
+
+      function initGame() {
+        score = 0
+        timer = 60
+        warningPlayed = false
+        hook.x = 250
+        hook.y = 60
+        hook.targetY = 60
+        fish = []
+        lemmings = []
+        bubbles = []
+        particles = []
+        state = 'playing'
+        overlay.classList.add('hidden')
+        scoreDisplay.textContent = '🐟 0'
+        timerDisplay.textContent = '⏱ 60'
+        SND._actx && SND._actx.state === 'suspended' && SND._actx.resume()
+      }
+
+      function gameOver() {
+        state = 'over'
+        const newBest = score > best
+        if (newBest) {
+          best = score
+          localStorage.setItem(BEST_KEY, best)
+          bestDisplay.textContent = '🏆 Mejor: ' + best
+        }
+        overlay.classList.remove('hidden')
+        overlayTitle.textContent = '🎮 ¡Partida terminada!'
+        finalScore.textContent = 'Puntuación: ' + score
+        bestScore.textContent = newBest ? '🎉 ¡NUEVO RÉCORD! 🎉' : '🏆 Mejor: ' + best
+        startBtn.textContent = '🔄 JUGAR DE NUEVO'
+        SND.play('over')
+      }
+
+      function update(dt) {
+        if (state !== 'playing') return
+        frameCount++
+        timer -= dt
+        if (timer <= 0) {
+          timer = 0
+          gameOver()
+          return
+        }
+        if (timer <= 10 && !warningPlayed) {
+          warningPlayed = true
+          SND.play('warn')
+        }
+        timerDisplay.textContent = '⏱ ' + Math.ceil(timer)
+
+        if (frameCount % 20 === 0) spawnFish()
+        if (frameCount % 30 === 0) spawnBubbles()
+        spawnLemming()
+
+        for (const f of fish) {
+          if (!f.alive) continue
+          f.x += f.speed * dt
+          if (f.x < -60 || f.x > 560) {
+            f.alive = false
+            continue
+          }
+        }
+
+        for (const lm of lemmings) {
+          if (!lm.alive) continue
+          lm.x += lm.speed * dt
+          lm.angle += dt * 3
+          if (lm.x < -60 || lm.x > 560) {
+            lm.alive = false
+            continue
+          }
+        }
+
+        for (const b of bubbles) {
+          b.y -= b.speed
+          b.x += Math.sin(b.y * 0.05) * 0.3
+          b.alpha -= 0.004
+        }
+        bubbles = bubbles.filter((b) => b.y > -10 && b.alpha > 0)
+
+        let hookSpeed = 200
+        if (hook.goingDown) hook.targetY = Math.min(hook.targetY + hookSpeed * dt, 450)
+        else hook.targetY = Math.max(60, hook.targetY - hookSpeed * dt)
+        hook.y += (hook.targetY - hook.y) * 0.2
+        if (Math.abs(hook.y - hook.targetY) < 1) hook.y = hook.targetY
+
+        const hx = hook.x,
+          hy = hook.y
+
+        for (const f of fish) {
+          if (!f.alive) continue
+          const dx = hx - f.x,
+            dy = hy - f.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < f.w * 0.7) {
+            f.alive = false
+            score += f.points
+            scoreDisplay.textContent = '🐟 ' + score
+            spawnParticles(f.x, f.y, 12, f.color)
+            SND.play('catch')
+            if (f.big) spawnParticles(f.x, f.y, 20, '#ffd700')
+            hookGrabbed = { time: 0.3 }
+            break
+          }
+        }
+
+        for (const lm of lemmings) {
+          if (!lm.alive) continue
+          const dx = hx - lm.x,
+            dy = hy - lm.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist < 25) {
+            lm.alive = false
+            score = Math.max(0, score - 5)
+            scoreDisplay.textContent = '🐟 ' + score
+            explodeLemming(lm)
+            SND.play('hit')
+            hook.targetY = Math.max(60, hook.targetY - 40)
+            break
+          }
+        }
+
+        fish = fish.filter((f) => f.alive)
+        lemmings = lemmings.filter((l) => l.alive)
+
+        for (const p of particles) {
+          p.x += p.vx * dt
+          p.y += p.vy * dt
+          p.vy += 120 * dt
+          p.life -= p.decay
+        }
+        particles = particles.filter((p) => p.life > 0)
+      }
+
+      function drawSeaweed() {
+        for (const sw of seaweeds) {
+          ctx.save()
+          ctx.translate(sw.x, 500)
+          const sway = Math.sin(sw.phase + Date.now() * 0.001 * sw.speed) * 12
+          for (let i = 0; i < sw.h; i += 4) {
+            const ox =
+              Math.sin(i * 0.15 + sw.phase + Date.now() * 0.001 * sw.speed) * 8 * (i / sw.h)
+            ctx.fillStyle = sw.color
+            ctx.fillRect(ox - sway * 0.3 * (i / sw.h), -i, 6, 5)
+          }
+          ctx.restore()
+        }
+      }
+
+      function drawGrizzy() {
+        const bx = 250,
+          by = 52
+        ctx.save()
+        ctx.translate(bx, by)
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = 8
+        ctx.fillStyle = '#5a3a1a'
+        ctx.beginPath()
+        ctx.ellipse(0, 8, 30, 12, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8B5A2B'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 22, 18, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.ellipse(-10, -8, 6, 8, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(10, -8, 6, 8, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(-5, -4, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -4, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-3, -6, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(7, -6, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#2d1406'
+        ctx.beginPath()
+        ctx.ellipse(0, 4, 8, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3a7a2a'
+        ctx.beginPath()
+        ctx.ellipse(-4, -16, 14, 6, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(4, -16, 14, 6, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#2d5a1a'
+        ctx.beginPath()
+        ctx.ellipse(0, -18, 18, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.restore()
+      }
+
+      function drawHook() {
+        const hx = hook.x,
+          hy = hook.y
+        ctx.save()
+        ctx.strokeStyle = 'rgba(255,255,255,0.8)'
+        ctx.lineWidth = 1.5
+        ctx.setLineDash([4, 6])
+        ctx.lineDashOffset = -Date.now() * 0.02
+        ctx.beginPath()
+        ctx.moveTo(250, 55)
+        ctx.lineTo(hx, hy)
+        ctx.stroke()
+        ctx.setLineDash([])
+        ctx.strokeStyle = '#ffd700'
+        ctx.lineWidth = 3
+        ctx.shadowColor = '#ffd700'
+        ctx.shadowBlur = 6
+        ctx.beginPath()
+        ctx.arc(hx, hy + 2, 6, 0.3, Math.PI - 0.3, false)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(hx - 5, hy + 4)
+        ctx.lineTo(hx - 2, hy + 10)
+        ctx.stroke()
+        ctx.shadowBlur = 0
+        ctx.restore()
+      }
+
+      function drawFish(f) {
+        ctx.save()
+        ctx.translate(f.x, f.y)
+        ctx.scale(f.dir, 1)
+        const w = f.w,
+          h = f.h
+        ctx.shadowColor = 'rgba(0,0,0,0.15)'
+        ctx.shadowBlur = 4
+        ctx.fillStyle = f.color
+        ctx.beginPath()
+        ctx.ellipse(0, 0, w * 0.45, h * 0.45, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.moveTo(w * 0.45, -h * 0.2)
+        ctx.lineTo(w * 0.7, 0)
+        ctx.lineTo(w * 0.45, h * 0.2)
+        ctx.closePath()
+        ctx.fill()
+        ctx.fillStyle = f.big ? '#fff' : '#fff'
+        ctx.beginPath()
+        ctx.arc(-w * 0.12, -h * 0.15, w * 0.08, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-w * 0.09, -h * 0.15, w * 0.04, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-w * 0.13, -h * 0.18, w * 0.025, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#222'
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.arc(-w * 0.06, h * 0.05, w * 0.07, 0, Math.PI, false)
+        ctx.stroke()
+        if (f.big) {
+          ctx.strokeStyle = '#ffd700'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.arc(0, 0, w * 0.55, h * 0.55, 0, Math.PI * 2)
+          ctx.stroke()
+          ctx.fillStyle = 'rgba(255,215,0,0.15)'
+          ctx.beginPath()
+          ctx.arc(0, 0, w * 0.55, h * 0.55, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#ffd700'
+          ctx.font = '8px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('★', 0, -h * 0.35)
+        }
+        ctx.restore()
+      }
+
+      function drawLemming(lm) {
+        ctx.save()
+        ctx.translate(lm.x, lm.y)
+        ctx.fillStyle = '#888'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 15, 11, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#999'
+        ctx.beginPath()
+        ctx.ellipse(-12, 2, 6, 5, lm.angle * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(12, 2, 6, 5, lm.angle * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#ddd'
+        ctx.beginPath()
+        ctx.ellipse(0, 9, 8, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#666'
+        ctx.beginPath()
+        ctx.arc(-5, -3, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -3, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-3, -5, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(7, -5, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#c00'
+        ctx.beginPath()
+        ctx.arc(-5, -3, 2.5, Math.PI * 0.8, Math.PI * 2.2, true)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -3, 2.5, Math.PI * 0.8, Math.PI * 2.2, true)
+        ctx.fill()
+        ctx.strokeStyle = '#222'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.moveTo(-6, 7)
+        ctx.lineTo(-3, 5)
+        ctx.moveTo(6, 7)
+        ctx.lineTo(3, 5)
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      function drawBubbles() {
+        for (const b of bubbles) {
+          ctx.save()
+          ctx.globalAlpha = b.alpha
+          ctx.strokeStyle = 'rgba(200,240,255,0.5)'
+          ctx.lineWidth = 1
+          ctx.fillStyle = 'rgba(200,240,255,0.1)'
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          ctx.restore()
+        }
+      }
+
+      function drawParticles() {
+        for (const p of particles) {
+          ctx.save()
+          ctx.globalAlpha = p.life
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
+      function drawWaterSurface() {
+        ctx.save()
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'
+        for (let i = 0; i < 5; i++) {
+          const waveX = Math.sin(Date.now() * 0.001 + i * 1.2) * 12 + i * 100
+          ctx.beginPath()
+          ctx.ellipse(
+            250 + waveX,
+            65 + Math.sin(Date.now() * 0.0015 + i) * 3,
+            120,
+            6,
+            0,
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+
+      function drawBackground() {
+        const grad = ctx.createLinearGradient(0, 0, 0, 500)
+        grad.addColorStop(0, '#0D3B66')
+        grad.addColorStop(0.3, '#145A8A')
+        grad.addColorStop(0.6, '#1A6B8A')
+        grad.addColorStop(1, '#0d3340')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, 500, 500)
+        for (let i = 0; i < 30; i++) {
+          const x = Math.sin(i * 73.7) * 250 + 250
+          const y = Math.cos(i * 41.3) * 250 + 250
+          const r = 0.5 + Math.sin(i * 17.3) * 0.5
+          ctx.fillStyle = 'rgba(255,255,255,' + (0.02 + Math.sin(i) * 0.01) + ')'
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      function render() {
+        ctx.save()
+        ctx.scale(scale, scale)
+        const ox = (cw / scale - W) / 2,
+          oy = (ch / scale - H) / 2
+        ctx.translate(ox, oy)
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(0, 0, W, H)
+        ctx.clip()
+
+        drawBackground()
+        drawSeaweed()
+        drawWaterSurface()
+        drawBubbles()
+        for (const f of fish) if (f.alive) drawFish(f)
+        for (const lm of lemmings) if (lm.alive) drawLemming(lm)
+        drawParticles()
+        drawHook()
+        drawGrizzy()
+
+        if (state === 'playing' && timer <= 10) {
+          ctx.save()
+          ctx.fillStyle = 'rgba(255,0,0,' + (0.1 + Math.sin(Date.now() * 0.01) * 0.1) + ')'
+          ctx.fillRect(0, 0, W, H)
+          ctx.restore()
+        }
+
+        ctx.restore()
+        ctx.restore()
+      }
+
+      function loop(time) {
+        if (!lastTime) lastTime = time
+        const dt = Math.min((time - lastTime) / 1000, 0.05)
+        lastTime = time
+        update(dt)
+        render()
+        requestAnimationFrame(loop)
+      }
+
+      const keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') hook.goingDown = false
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') hook.goingDown = true
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') hook.goingDown = false
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') hook.goingDown = false
+      })
+
+      canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect()
+        const mx = ((e.clientX - rect.left) / rect.width) * 500
+        const my = ((e.clientY - rect.top) / rect.height) * 500
+        hook.goingDown = my > hook.y
+        const dist = Math.abs(my - hook.y)
+        if (dist > 10) hook.goingDown = my > hook.y
+        else hook.goingDown = false
+      })
+      canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect()
+        const my = ((e.clientY - rect.top) / rect.height) * 500
+        hook.goingDown = my > hook.y
+      })
+      canvas.addEventListener('mouseup', () => {
+        hook.goingDown = false
+      })
+
+      startBtn.addEventListener('click', () => {
+        initGame()
+      })
+      overlay.addEventListener('click', (e) => {
+        if (e.target === overlay && state === 'start') initGame()
+      })
+
+      resize()
+      requestAnimationFrame(loop)
+    </script>
+  </body>
+</html>

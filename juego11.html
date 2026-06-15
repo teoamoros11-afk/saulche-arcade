@@ -1,0 +1,1767 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+    <title>🐻 Granja Feliz 🌾</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        touch-action: manipulation;
+      }
+      body {
+        background: #87ceeb;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        position: relative;
+      }
+      .screen {
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        padding: 2vmin;
+      }
+      .screen.active {
+        display: flex;
+      }
+      #startScreen h1 {
+        font-size: 7vmin;
+        color: #ff9800;
+        text-shadow:
+          0.3vmin 0.3vmin 0 #5d4037,
+          0 0 3vmin rgba(255, 152, 0, 0.3);
+        margin-bottom: 1vmin;
+        text-align: center;
+      }
+      #startScreen .subtitle {
+        font-size: 3vmin;
+        color: #fff;
+        margin-bottom: 1vmin;
+        text-align: center;
+        text-shadow: 0.1vmin 0.1vmin 0 rgba(0, 0, 0, 0.3);
+      }
+      #startScreen .grizzy-big {
+        font-size: 16vmin;
+        margin-bottom: 2vmin;
+        animation: bounce 2s ease-in-out infinite;
+        filter: drop-shadow(0 0 3vmin rgba(255, 152, 0, 0.3));
+      }
+      @keyframes bounce {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-3vmin);
+        }
+      }
+      .btn {
+        background: linear-gradient(180deg, #ff9800, #e65100);
+        color: #fff;
+        border: none;
+        border-radius: 1.5vmin;
+        padding: 2vmin 6vmin;
+        font-size: 3.5vmin;
+        font-weight: bold;
+        cursor: pointer;
+        box-shadow:
+          0 0.5vmin 1.5vmin rgba(0, 0, 0, 0.5),
+          inset 0 0.2vmin 0 rgba(255, 255, 255, 0.3);
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        margin: 0.8vmin;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .btn:hover {
+        transform: translateY(-0.3vmin);
+      }
+      .btn:active {
+        transform: translateY(0.2vmin);
+      }
+      .btn-small {
+        padding: 1.5vmin 3vmin;
+        font-size: 2.5vmin;
+      }
+      .btn-secondary {
+        background: linear-gradient(180deg, #5d4037, #3e2723);
+      }
+      #gameContainer {
+        position: relative;
+        width: 100%;
+        max-width: 90vmin;
+        height: 100vh;
+        max-height: 100vmin;
+        background: linear-gradient(
+          180deg,
+          #4fc3f7 0%,
+          #81d4fa 40%,
+          #b3e5fc 60%,
+          #e1f5fe 70%,
+          #4caf50 70%,
+          #4caf50 75%,
+          #388e3c 75%,
+          #2e7d32 100%
+        );
+        overflow: hidden;
+        border-radius: 1.5vmin;
+        box-shadow: 0 0 5vmin rgba(0, 0, 0, 0.3);
+      }
+      #topBar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        padding: 1vmin 2vmin;
+        background: rgba(0, 0, 0, 0.4);
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 20;
+        border-radius: 1.5vmin 1.5vmin 0 0;
+      }
+      #topBar .level {
+        font-size: 2.5vmin;
+        font-weight: bold;
+        color: #ffd54f;
+      }
+      #topBar .score {
+        font-size: 2.5vmin;
+        color: #fff;
+      }
+      #topBar .score span {
+        color: #ffd54f;
+        font-weight: bold;
+      }
+      #topBar .menu-btn {
+        padding: 0.5vmin 1.5vmin;
+        font-size: 2vmin;
+        border: none;
+        border-radius: 0.8vmin;
+        background: #5d4037;
+        color: #ffe0b2;
+        cursor: pointer;
+      }
+      #topBar .target {
+        font-size: 2vmin;
+        color: #bdbdbd;
+        display: none;
+      }
+      #sky {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 70%;
+        pointer-events: none;
+        overflow: hidden;
+      }
+      #sun {
+        position: absolute;
+        top: 3%;
+        right: 8%;
+        width: 8vmin;
+        height: 8vmin;
+        border-radius: 50%;
+        background: radial-gradient(circle, #ffd700, #ffa000);
+        box-shadow: 0 0 6vmin rgba(255, 215, 0, 0.5);
+        animation: sunPulse 4s ease-in-out infinite;
+      }
+      @keyframes sunPulse {
+        0%,
+        100% {
+          box-shadow: 0 0 6vmin rgba(255, 215, 0, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 10vmin rgba(255, 215, 0, 0.7);
+        }
+      }
+      .cloud {
+        position: absolute;
+        background: #fff;
+        border-radius: 50%;
+        opacity: 0.85;
+        pointer-events: none;
+      }
+      .cloud::before,
+      .cloud::after {
+        content: '';
+        position: absolute;
+        background: #fff;
+        border-radius: 50%;
+      }
+      .cloud1 {
+        width: 12vmin;
+        height: 5vmin;
+        top: 6%;
+        left: -15vmin;
+        animation: cloudDrift 35s linear infinite;
+      }
+      .cloud1::before {
+        width: 7vmin;
+        height: 7vmin;
+        top: -3.5vmin;
+        left: 2vmin;
+      }
+      .cloud1::after {
+        width: 5vmin;
+        height: 5vmin;
+        top: -2.5vmin;
+        left: 6vmin;
+      }
+      .cloud2 {
+        width: 15vmin;
+        height: 6vmin;
+        top: 12%;
+        left: -20vmin;
+        animation: cloudDrift 45s linear infinite;
+        animation-delay: -15s;
+      }
+      .cloud2::before {
+        width: 9vmin;
+        height: 9vmin;
+        top: -4vmin;
+        left: 3vmin;
+      }
+      .cloud2::after {
+        width: 6vmin;
+        height: 6vmin;
+        top: -3vmin;
+        left: 8vmin;
+      }
+      .cloud3 {
+        width: 10vmin;
+        height: 4vmin;
+        top: 4%;
+        left: -12vmin;
+        animation: cloudDrift 30s linear infinite;
+        animation-delay: -8s;
+      }
+      .cloud3::before {
+        width: 6vmin;
+        height: 6vmin;
+        top: -3vmin;
+        left: 2vmin;
+      }
+      .cloud3::after {
+        width: 4vmin;
+        height: 4vmin;
+        top: -2vmin;
+        left: 5vmin;
+      }
+      @keyframes cloudDrift {
+        0% {
+          transform: translateX(0);
+        }
+        100% {
+          transform: translateX(120vmin);
+        }
+      }
+      #ground {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 30%;
+        pointer-events: none;
+      }
+      #ground::before {
+        content: '';
+        position: absolute;
+        top: -2vmin;
+        left: 0;
+        right: 0;
+        height: 3vmin;
+        background: repeating-linear-gradient(
+          90deg,
+          #5d4037 0,
+          #5d4037 2vmin,
+          #8d6e63 2vmin,
+          #8d6e63 2.2vmin,
+          #5d4037 2.2vmin,
+          #5d4037 4vmin
+        );
+        border-radius: 0.3vmin;
+      }
+      #chicken {
+        position: absolute;
+        bottom: 12%;
+        left: 5%;
+        font-size: 4vmin;
+        animation: chickenPeck 3s ease-in-out infinite;
+        pointer-events: none;
+      }
+      @keyframes chickenPeck {
+        0%,
+        100% {
+          transform: translateY(0);
+        }
+        25% {
+          transform: translateY(-0.5vmin);
+        }
+        50% {
+          transform: translateY(0);
+        }
+        75% {
+          transform: translateY(-0.3vmin);
+        }
+      }
+      #grizzy {
+        position: absolute;
+        bottom: 18%;
+        width: 10vmin;
+        height: 10vmin;
+        font-size: 6vmin;
+        z-index: 8;
+        transition: left 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
+        filter: drop-shadow(0 0.3vmin 0.3vmin rgba(0, 0, 0, 0.3));
+      }
+      #grizzy .hat {
+        position: absolute;
+        top: -1vmin;
+        font-size: 3vmin;
+        pointer-events: none;
+      }
+      #grizzy .bear {
+        line-height: 1;
+      }
+      #parcels {
+        position: absolute;
+        bottom: 20%;
+        left: 5%;
+        right: 5%;
+        display: flex;
+        justify-content: center;
+        gap: 2vmin;
+        z-index: 5;
+        flex-wrap: wrap;
+      }
+      .parcel {
+        position: relative;
+        width: 14vmin;
+        height: 16vmin;
+        border-radius: 1vmin;
+        cursor: pointer;
+        transition:
+          transform 0.2s,
+          box-shadow 0.2s;
+        background: linear-gradient(180deg, #a0724a, #8b5e3c, #7a5230);
+        border: 0.3vmin solid #6d4c2a;
+        box-shadow:
+          0 0.4vmin 1vmin rgba(0, 0, 0, 0.3),
+          inset 0 0.2vmin 0 rgba(255, 255, 255, 0.1);
+      }
+      .parcel:hover {
+        transform: translateY(-0.3vmin);
+        box-shadow: 0 0.6vmin 1.5vmin rgba(0, 0, 0, 0.4);
+      }
+      .parcel:active {
+        transform: translateY(0.2vmin);
+      }
+      .parcel .progress-wrap {
+        position: absolute;
+        top: -1.2vmin;
+        left: 0.5vmin;
+        right: 0.5vmin;
+        height: 1.2vmin;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 0.6vmin;
+        overflow: hidden;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .parcel .progress-wrap.active {
+        opacity: 1;
+      }
+      .parcel .progress-bar {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #ffd54f, #ff9800);
+        border-radius: 0.6vmin;
+        transition: width 0.3s linear;
+      }
+      .parcel .plant {
+        position: absolute;
+        bottom: 15%;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .parcel.state-planting .plant {
+        opacity: 1;
+      }
+      .parcel.state-planting .plant .stem {
+        width: 0.6vmin;
+        height: 4vmin;
+        background: linear-gradient(180deg, #66bb6a, #43a047);
+        border-radius: 0.3vmin;
+        animation: growStem 10s linear forwards;
+      }
+      .parcel.state-planting .plant .leaves {
+        width: 3vmin;
+        height: 2vmin;
+        background: #66bb6a;
+        border-radius: 50% 50% 50% 0;
+        margin-bottom: 0.3vmin;
+        transform: rotate(-10deg);
+      }
+      @keyframes growStem {
+        0% {
+          height: 0;
+        }
+        100% {
+          height: 4vmin;
+        }
+      }
+      .parcel.state-grown .plant {
+        opacity: 1;
+      }
+      .parcel.state-grown .plant .stem {
+        width: 0.6vmin;
+        height: 6vmin;
+        background: linear-gradient(180deg, #66bb6a, #388e3c);
+        border-radius: 0.3vmin;
+      }
+      .parcel.state-grown .plant .leaves {
+        width: 4vmin;
+        height: 2.5vmin;
+        background: #43a047;
+        border-radius: 50% 50% 50% 0;
+        margin-bottom: 0.3vmin;
+      }
+      .parcel.state-watering .plant {
+        opacity: 1;
+      }
+      .parcel.state-watering .plant .stem {
+        width: 0.6vmin;
+        height: 6vmin;
+        background: linear-gradient(180deg, #66bb6a, #2e7d32);
+        border-radius: 0.3vmin;
+      }
+      .parcel.state-watering .plant .leaves {
+        width: 4vmin;
+        height: 2.5vmin;
+        background: #388e3c;
+        border-radius: 50% 50% 50% 0;
+      }
+      .parcel.state-watering .water-drop {
+        position: absolute;
+        top: 20%;
+        left: 30%;
+        font-size: 2vmin;
+        animation: waterFall 0.8s ease-in infinite;
+        pointer-events: none;
+      }
+      @keyframes waterFall {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(4vmin);
+          opacity: 0;
+        }
+      }
+      .parcel.state-mature .plant {
+        opacity: 1;
+      }
+      .parcel.state-mature .plant .stem {
+        width: 0.6vmin;
+        height: 6vmin;
+        background: linear-gradient(180deg, #66bb6a, #2e7d32);
+        border-radius: 0.3vmin;
+      }
+      .parcel.state-mature .plant .leaves {
+        width: 5vmin;
+        height: 3vmin;
+        background: #2e7d32;
+        border-radius: 50% 50% 50% 0;
+      }
+      .parcel .fruit {
+        position: absolute;
+        top: 10%;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 4vmin;
+        height: 4vmin;
+        border-radius: 50%;
+        opacity: 0;
+        transition:
+          opacity 0.3s,
+          transform 0.3s;
+        box-shadow: 0 0.2vmin 0.5vmin rgba(0, 0, 0, 0.3);
+      }
+      .parcel.state-mature .fruit {
+        opacity: 1;
+        animation: fruitPulse 1.5s ease-in-out infinite;
+      }
+      @keyframes fruitPulse {
+        0%,
+        100% {
+          transform: translateX(-50%) scale(1);
+        }
+        50% {
+          transform: translateX(-50%) scale(1.1);
+        }
+      }
+      .parcel .state-label {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 2vmin;
+        color: rgba(255, 255, 255, 0.7);
+        font-weight: bold;
+        text-align: center;
+        text-shadow: 0.1vmin 0.1vmin 0 rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .parcel.state-empty .state-label {
+        opacity: 1;
+      }
+      .parcel.state-empty .state-label .icon {
+        font-size: 3vmin;
+        display: block;
+      }
+      .parcel.state-planting .state-label {
+        opacity: 1;
+        font-size: 1.8vmin;
+        top: auto;
+        bottom: -2.5vmin;
+        transform: translateX(-50%);
+      }
+      .parcel.state-watering .state-label {
+        opacity: 1;
+        font-size: 1.8vmin;
+        top: auto;
+        bottom: -2.5vmin;
+        transform: translateX(-50%);
+      }
+      .parcel.state-grown .state-label {
+        opacity: 1;
+        font-size: 2vmin;
+        top: auto;
+        bottom: -2.5vmin;
+        transform: translateX(-50%);
+        color: #81c784;
+      }
+      .parcel .glow {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        border-radius: 0.7vmin;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+        box-shadow: inset 0 0 3vmin rgba(255, 215, 0, 0.3);
+      }
+      .parcel.state-grown .glow {
+        opacity: 1;
+      }
+      .parcel.state-mature .glow {
+        opacity: 1;
+        box-shadow: inset 0 0 3vmin rgba(255, 152, 0, 0.4);
+      }
+      #lemmings-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+        z-index: 7;
+      }
+      .lemming {
+        position: absolute;
+        width: 7vmin;
+        height: 7vmin;
+        pointer-events: auto;
+        cursor: pointer;
+        z-index: 7;
+        transition: transform 0.1s;
+      }
+      .lemming .body {
+        width: 5vmin;
+        height: 5vmin;
+        background: #7e8a9e;
+        border-radius: 50% 50% 45% 45%;
+        position: relative;
+        margin: 0 auto;
+        box-shadow: 0 0.2vmin 0.5vmin rgba(0, 0, 0, 0.3);
+      }
+      .lemming .body::before {
+        content: '';
+        position: absolute;
+        top: 1.2vmin;
+        left: 0.8vmin;
+        width: 1vmin;
+        height: 1.2vmin;
+        background: #fff;
+        border-radius: 50%;
+        box-shadow: 2.4vmin 0 0 #fff;
+      }
+      .lemming .body::after {
+        content: '';
+        position: absolute;
+        top: 1.8vmin;
+        left: 1.2vmin;
+        width: 0.4vmin;
+        height: 0.6vmin;
+        background: #333;
+        border-radius: 50%;
+        box-shadow: 2.4vmin 0 0 #333;
+      }
+      .lemming .bag {
+        position: absolute;
+        top: 3vmin;
+        right: -1vmin;
+        font-size: 2.5vmin;
+        animation: bagSwing 1s ease-in-out infinite;
+      }
+      @keyframes bagSwing {
+        0%,
+        100% {
+          transform: rotate(-5deg);
+        }
+        50% {
+          transform: rotate(5deg);
+        }
+      }
+      .lemming .feet {
+        position: absolute;
+        bottom: -0.5vmin;
+        left: 0.5vmin;
+        right: 0.5vmin;
+        display: flex;
+        justify-content: space-around;
+      }
+      .lemming .feet div {
+        width: 1.5vmin;
+        height: 0.8vmin;
+        background: #6d7a8e;
+        border-radius: 0 0 50% 50%;
+        animation: legWalk 0.3s ease-in-out infinite alternate;
+      }
+      @keyframes legWalk {
+        0% {
+          transform: translateY(0);
+        }
+        100% {
+          transform: translateY(0.3vmin);
+        }
+      }
+      .lemming.scared .body {
+        animation: scaredShake 0.3s ease-in-out infinite;
+      }
+      @keyframes scaredShake {
+        0%,
+        100% {
+          transform: translateX(0);
+        }
+        50% {
+          transform: translateX(0.5vmin);
+        }
+      }
+      .lemming.scared .bag {
+        animation: none;
+        opacity: 0;
+      }
+      .lemming .sweat {
+        position: absolute;
+        top: -0.5vmin;
+        right: 0;
+        font-size: 1.8vmin;
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .lemming.scared .sweat {
+        opacity: 1;
+        animation: sweatDrop 0.5s ease-in infinite;
+      }
+      @keyframes sweatDrop {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(2vmin);
+          opacity: 0;
+        }
+      }
+      /* floating score */
+      .float-score {
+        position: absolute;
+        pointer-events: none;
+        font-size: 3vmin;
+        font-weight: bold;
+        color: #ffd700;
+        text-shadow: 0.1vmin 0.1vmin 0 #333;
+        z-index: 30;
+        animation: floatUp 0.8s ease-out forwards;
+      }
+      @keyframes floatUp {
+        0% {
+          transform: translateY(0) scale(0.5);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-6vmin) scale(1.2);
+          opacity: 0;
+        }
+      }
+      /* steal effect */
+      .steal-effect {
+        position: absolute;
+        pointer-events: none;
+        font-size: 3vmin;
+        z-index: 30;
+        animation: stealFloat 1s ease-out forwards;
+      }
+      @keyframes stealFloat {
+        0% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+        50% {
+          transform: translateY(-3vmin) scale(1.3);
+        }
+        100% {
+          transform: translateY(-6vmin) scale(0.5);
+          opacity: 0;
+        }
+      }
+      /* sparkle */
+      .sparkle {
+        position: absolute;
+        pointer-events: none;
+        width: 1vmin;
+        height: 1vmin;
+        background: #ffd700;
+        border-radius: 50%;
+        z-index: 30;
+        animation: sparkleAnim 0.6s ease-out forwards;
+      }
+      @keyframes sparkleAnim {
+        0% {
+          transform: scale(0);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+      /* levelComplete screen */
+      #levelScreen .big-emoji {
+        font-size: 12vmin;
+        margin-bottom: 1vmin;
+      }
+      #levelScreen h2 {
+        font-size: 5vmin;
+        color: #ffd700;
+        text-shadow: 0.2vmin 0.2vmin 0 #5d4037;
+        margin-bottom: 1vmin;
+      }
+      #levelScreen p {
+        font-size: 2.8vmin;
+        color: #ffcc80;
+        margin-bottom: 2vmin;
+        text-align: center;
+      }
+      #levelScreen .score-summary {
+        font-size: 2.5vmin;
+        color: #fff;
+        margin-bottom: 2vmin;
+      }
+      #levelScreen .score-summary span {
+        color: #ffd700;
+        font-weight: bold;
+      }
+      /* all levels complete */
+      #victoryScreen .trophy {
+        font-size: 18vmin;
+        margin-bottom: 1vmin;
+        animation: bounce 2s ease-in-out infinite;
+      }
+      #victoryScreen h1 {
+        font-size: 6vmin;
+        color: #ffd700;
+        text-shadow:
+          0.3vmin 0.3vmin 0 #5d4037,
+          0 0 3vmin rgba(255, 215, 0, 0.3);
+      }
+      #victoryScreen p {
+        font-size: 2.8vmin;
+        color: #ffcc80;
+        margin-bottom: 2vmin;
+        text-align: center;
+      }
+      /* instructions */
+      #instructions {
+        position: absolute;
+        top: 7vmin;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9;
+        font-size: 2vmin;
+        color: #fff;
+        text-align: center;
+        text-shadow: 0.1vmin 0.1vmin 0 rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.5s;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 0.5vmin 2vmin;
+        border-radius: 1vmin;
+        white-space: nowrap;
+      }
+      #instructions.show {
+        opacity: 1;
+      }
+      /* info / target bar */
+      #targetInfo {
+        position: absolute;
+        top: 7vmin;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9;
+        font-size: 2.2vmin;
+        color: #fff;
+        text-shadow: 0.1vmin 0.1vmin 0 rgba(0, 0, 0, 0.5);
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.3);
+        padding: 0.3vmin 1.5vmin;
+        border-radius: 1vmin;
+      }
+      /* confirm modal */
+      .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 100;
+        justify-content: center;
+        align-items: center;
+      }
+      .modal.active {
+        display: flex;
+      }
+      .modal-inner {
+        background: linear-gradient(180deg, #4a2f1a, #2d1b0e);
+        border: 0.3vmin solid #ff9800;
+        border-radius: 2vmin;
+        padding: 4vmin 6vmin;
+        text-align: center;
+        max-width: 55vmin;
+        box-shadow: 0 0 5vmin rgba(255, 152, 0, 0.2);
+        animation: modalIn 0.4s ease;
+      }
+      @keyframes modalIn {
+        from {
+          transform: scale(0.8);
+          opacity: 0;
+        }
+        to {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+      .modal-inner h3 {
+        font-size: 3.5vmin;
+        color: #ff9800;
+        margin-bottom: 1vmin;
+      }
+      .modal-inner p {
+        font-size: 2.5vmin;
+        color: #ffcc80;
+        margin-bottom: 2vmin;
+      }
+      .confetti-piece {
+        position: fixed;
+        pointer-events: none;
+        z-index: 60;
+        width: 1.5vmin;
+        height: 1.5vmin;
+        border-radius: 50%;
+        animation: confettiFall linear forwards;
+      }
+      @keyframes confettiFall {
+        0% {
+          transform: translateY(-10vh) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      /* responsive */
+      @media (max-width: 500px) {
+        .parcel {
+          width: 16vmin;
+          height: 18vmin;
+        }
+        #gameContainer {
+          max-width: 100%;
+          border-radius: 0;
+          max-height: 100vh;
+        }
+        #topBar {
+          padding: 0.8vmin 1.5vmin;
+        }
+        #topBar .level {
+          font-size: 3vmin;
+        }
+        #topBar .score {
+          font-size: 2.8vmin;
+        }
+      }
+      @media (min-height: 800px) {
+        .parcel {
+          width: 12vmin;
+          height: 15vmin;
+        }
+      }
+      @media (max-height: 600px) {
+        .parcel {
+          width: 12vmin;
+          height: 14vmin;
+        }
+        .parcel .plant .stem {
+          height: 3vmin !important;
+        }
+        .parcel.state-planting .plant .stem {
+          height: 3vmin !important;
+        }
+        .parcel.state-grown .plant .stem,
+        .parcel.state-watering .plant .stem,
+        .parcel.state-mature .plant .stem {
+          height: 4vmin !important;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameContainer">
+      <div id="topBar">
+        <div class="level">🌾 NIVEL <span id="levelDisplay">1</span>/40</div>
+        <div class="score">⭐ <span id="scoreDisplay">0</span></div>
+        <div class="target" id="targetDisplay">🎯 <span id="targetScore">0</span></div>
+        <button class="menu-btn" id="menuBtn">🏠 Menú</button>
+      </div>
+      <div id="sky">
+        <div id="sun"></div>
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+        <div class="cloud cloud3"></div>
+      </div>
+      <div id="targetInfo"></div>
+      <div id="instructions"></div>
+      <div id="parcels"></div>
+      <div id="lemmings-container"></div>
+      <div id="ground">
+        <div id="chicken">🐔</div>
+      </div>
+      <div id="grizzy"><span class="hat">👒</span><span class="bear">🐻</span></div>
+    </div>
+
+    <div id="startScreen" class="screen active">
+      <div class="grizzy-big">🐻</div>
+      <h1>🐻 Granja Feliz 🌾</h1>
+      <div class="subtitle">🌽 Grizzy &bull; Los Lemmings &bull; 🌽</div>
+      <div
+        style="
+          font-size: 2.5vmin;
+          color: #e0e0e0;
+          margin-bottom: 2vmin;
+          text-align: center;
+          max-width: 60vmin;
+        "
+      >
+        🌱 Planta → 💧 Riega → 🍎 Cosecha<br />
+        ⚡ Espanta a los Lemmings ladrones!
+      </div>
+      <div style="display: flex; gap: 1vmin; flex-wrap: wrap; justify-content: center">
+        <button class="btn" id="startBtn">🌾 JUGAR</button>
+      </div>
+      <div style="margin-top: 2vmin; font-size: 2vmin; color: #bdbdbd" id="continueInfo"></div>
+    </div>
+
+    <div id="levelScreen" class="screen">
+      <div class="big-emoji">🎉</div>
+      <h2 id="levelTitle">¡Nivel Completo!</h2>
+      <p id="levelMsg">Has completado el nivel</p>
+      <div class="score-summary">Puntuación: <span id="levelFinalScore">0</span></div>
+      <button class="btn" id="nextBtn">▶ Siguiente Nivel</button>
+    </div>
+
+    <div id="victoryScreen" class="screen">
+      <div class="trophy">🏆</div>
+      <h1>🎊 ¡GRAN CAMPEÓN! 🎊</h1>
+      <p>¡Has completado los 40 niveles!<br />Eres el mejor granjero de todos 🌟</p>
+      <button class="btn" id="restartGameBtn">🔄 Jugar de nuevo</button>
+    </div>
+
+    <div class="modal" id="confirmModal">
+      <div class="modal-inner">
+        <h3>¿Volver al menú?</h3>
+        <p>Perderás tu progreso en este nivel</p>
+        <div style="display: flex; gap: 1vmin; justify-content: center">
+          <button class="btn btn-small" id="confirmYes">Sí</button>
+          <button class="btn btn-small btn-secondary" id="confirmNo">No</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      // === CONSTANTS ===
+      const STORAGE_KEY = 'grizzy_farm'
+      const FRUITS = [
+        { id: 'apple', color: '#F44336', name: 'Manzana', emoji: '🍎', value: 10, unlock: 1 },
+        { id: 'pear', color: '#4CAF50', name: 'Pera', emoji: '🍐', value: 15, unlock: 5 },
+        { id: 'strawberry', color: '#E91E63', name: 'Fresa', emoji: '🍓', value: 20, unlock: 10 },
+        { id: 'orange', color: '#FF9800', name: 'Naranja', emoji: '🍊', value: 25, unlock: 20 },
+        { id: 'grape', color: '#9C27B0', name: 'Uva', emoji: '🍇', value: 30, unlock: 30 },
+      ]
+      const PLANT_TIME = 10
+      const WATER_TIME = 8
+      const POINTS_PLANT = 10
+      const POINTS_WATER = 10
+      const TOTAL_LEVELS = 40
+
+      // === AUDIO ===
+      let audioCtx = null
+      function initAudio() {
+        try {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        } catch (e) {}
+      }
+      function playTone(freq, dur, type = 'sine', vol = 0.15) {
+        try {
+          initAudio()
+          if (!audioCtx) return
+          const o = audioCtx.createOscillator(),
+            g = audioCtx.createGain()
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.type = type
+          o.frequency.setValueAtTime(freq, audioCtx.currentTime)
+          g.gain.setValueAtTime(vol, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+          o.start()
+          o.stop(audioCtx.currentTime + dur)
+        } catch (e) {}
+      }
+      function playPlant() {
+        playTone(260, 0.15, 'triangle')
+        playTone(330, 0.12, 'triangle', 0.1)
+      }
+      function playWater() {
+        playTone(400, 0.08, 'sine')
+        setTimeout(() => playTone(520, 0.1, 'sine', 0.12), 80)
+      }
+      function playHarvest() {
+        playTone(523, 0.1, 'sine')
+        setTimeout(() => playTone(659, 0.1, 'sine', 0.12), 100)
+        setTimeout(() => playTone(784, 0.15, 'sine', 0.1), 200)
+      }
+      function playScare() {
+        playTone(600, 0.08, 'square', 0.08)
+        setTimeout(() => playTone(300, 0.12, 'square', 0.06), 80)
+        setTimeout(() => playTone(200, 0.15, 'square', 0.05), 180)
+      }
+      function playLevelComplete() {
+        const n = [523, 587, 659, 784, 880, 1047]
+        n.forEach((f, i) => setTimeout(() => playTone(f, 0.15, 'sine', 0.12), i * 100))
+        setTimeout(() => playTone(1047, 0.3, 'sine', 0.1), 600)
+      }
+      function playSteal() {
+        playTone(200, 0.2, 'sawtooth', 0.06)
+        setTimeout(() => playTone(150, 0.25, 'sawtooth', 0.05), 150)
+      }
+
+      // === STATE ===
+      let game = {
+        level: 1,
+        score: 0,
+        highScore: 0,
+        state: 'menu', // menu | playing | levelComplete | victory
+        parcels: [],
+        lemmings: [],
+        lemmingTimer: 0,
+        lemmingSpawnDelay: 15,
+        maxLemmings: 1,
+        lastActionParcel: -1,
+        activeCount: 0,
+        paused: false,
+      }
+
+      // === DOM REFS ===
+      const $ = (id) => document.getElementById(id)
+      const startScreen = $('startScreen')
+      const levelScreen = $('levelScreen')
+      const victoryScreen = $('victoryScreen')
+      const gameContainer = $('gameContainer')
+      const levelDisplay = $('levelDisplay')
+      const scoreDisplay = $('scoreDisplay')
+      const targetDisplay = $('targetDisplay')
+      const targetScore = $('targetScore')
+      const parcelsEl = $('parcels')
+      const lemmingsContainer = $('lemmings-container')
+      const grizzy = $('grizzy')
+      const instructions = $('instructions')
+      const targetInfo = $('targetInfo')
+      const confirmModal = $('confirmModal')
+      const continueInfo = $('continueInfo')
+      const levelFinalScore = $('levelFinalScore')
+
+      // === LEVEL CONFIG ===
+      function getLevelConfig(level) {
+        const parcelCount = Math.min(3 + Math.floor((level - 1) / 6), 8)
+        const maxLemmings = level < 3 ? 0 : Math.min(1 + Math.floor((level - 2) / 4), 8)
+        const spawnDelay = Math.max(20 - Math.floor(level / 2), 4)
+        const available = FRUITS.filter((f) => level >= f.unlock)
+        const fruitPool = available.length ? available : [FRUITS[0]]
+        const target = 60 + level * 30 + Math.floor(level * 1.5)
+        return { parcelCount, maxLemmings, spawnDelay, fruitPool, target }
+      }
+
+      function getRandomFruit(pool) {
+        // weighted toward more recent fruits at higher levels
+        const idx = Math.random() < 0.6 ? pool.length - 1 : Math.floor(Math.random() * pool.length)
+        return pool[Math.max(0, idx)]
+      }
+
+      // === PARCEL ===
+      function createParcels() {
+        parcelsEl.innerHTML = ''
+        game.parcels = []
+        const config = getLevelConfig(game.level)
+        for (let i = 0; i < config.parcelCount; i++) {
+          const fruit = getRandomFruit(config.fruitPool)
+          const el = document.createElement('div')
+          el.className = 'parcel state-empty'
+          el.dataset.index = i
+          const progressWrap = document.createElement('div')
+          progressWrap.className = 'progress-wrap'
+          const progressBar = document.createElement('div')
+          progressBar.className = 'progress-bar'
+          progressWrap.appendChild(progressBar)
+          const glow = document.createElement('div')
+          glow.className = 'glow'
+          const plant = document.createElement('div')
+          plant.className = 'plant'
+          const leaves = document.createElement('div')
+          leaves.className = 'leaves'
+          const stem = document.createElement('div')
+          stem.className = 'stem'
+          plant.appendChild(leaves)
+          plant.appendChild(stem)
+          const fruitEl = document.createElement('div')
+          fruitEl.className = 'fruit'
+          fruitEl.style.background = fruit.color
+          const label = document.createElement('div')
+          label.className = 'state-label'
+          label.innerHTML = '<span class="icon">🌱</span>CLIC'
+          el.appendChild(progressWrap)
+          el.appendChild(glow)
+          el.appendChild(plant)
+          el.appendChild(fruitEl)
+          el.appendChild(label)
+          const parcel = {
+            index: i,
+            el,
+            fruit,
+            fruitEl,
+            progressWrap,
+            progressBar,
+            label,
+            state: 'empty',
+            timer: 0,
+            duration: 0,
+            stolen: false,
+            plantedFruit: fruit,
+          }
+          el.addEventListener('click', (e) => handleParcelClick(parcel, e))
+          el.addEventListener(
+            'touchstart',
+            (e) => {
+              e.preventDefault()
+              handleParcelClick(parcel, e)
+            },
+            { passive: false },
+          )
+          parcelsEl.appendChild(el)
+          game.parcels.push(parcel)
+        }
+        gameContainer.style.setProperty('--parcel-count', config.parcelCount)
+      }
+
+      function setParcelState(parcel, newState) {
+        const oldState = parcel.state
+        parcel.el.classList.remove('state-' + oldState)
+        parcel.el.classList.add('state-' + newState)
+        parcel.state = newState
+        const config = getLevelConfig(game.level)
+        switch (newState) {
+          case 'empty':
+            parcel.label.innerHTML = '<span class="icon">🌱</span>CLIC'
+            parcel.progressWrap.classList.remove('active')
+            parcel.timer = 0
+            // assign a new fruit for the next cycle
+            parcel.plantedFruit = getRandomFruit(config.fruitPool)
+            parcel.fruitEl.style.background = parcel.plantedFruit.color
+            break
+          case 'planting':
+            parcel.label.innerHTML = '🌱 creciendo...'
+            parcel.progressWrap.classList.add('active')
+            parcel.timer = 0
+            parcel.duration = PLANT_TIME
+            parcel.progressBar.style.width = '0%'
+            parcel.stolen = false
+            break
+          case 'grown':
+            parcel.label.innerHTML = '💧 REGAR'
+            parcel.progressWrap.classList.remove('active')
+            parcel.progressBar.style.width = '100%'
+            break
+          case 'watering':
+            parcel.label.innerHTML = '💧 regando...'
+            parcel.progressWrap.classList.add('active')
+            parcel.timer = 0
+            parcel.duration = WATER_TIME
+            parcel.progressBar.style.width = '0%'
+            break
+          case 'mature':
+            parcel.label.innerHTML = parcel.plantedFruit.emoji + ' COSECHAR'
+            parcel.progressWrap.classList.remove('active')
+            parcel.progressBar.style.width = '100%'
+            parcel.fruitEl.style.background = parcel.plantedFruit.color
+            break
+        }
+        updateInstructions()
+      }
+
+      function handleParcelClick(parcel, e) {
+        if (game.state !== 'playing' || game.paused) return
+        initAudio()
+        const config = getLevelConfig(game.level)
+        switch (parcel.state) {
+          case 'empty':
+            setParcelState(parcel, 'planting')
+            addScore(POINTS_PLANT)
+            playPlant()
+            showFloatScore(parcel.el, '+' + POINTS_PLANT)
+            moveGrizzy(parcel.index)
+            showSparkles(parcel.el)
+            break
+          case 'grown':
+            setParcelState(parcel, 'watering')
+            addScore(POINTS_WATER)
+            playWater()
+            showFloatScore(parcel.el, '+' + POINTS_WATER)
+            moveGrizzy(parcel.index)
+            showSparkles(parcel.el)
+            break
+          case 'mature':
+            const val = parcel.plantedFruit.value
+            setParcelState(parcel, 'empty')
+            addScore(val)
+            playHarvest()
+            showFloatScore(parcel.el, '+' + val + ' ' + parcel.plantedFruit.emoji)
+            moveGrizzy(parcel.index)
+            showSparkles(parcel.el)
+            break
+        }
+      }
+
+      // === LEMMINGS ===
+      function spawnLemming() {
+        if (game.state !== 'playing' || game.paused) return
+        const config = getLevelConfig(game.level)
+        if (config.maxLemmings === 0) return
+        const active = game.lemmings.filter((l) => l.state !== 'dead').length
+        if (active >= config.maxLemmings) return
+        // find mature parcels to target
+        const mature = game.parcels.filter((p) => p.state === 'mature' && !p.stolen)
+        if (mature.length === 0) return
+        const target = mature[Math.floor(Math.random() * mature.length)]
+        const rect = gameContainer.getBoundingClientRect()
+        const pRect = target.el.getBoundingClientRect()
+        const side = Math.random() < 0.5 ? -1 : 1
+        const startX = side === -1 ? -10 : rect.width + 10
+        const startY = 20 + Math.random() * (rect.height * 0.5)
+        const gRect = gameContainer.getBoundingClientRect()
+        const targetX = pRect.left - gRect.left + pRect.width / 2
+        const targetY = pRect.top - gRect.top + pRect.height / 2
+        const el = document.createElement('div')
+        el.className = 'lemming'
+        el.innerHTML =
+          '<div class="body"></div><div class="bag">👜</div><div class="feet"><div></div><div></div></div><div class="sweat">💦</div>'
+        el.style.left = startX + 'px'
+        el.style.top = startY + 'px'
+        lemmingsContainer.appendChild(el)
+        const lemming = {
+          id: Date.now() + Math.random(),
+          el,
+          targetParcel: target,
+          x: startX,
+          y: startY,
+          targetX,
+          targetY,
+          state: 'entering',
+          speed: 30 + Math.random() * 20 + game.level * 1.5,
+          scared: false,
+        }
+        game.lemmings.push(lemming)
+        // animate entry
+        requestAnimationFrame(() => {
+          el.style.transition =
+            'left ' + (0.4 + Math.random() * 0.3) + 's ease-out, top 0.5s ease-out'
+          el.style.left = lemming.targetX + 'px'
+          el.style.top = lemming.targetY + 'px'
+        })
+        lemming.state = 'moving'
+        setTimeout(
+          () => {
+            if (lemming.state === 'moving' && !lemming.scared) {
+              // reached parcel - steal!
+              doSteal(lemming)
+            }
+          },
+          800 + Math.random() * 300,
+        )
+      }
+
+      function doSteal(lemming) {
+        if (lemming.state === 'dead' || lemming.scared) return
+        const p = lemming.targetParcel
+        if (p && p.state === 'mature' && !p.stolen) {
+          p.stolen = true
+          const f = p.plantedFruit
+          playSteal()
+          showStealEffect(p.el, '😈 Robado!')
+          setParcelState(p, 'empty')
+        }
+        lemming.state = 'escaping'
+        lemming.scared = true
+        const rect = gameContainer.getBoundingClientRect()
+        const side = Math.random() < 0.5 ? -1 : 1
+        const exitX = side === -1 ? -8 : rect.width + 8
+        const exitY = 20 + Math.random() * (rect.height * 0.3)
+        lemming.el.style.transition = 'left 0.8s ease-in, top 0.8s ease-in'
+        lemming.el.style.left = exitX + 'px'
+        lemming.el.style.top = exitY + 'px'
+        setTimeout(() => removeLemming(lemming), 900)
+      }
+
+      function scareLemming(lemming) {
+        if (lemming.state === 'dead' || lemming.scared) return false
+        lemming.scared = true
+        lemming.el.classList.add('scared')
+        lemming.state = 'scared'
+        playScare()
+        showFloatScore(lemming.el, '💥 +5')
+        addScore(5)
+        const rect = gameContainer.getBoundingClientRect()
+        const side = Math.random() < 0.5 ? -1 : 1
+        const exitX = side === -1 ? -8 : rect.width + 8
+        const exitY = 20 + Math.random() * (rect.height * 0.3)
+        lemming.el.style.transition = 'left 0.5s ease-in, top 0.5s ease-in'
+        lemming.el.style.left = exitX + 'px'
+        lemming.el.style.top = exitY + 'px'
+        setTimeout(() => removeLemming(lemming), 600)
+        return true
+      }
+
+      function removeLemming(lemming) {
+        lemming.state = 'dead'
+        if (lemming.el.parentNode) lemming.el.parentNode.removeChild(lemming.el)
+      }
+
+      function updateLemmingTimers(dt) {
+        if (game.state !== 'playing' || game.paused) return
+        const config = getLevelConfig(game.level)
+        if (config.maxLemmings === 0) return
+        game.lemmingTimer -= dt
+        if (game.lemmingTimer <= 0) {
+          game.lemmingTimer = config.spawnDelay
+          spawnLemming()
+        }
+      }
+
+      // === GRIZZY ===
+      function moveGrizzy(parcelIndex) {
+        const p = game.parcels[parcelIndex]
+        if (!p) return
+        const pRect = p.el.getBoundingClientRect()
+        const gRect = gameContainer.getBoundingClientRect()
+        const targetLeft = pRect.left - gRect.left + pRect.width / 2 - grizzy.offsetWidth / 2
+        grizzy.style.left =
+          Math.max(0, Math.min(targetLeft, gRect.width - grizzy.offsetWidth)) + 'px'
+        game.lastActionParcel = parcelIndex
+      }
+
+      // === SCORE ===
+      function addScore(pts) {
+        game.score += pts
+        scoreDisplay.textContent = game.score
+        const config = getLevelConfig(game.level)
+        if (game.score >= config.target && game.state === 'playing') {
+          completeLevel()
+        }
+      }
+
+      function showFloatScore(el, text) {
+        const rect = el.getBoundingClientRect()
+        const gRect = gameContainer.getBoundingClientRect()
+        const fs = document.createElement('div')
+        fs.className = 'float-score'
+        fs.textContent = text
+        fs.style.left = rect.left - gRect.left + rect.width / 2 - 3 + 'px'
+        fs.style.top = rect.top - gRect.top + 'px'
+        gameContainer.appendChild(fs)
+        setTimeout(() => fs.remove(), 900)
+      }
+
+      function showStealEffect(el, text) {
+        const rect = el.getBoundingClientRect()
+        const gRect = gameContainer.getBoundingClientRect()
+        const fs = document.createElement('div')
+        fs.className = 'steal-effect'
+        fs.textContent = text
+        fs.style.left = rect.left - gRect.left + rect.width / 2 - 4 + 'px'
+        fs.style.top = rect.top - gRect.top + 'px'
+        gameContainer.appendChild(fs)
+        setTimeout(() => fs.remove(), 1100)
+      }
+
+      function showSparkles(el) {
+        const rect = el.getBoundingClientRect()
+        const gRect = gameContainer.getBoundingClientRect()
+        for (let i = 0; i < 5; i++) {
+          const s = document.createElement('div')
+          s.className = 'sparkle'
+          const cx = rect.left - gRect.left + rect.width / 2
+          const cy = rect.top - gRect.top + rect.height / 2
+          s.style.left = cx + (Math.random() - 0.5) * 8 + 'px'
+          s.style.top = cy + (Math.random() - 0.5) * 8 + 'px'
+          s.style.background = ['#FFD700', '#FF9800', '#FFEB3B', '#fff'][i % 4]
+          gameContainer.appendChild(s)
+          setTimeout(() => s.remove(), 700)
+        }
+      }
+
+      // === INSTRUCTIONS ===
+      function updateInstructions() {
+        const hasEmpty = game.parcels.some((p) => p.state === 'empty')
+        const hasGrown = game.parcels.some((p) => p.state === 'grown')
+        const hasMature = game.parcels.some((p) => p.state === 'mature')
+        const hasActive = game.parcels.some((p) => p.state === 'planting' || p.state === 'watering')
+        if (hasEmpty) {
+          instructions.textContent = '🌱 Haz clic en una parcela vacía para plantar'
+          instructions.classList.add('show')
+        } else if (hasGrown) {
+          instructions.textContent = '💧 Haz clic en la planta para regarla'
+          instructions.classList.add('show')
+        } else if (hasMature) {
+          instructions.textContent = '🍎 Haz clic en la fruta para cosecharla'
+          instructions.classList.add('show')
+        } else if (hasActive) {
+          instructions.textContent = '⏳ Espera a que crezcan las plantas...'
+          instructions.classList.add('show')
+        } else {
+          instructions.classList.remove('show')
+        }
+      }
+
+      // === GAME LOOP ===
+      let lastTime = 0
+
+      function gameLoop(timestamp) {
+        const dt = lastTime ? (timestamp - lastTime) / 1000 : 0
+        lastTime = timestamp
+        if (game.state === 'playing' && !game.paused) {
+          updateTimers(dt)
+          updateLemmingTimers(dt)
+        }
+        requestAnimationFrame(gameLoop)
+      }
+
+      function updateTimers(dt) {
+        game.parcels.forEach((p) => {
+          if (p.state === 'planting' || p.state === 'watering') {
+            p.timer += dt
+            const progress = Math.min(p.timer / p.duration, 1)
+            p.progressBar.style.width = progress * 100 + '%'
+            if (progress >= 1) {
+              if (p.state === 'planting') {
+                setParcelState(p, 'grown')
+              } else if (p.state === 'watering') {
+                setParcelState(p, 'mature')
+              }
+            }
+          }
+        })
+      }
+
+      // === LEVEL MANAGEMENT ===
+      function completeLevel() {
+        game.state = 'levelComplete'
+        playLevelComplete()
+        const totalScore = game.score
+        if (totalScore > game.highScore) {
+          game.highScore = totalScore
+          saveGame()
+        }
+        if (game.level >= TOTAL_LEVELS) {
+          showVictory()
+          return
+        }
+        levelFinalScore.textContent = totalScore
+        levelScreen.querySelector('h2').textContent = '🎉 ¡Nivel ' + game.level + ' Completo!'
+        levelScreen.querySelector('p').textContent =
+          'Puntuación: ' + totalScore + ' | Objetivo: ' + getLevelConfig(game.level).target
+        showScreen(levelScreen)
+        spawnConfetti()
+      }
+
+      function showVictory() {
+        game.state = 'victory'
+        showScreen(victoryScreen)
+        spawnConfetti()
+        for (let i = 0; i < 5; i++) setTimeout(spawnConfetti, i * 500)
+      }
+
+      function startLevel() {
+        game.paused = false
+        game.state = 'playing'
+        game.score = 0
+        game.lemmings.forEach((l) => removeLemming(l))
+        game.lemmings = []
+        game.lemmingTimer = getLevelConfig(game.level).spawnDelay
+        scoreDisplay.textContent = '0'
+        levelDisplay.textContent = game.level
+        const config = getLevelConfig(game.level)
+        targetDisplay.textContent = ''
+        targetScore.textContent = config.target
+        targetInfo.textContent =
+          '🎯 Objetivo: ' +
+          config.target +
+          ' pts  |  🍎 ' +
+          config.fruitPool.map((f) => f.emoji).join('')
+        createParcels()
+        moveGrizzy(0)
+        updateInstructions()
+        showScreen(gameContainer)
+        // show instruction initially
+        setTimeout(() => updateInstructions(), 100)
+      }
+
+      function showScreen(el) {
+        ;[startScreen, levelScreen, victoryScreen, gameContainer].forEach((s) =>
+          s.classList.remove('active'),
+        )
+        if (el) el.classList.add('active')
+      }
+
+      // === SAVE / LOAD ===
+      function saveGame() {
+        try {
+          const data = { level: game.level, highScore: game.highScore, score: game.score }
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        } catch (e) {}
+      }
+
+      function loadGame() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY)
+          if (raw) {
+            const data = JSON.parse(raw)
+            if (data && data.level) {
+              game.level = Math.min(data.level, TOTAL_LEVELS)
+              game.highScore = data.highScore || 0
+              game.score = data.score || 0
+              return true
+            }
+          }
+        } catch (e) {}
+        return false
+      }
+
+      function resetGame() {
+        game.level = 1
+        game.score = 0
+        saveGame()
+      }
+
+      // === CONFETTI ===
+      function spawnConfetti() {
+        const colors = ['#FF9800', '#FFD700', '#F44336', '#4CAF50', '#2196F3', '#9C27B0', '#FF6F00']
+        for (let i = 0; i < 30; i++) {
+          const el = document.createElement('div')
+          el.className = 'confetti-piece'
+          el.style.left = Math.random() * 100 + 'vw'
+          el.style.background = colors[Math.floor(Math.random() * colors.length)]
+          el.style.width = 0.8 + Math.random() * 1.2 + 'vmin'
+          el.style.height = 0.8 + Math.random() * 1.2 + 'vmin'
+          el.style.animationDuration = 2 + Math.random() * 2 + 's'
+          el.style.animationDelay = Math.random() * 0.5 + 's'
+          el.style.borderRadius = Math.random() > 0.5 ? '50%' : '0.2vmin'
+          document.body.appendChild(el)
+          setTimeout(() => el.remove(), 4500)
+        }
+      }
+
+      // === EVENTS ===
+      // Start screen
+      document.getElementById('startBtn').addEventListener('click', () => {
+        initAudio()
+        startLevel()
+      })
+      // Next level
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        game.level++
+        if (game.level > TOTAL_LEVELS) {
+          showVictory()
+        } else {
+          saveGame()
+          startLevel()
+        }
+      })
+      // Restart game from victory
+      document.getElementById('restartGameBtn').addEventListener('click', () => {
+        game.level = 1
+        saveGame()
+        showScreen(startScreen)
+        updateContinueInfo()
+      })
+      // Menu button
+      document.getElementById('menuBtn').addEventListener('click', () => {
+        if (game.state === 'playing') {
+          confirmModal.classList.add('active')
+        }
+      })
+      document.getElementById('confirmYes').addEventListener('click', () => {
+        confirmModal.classList.remove('active')
+        game.state = 'menu'
+        game.lemmings.forEach((l) => removeLemming(l))
+        game.lemmings = []
+        showScreen(startScreen)
+        updateContinueInfo()
+        saveGame()
+      })
+      document.getElementById('confirmNo').addEventListener('click', () => {
+        confirmModal.classList.remove('active')
+      })
+      // Close modal on bg click
+      confirmModal.addEventListener('click', (e) => {
+        if (e.target === confirmModal) confirmModal.classList.remove('active')
+      })
+
+      // Lemming click handling via delegation
+      lemmingsContainer.addEventListener('click', (e) => {
+        let el = e.target
+        while (el && !el.classList.contains('lemming')) el = el.parentElement
+        if (!el) return
+        const lemming = game.lemmings.find((l) => l.el === el && l.state !== 'dead')
+        if (lemming && !lemming.scared) {
+          scareLemming(lemming)
+        }
+      })
+      lemmingsContainer.addEventListener(
+        'touchstart',
+        (e) => {
+          let el = e.target
+          while (el && !el.classList.contains('lemming')) el = el.parentElement
+          if (!el) return
+          e.preventDefault()
+          const lemming = game.lemmings.find((l) => l.el === el && l.state !== 'dead')
+          if (lemming && !lemming.scared) {
+            scareLemming(lemming)
+          }
+        },
+        { passive: false },
+      )
+
+      function updateContinueInfo() {
+        if (game.highScore > 0 || game.level > 1) {
+          continueInfo.textContent =
+            '🐻 Nivel ' + game.level + ' | Mejor: ' + game.highScore + ' pts'
+          continueInfo.style.display = 'block'
+        } else {
+          continueInfo.style.display = 'none'
+        }
+      }
+
+      // === INIT ===
+      loadGame()
+      updateContinueInfo()
+      showScreen(startScreen)
+      requestAnimationFrame(gameLoop)
+
+      // resize handler to adjust grizzy position
+      window.addEventListener('resize', () => {
+        if (game.lastActionParcel >= 0) moveGrizzy(game.lastActionParcel)
+      })
+
+      // === KEYBOARD SHORTCUTS ===
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (game.state === 'menu') document.getElementById('startBtn').click()
+          else if (game.state === 'levelComplete') document.getElementById('nextBtn').click()
+        }
+        if (e.key === 'Escape' && game.state === 'playing') {
+          document.getElementById('menuBtn').click()
+        }
+      })
+
+      console.log('🐻 Granja Feliz 🌾 - Grizzy & the Lemmings')
+      console.log('🌱 Planta → 💧 Riega → 🍎 Cosecha')
+      console.log('⚡ Haz clic en los Lemmings para espantarlos!')
+      console.log('📦 ' + TOTAL_LEVELS + ' niveles de diversión!')
+    </script>
+  </body>
+</html>

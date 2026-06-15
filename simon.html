@@ -1,0 +1,444 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>🐭 Simon — El juego de memoria de Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        user-select: none;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #2d1b0e;
+        font-family: 'Segoe UI', sans-serif;
+        color: #fff;
+        flex-direction: column;
+      }
+      #app {
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1vmin;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        padding: 2vmin;
+      }
+      h1 {
+        font-size: clamp(16px, 3.5vmin, 28px);
+        color: #ffc107;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        margin-bottom: 0.3vmin;
+      }
+      .info {
+        display: flex;
+        gap: 2vmin;
+        font-size: clamp(11px, 2.2vmin, 16px);
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .info span {
+        background: rgba(0, 0, 0, 0.35);
+        padding: 0.4vmin 1.5vmin;
+        border-radius: 1vmin;
+        border: 1px solid rgba(255, 193, 7, 0.15);
+      }
+      .tier {
+        font-size: clamp(11px, 2.2vmin, 16px);
+        padding: 0.3vmin 1.5vmin;
+        border-radius: 1vmin;
+        display: inline-block;
+        font-weight: bold;
+      }
+      .status {
+        font-size: clamp(12px, 2.5vmin, 18px);
+        min-height: 2.5vmin;
+        margin: 0.2vmin 0;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      }
+      .simon-circle {
+        position: relative;
+        width: min(50vmin, 320px);
+        height: min(50vmin, 320px);
+        border-radius: 50%;
+        background: #1b3a2d;
+        box-shadow:
+          0 0 5vmin rgba(255, 215, 0, 0.25),
+          inset 0 0 3vmin rgba(0, 0, 0, 0.3);
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 2.5vmin;
+        padding: 4.5vmin;
+        flex-shrink: 0;
+      }
+      .sbtn {
+        border: none;
+        border-radius: 2vmin;
+        cursor: pointer;
+        opacity: 0.65;
+        transition: all 0.12s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: inset 0 0 1vmin rgba(0, 0, 0, 0.3);
+      }
+      .sbtn span {
+        font-size: clamp(24px, 6vmin, 48px);
+        transition: transform 0.12s;
+        pointer-events: none;
+      }
+      .sbtn.active {
+        opacity: 1 !important;
+        transform: scale(1.06);
+        z-index: 2;
+      }
+      .sbtn.active span {
+        transform: scale(1.4);
+      }
+      .sbtn.green {
+        background: #4caf50;
+      }
+      .sbtn.active.green {
+        box-shadow: 0 0 4vmin 0.5vmin rgba(76, 175, 80, 0.8);
+      }
+      .sbtn.red {
+        background: #e53935;
+      }
+      .sbtn.active.red {
+        box-shadow: 0 0 4vmin 0.5vmin rgba(229, 57, 53, 0.8);
+      }
+      .sbtn.yellow {
+        background: #ffc107;
+      }
+      .sbtn.active.yellow {
+        box-shadow: 0 0 4vmin 0.5vmin rgba(255, 193, 7, 0.8);
+      }
+      .sbtn.blue {
+        background: #1565c0;
+      }
+      .sbtn.active.blue {
+        box-shadow: 0 0 4vmin 0.5vmin rgba(21, 101, 192, 0.8);
+      }
+      .hidden-btn {
+        visibility: hidden;
+        pointer-events: none;
+      }
+      .progress {
+        width: min(40vmin, 260px);
+        margin: 0.5vmin auto;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 1vmin;
+        overflow: hidden;
+        height: 0.8vmin;
+      }
+      .progress div {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #ffc107, #e53935);
+        transition: width 0.3s;
+        width: 0%;
+        border-radius: 1vmin;
+      }
+      .controls {
+        display: flex;
+        gap: 1.5vmin;
+        margin-top: 0.5vmin;
+        align-items: center;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      .btn {
+        padding: 0.8vmin 2.5vmin;
+        font-size: clamp(11px, 2vmin, 14px);
+        border: none;
+        border-radius: 1vmin;
+        background: #ffc107;
+        color: #1a1a1a;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+      .btn:hover {
+        background: #ffd54f;
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .back {
+        color: #ffc107;
+        text-decoration: none;
+        font-size: clamp(11px, 2vmin, 14px);
+        padding: 0.5vmin 1vmin;
+        transition: all 0.2s;
+      }
+      .back:hover {
+        text-decoration: underline;
+        color: #ffd54f;
+      }
+      @media (max-width: 400px) {
+        .simon-circle {
+          width: 85vw;
+          height: 85vw;
+          gap: 4vw;
+          padding: 6vw;
+        }
+        .sbtn {
+          border-radius: 3vw;
+        }
+        .btn {
+          padding: 2vw 4vw;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <h1>🐭 Simon — Memoria de Lemmings</h1>
+      <div class="info">
+        <span>🎯 Ronda: <strong id="round">0</strong></span>
+        <span>Nivel <strong id="level">1</strong>/40</span>
+      </div>
+      <div class="tier" id="tierName">🟢 3 Colores</div>
+      <div class="status" id="status">Presiona Empezar</div>
+      <div class="simon-circle" id="simonBoard">
+        <button class="sbtn green" data-c="0"><span>🐾</span></button>
+        <button class="sbtn red" data-c="1"><span>🐭</span></button>
+        <button class="sbtn yellow" data-c="2"><span>🍯</span></button>
+        <button class="sbtn blue" data-c="3"><span>🐟</span></button>
+      </div>
+      <div class="progress"><div id="progressBar"></div></div>
+      <div class="controls">
+        <button class="btn" id="startBtn">▶️ Empezar</button>
+        <a href="index.html" class="back">← Volver</a>
+      </div>
+    </div>
+    <script>
+      const SAVE = 'simon_grizzy'
+
+      function sfx(freq, type, dur, vol) {
+        try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)()
+          const osc = ctx.createOscillator()
+          const gain = ctx.createGain()
+          osc.connect(gain)
+          gain.connect(ctx.destination)
+          osc.frequency.value = freq
+          osc.type = type || 'sine'
+          gain.gain.setValueAtTime(vol || 0.15, ctx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + (dur || 0.2))
+          osc.start()
+          osc.stop(ctx.currentTime + (dur || 0.2))
+        } catch (e) {}
+      }
+
+      const COLS = ['green', 'red', 'yellow', 'blue']
+      const FREQ = { green: 261.63, red: 329.63, yellow: 392, blue: 523.25 }
+      let seq = [],
+        pIdx = 0,
+        playing = false,
+        accept = false,
+        round = 0,
+        level = 1,
+        roundsWon = 0,
+        tid = null
+
+      const TIERS = [
+        { name: '🟢 3 Colores', range: [1, 10], baseLen: 3, spd: 750, colors: 3 },
+        { name: '🟡 4 Colores', range: [11, 20], baseLen: 4, spd: 550, colors: 4 },
+        { name: '🔴 4+ Secuencias', range: [21, 30], baseLen: 6, spd: 400, colors: 4 },
+        { name: '🟣 4+ Turbo', range: [31, 40], baseLen: 8, spd: 250, colors: 4 },
+      ]
+
+      function getTier(lv) {
+        for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+        return TIERS[3]
+      }
+
+      function sound(freq) {
+        sfx(freq, 'sine', 0.2, 0.2)
+      }
+
+      function flash(c, d) {
+        const b = document.querySelector('.sbtn.' + c)
+        if (!b) return
+        b.classList.add('active')
+        sound(FREQ[c])
+        setTimeout(function () {
+          b.classList.remove('active')
+        }, d || 350)
+      }
+
+      function newLevel() {
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+        seq = []
+        pIdx = 0
+        round = 0
+        roundsWon = 0
+        playing = true
+        accept = false
+        if (tid) clearTimeout(tid)
+        const t = getTier(level)
+        document.getElementById('tierName').textContent = t.name
+        document.getElementById('status').textContent = 'Nivel ' + level + ' — Observa...'
+        document.querySelectorAll('.sbtn').forEach(function (btn, i) {
+          if (i < t.colors) {
+            btn.classList.remove('hidden-btn')
+          } else {
+            btn.classList.add('hidden-btn')
+          }
+        })
+        updateUI()
+        setTimeout(nextRound, 600)
+      }
+
+      function nextRound() {
+        round++
+        document.getElementById('round').textContent = round
+        const t = getTier(level)
+        if (seq.length < t.baseLen + Math.floor((level - t.range[0]) * 0.3)) {
+          seq.push(COLS[Math.floor(Math.random() * t.colors)])
+        }
+        pIdx = 0
+        accept = false
+        document.getElementById('status').textContent =
+          'Nivel ' + level + ' — Ronda ' + round + ' — Observa...'
+        var i = 0
+        var iv = setInterval(function () {
+          flash(seq[i], t.spd * 0.7)
+          i++
+          if (i >= seq.length) {
+            clearInterval(iv)
+            setTimeout(function () {
+              accept = true
+              document.getElementById('status').textContent = 'Nivel ' + level + ' — Tu turno!'
+            }, t.spd * 0.4)
+          }
+        }, t.spd)
+      }
+
+      function playerClick(ci) {
+        if (!accept || !playing) return
+        var c = COLS[ci]
+        flash(c, 180)
+        if (c !== seq[pIdx]) {
+          gameOver()
+          return
+        }
+        pIdx++
+        if (pIdx >= seq.length) {
+          accept = false
+          roundsWon++
+          updateUI()
+          if (roundsWon >= 3) {
+            if (level >= 40) {
+              playing = false
+              document.getElementById('status').textContent = '🏆 Completaste todos los niveles!'
+              sfx(660, 'sine', 0.15)
+              setTimeout(function () {
+                sfx(880, 'sine', 0.15)
+              }, 150)
+              setTimeout(function () {
+                sfx(1100, 'sine', 0.2)
+              }, 300)
+              return
+            }
+            if (level >= (parseInt(localStorage.getItem(SAVE)) || 0))
+              localStorage.setItem(SAVE, level + 1)
+            level++
+            updateUI()
+            document.getElementById('status').textContent = '🎉 Nivel ' + (level - 1) + ' completo!'
+            burstEffect()
+            tid = setTimeout(newLevel, 1200)
+          } else {
+            document.getElementById('status').textContent = '✅ Bien! Siguiente ronda...'
+            tid = setTimeout(nextRound, 900)
+          }
+        }
+      }
+
+      function burstEffect() {
+        var chars = ['✨', '⭐', '🌟', '🎉']
+        var rect = document.getElementById('simonBoard').getBoundingClientRect()
+        var cx = rect.left + rect.width / 2
+        var cy = rect.top + rect.height / 2
+        for (var i = 0; i < 14; i++) {
+          var e = document.createElement('div')
+          e.textContent = chars[i % 4]
+          e.style.cssText =
+            'position:fixed;left:' +
+            cx +
+            'px;top:' +
+            cy +
+            'px;font-size:3.5vmin;pointer-events:none;z-index:10;transition:all 0.7s ease-out'
+          document.body.appendChild(e)
+          var angle = Math.random() * 2 * Math.PI
+          var dist = 50 + Math.random() * 130
+          ;(function (el, ang, dst) {
+            requestAnimationFrame(function () {
+              el.style.transform =
+                'translate(' + Math.cos(ang) * dst + 'px,' + Math.sin(ang) * dst + 'px)'
+              el.style.opacity = '0'
+            })
+          })(e, angle, dist)
+          setTimeout(function () {
+            e.remove()
+          }, 800)
+        }
+      }
+
+      function gameOver() {
+        playing = false
+        accept = false
+        sfx(110, 'sawtooth', 0.25)
+        document.getElementById('status').textContent = '😢 Game Over — Enter para reintentar'
+      }
+
+      function updateUI() {
+        document.getElementById('level').textContent = level
+        document.getElementById('progressBar').style.width =
+          Math.min(100, (roundsWon / 3) * 100) + '%'
+      }
+
+      document.querySelectorAll('.sbtn').forEach(function (b) {
+        b.addEventListener('click', function () {
+          playerClick(parseInt(b.dataset.c))
+        })
+      })
+      document.getElementById('startBtn').addEventListener('click', function () {
+        newLevel()
+      })
+      document.addEventListener('keydown', function (e) {
+        if (!playing && e.key === 'Enter') {
+          newLevel()
+        }
+        if (accept && playing) {
+          var m = { 1: 0, 2: 1, 3: 2, 4: 3 }
+          if (e.key in m) playerClick(m[e.key])
+        }
+      })
+      updateUI()
+      document.getElementById('status').textContent = 'Presiona "Empezar" para jugar 🐭'
+    </script>
+  </body>
+</html>

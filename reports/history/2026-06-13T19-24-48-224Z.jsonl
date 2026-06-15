@@ -1,0 +1,19 @@
+{"timestamp":1781378758718,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego01","rule":"canvas_exists","passed":true}
+{"timestamp":1781378758723,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego01","rule":"score_non_negative","passed":true}
+{"timestamp":1781378758727,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego01","rule":"level_in_range","passed":true}
+{"timestamp":1781378767255,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego10","rule":"canvas_exists","passed":true}
+{"timestamp":1781378767256,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego10","rule":"score_non_negative","passed":true}
+{"timestamp":1781378767259,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"juego10","rule":"level_in_range","passed":true}
+{"timestamp":1781378775485,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tetris","rule":"score_non_negative","passed":false}
+{"timestamp":1781378775493,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tetris","rule":"level_valid","passed":false}
+{"timestamp":1781378775502,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tetris","rule":"grid_valid","passed":false}
+{"timestamp":1781378775510,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tetris","rule":"lines_valid","passed":false}
+{"timestamp":1781378784011,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"snake","rule":"score_non_negative","passed":true}
+{"timestamp":1781378784017,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"snake","rule":"snake_defined","passed":false}
+{"timestamp":1781378784020,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"snake","rule":"food_defined","passed":false}
+{"timestamp":1781378792374,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"pong","rule":"score_non_negative","passed":true}
+{"timestamp":1781378792376,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"pong","rule":"level_in_range","passed":true}
+{"timestamp":1781378800733,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tictactoe","rule":"board_valid","passed":false}
+{"timestamp":1781378800735,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tictactoe","rule":"current_player_valid","passed":false}
+{"timestamp":1781378800746,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"rule","gameId":"tictactoe","rule":"score_non_negative","passed":false}
+{"timestamp":1781378802409,"sessionId":"2026-06-13T19-24-48-224Z","eventType":"invariant-violation","gameId":"tictactoe","invariant":"board_cells_valid","description":"Board cells must be X, O, or null"}

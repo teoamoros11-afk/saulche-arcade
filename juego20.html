@@ -1,0 +1,1290 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guardián del Bosque</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a0e06;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+      }
+      #gameWrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #gameCanvas {
+        background: #2d1b0e;
+        display: block;
+        image-rendering: pixelated;
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+      #uiOverlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #startScreen,
+      #levelScreen,
+      #celebrationScreen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        pointer-events: auto;
+        z-index: 10;
+      }
+      #startScreen {
+        background: rgba(45, 27, 14, 0.92);
+      }
+      #levelScreen {
+        background: rgba(45, 27, 14, 0.88);
+        display: none;
+      }
+      #celebrationScreen {
+        background: linear-gradient(135deg, #2d1b0e, #1a5c1a);
+        display: none;
+      }
+      h1 {
+        font-size: 3.5em;
+        color: #4caf50;
+        text-shadow:
+          4px 4px 0 #2d1b0e,
+          0 0 20px rgba(76, 175, 80, 0.5);
+        margin-bottom: 10px;
+        text-align: center;
+      }
+      .subtitle {
+        font-size: 1.3em;
+        color: #a5d6a7;
+        margin-bottom: 25px;
+        text-align: center;
+      }
+      .btn {
+        background: #4caf50;
+        color: #fff;
+        border: none;
+        padding: 16px 50px;
+        font-size: 1.4em;
+        border-radius: 30px;
+        cursor: pointer;
+        pointer-events: auto;
+        transition: all 0.2s;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+      }
+      .btn:hover {
+        transform: scale(1.05);
+        background: #66bb6a;
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .btn-small {
+        background: #4caf50;
+        color: #fff;
+        border: none;
+        padding: 10px 30px;
+        font-size: 1em;
+        border-radius: 20px;
+        cursor: pointer;
+        pointer-events: auto;
+        transition: all 0.2s;
+        font-weight: bold;
+        margin-top: 10px;
+      }
+      .btn-small:hover {
+        background: #66bb6a;
+      }
+      .controls-info {
+        color: #a5d6a7;
+        font-size: 1em;
+        margin-top: 20px;
+        text-align: center;
+        line-height: 1.8;
+      }
+      .controls-info span {
+        display: inline-block;
+        background: #4caf50;
+        color: #fff;
+        padding: 2px 12px;
+        border-radius: 5px;
+        margin: 0 3px;
+        font-weight: bold;
+        font-size: 0.9em;
+      }
+      .level-title {
+        font-size: 2.5em;
+        color: #4caf50;
+        margin-bottom: 10px;
+      }
+      .level-number {
+        font-size: 3em;
+        color: #fff;
+        margin-bottom: 10px;
+      }
+      .celebration-title {
+        font-size: 2.5em;
+        color: #ffd700;
+        margin-bottom: 10px;
+        text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+      }
+      .celebration-score {
+        font-size: 1.5em;
+        color: #fff;
+        margin-bottom: 20px;
+      }
+      .stars {
+        font-size: 3em;
+        margin-bottom: 15px;
+      }
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 2em;
+        }
+        .subtitle {
+          font-size: 1em;
+        }
+        .btn {
+          padding: 12px 30px;
+          font-size: 1.1em;
+        }
+        .controls-info {
+          font-size: 0.8em;
+        }
+        .level-title {
+          font-size: 1.8em;
+        }
+        .celebration-title {
+          font-size: 1.8em;
+        }
+      }
+      @media (max-height: 500px) {
+        h1 {
+          font-size: 2em;
+        }
+        .btn {
+          padding: 10px 24px;
+          font-size: 1em;
+        }
+        .controls-info {
+          display: none;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameWrapper">
+      <canvas id="gameCanvas" width="600" height="400"></canvas>
+      <div id="uiOverlay">
+        <div id="startScreen">
+          <h1>🐻 Guardián del Bosque 🌳</h1>
+          <p class="subtitle">Ayuda a Grizzy a limpiar el bosque</p>
+          <button class="btn" id="startBtn">¡COMENZAR!</button>
+          <p class="controls-info">
+            <span>W</span><span>A</span><span>S</span><span>D</span> o <span>↑</span><span>←</span
+            ><span>↓</span><span>→</span> para moverte<br />
+            Recoge la basura <span>+10</span> · Evita a los Lemmings
+          </p>
+        </div>
+        <div id="levelScreen">
+          <div class="level-title">🌲 Nivel Completado 🌲</div>
+          <div class="level-number" id="completedLevelText">1</div>
+          <button class="btn" id="nextLevelBtn">SIGUIENTE NIVEL</button>
+        </div>
+        <div id="celebrationScreen">
+          <div class="celebration-title">🎉 ¡BOSQUE LIMPIO! 🎉</div>
+          <div class="stars">⭐⭐⭐⭐⭐</div>
+          <div class="celebration-score" id="finalScoreText">Puntuación: 0</div>
+          <button class="btn" id="restartBtn">🔄 JUGAR DE NUEVO</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const W = 600,
+        H = 400
+
+      const startScreen = document.getElementById('startScreen')
+      const levelScreen = document.getElementById('levelScreen')
+      const celebrationScreen = document.getElementById('celebrationScreen')
+      const startBtn = document.getElementById('startBtn')
+      const nextLevelBtn = document.getElementById('nextLevelBtn')
+      const restartBtn = document.getElementById('restartBtn')
+      const completedLevelText = document.getElementById('completedLevelText')
+      const finalScoreText = document.getElementById('finalScoreText')
+
+      let scale = 1
+      function resize() {
+        const ww = window.innerWidth,
+          wh = window.innerHeight
+        const s = Math.min(ww / W, wh / H)
+        canvas.style.width = W * s + 'px'
+        canvas.style.height = H * s + 'px'
+        scale = s
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      const SAVE_KEY = 'grizzy_forest'
+
+      function saveGame(data) {
+        try {
+          localStorage.setItem(SAVE_KEY, JSON.stringify(data))
+        } catch (e) {}
+      }
+      function loadGame() {
+        try {
+          const d = localStorage.getItem(SAVE_KEY)
+          return d ? JSON.parse(d) : null
+        } catch (e) {
+          return null
+        }
+      }
+
+      // Audio context
+      let audioCtx = null
+      function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      function playTone(freq, dur, type = 'sine', vol = 0.15) {
+        try {
+          initAudio()
+          const o = audioCtx.createOscillator()
+          const g = audioCtx.createGain()
+          o.type = type
+          o.frequency.value = freq
+          g.gain.setValueAtTime(vol, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.start()
+          o.stop(audioCtx.currentTime + dur)
+        } catch (e) {}
+      }
+      function soundCollect() {
+        playTone(880, 0.12, 'sine', 0.12)
+        setTimeout(() => playTone(1100, 0.1, 'sine', 0.1), 60)
+      }
+      function soundLevelUp() {
+        playTone(523, 0.15, 'sine', 0.13)
+        setTimeout(() => playTone(659, 0.15, 'sine', 0.13), 120)
+        setTimeout(() => playTone(784, 0.15, 'sine', 0.13), 240)
+        setTimeout(() => playTone(1047, 0.25, 'sine', 0.15), 360)
+      }
+      function soundLemming() {
+        playTone(200, 0.2, 'square', 0.08)
+        setTimeout(() => playTone(180, 0.15, 'square', 0.06), 100)
+      }
+      function soundCelebration() {
+        ;[523, 587, 659, 698, 784, 880, 988, 1047].forEach((f, i) =>
+          setTimeout(() => playTone(f, 0.2, 'sine', 0.12), i * 80),
+        )
+      }
+      function soundBonus() {
+        playTone(1200, 0.1, 'sine', 0.1)
+        setTimeout(() => playTone(1500, 0.15, 'sine', 0.12), 80)
+      }
+
+      const KEYS = {}
+      document.addEventListener('keydown', (e) => {
+        KEYS[e.key] = true
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(e.key))
+          e.preventDefault()
+      })
+      document.addEventListener('keyup', (e) => {
+        KEYS[e.key] = false
+      })
+
+      // ---- GAME STATE ----
+      let game = {
+        level: 1,
+        score: 0,
+        totalScore: 0,
+        maxLevel: 40,
+        state: 'menu', // menu, playing, levelComplete, celebration
+        trashCount: 0,
+        trashCollected: 0,
+        timeLimit: 0,
+        timeLeft: 0,
+        timerRunning: false,
+        bonusAwarded: false,
+        hasShownCelebration: false,
+      }
+
+      const grizzy = { x: 300, y: 200, w: 28, h: 32, speed: 2.5, dir: 1, frame: 0, frameTimer: 0 }
+
+      let trashItems = []
+      let lemmings = []
+      let particles = []
+      let leaves = []
+      let trees = []
+      let flowers = []
+
+      function rng(min, max) {
+        return Math.random() * (max - min) + min
+      }
+      function rngI(min, max) {
+        return Math.floor(rng(min, max + 1))
+      }
+
+      function generateDecor() {
+        trees = []
+        flowers = []
+        for (let i = 0; i < 14; i++) {
+          trees.push({
+            x: rngI(20, W - 20),
+            y: rngI(20, H - 20),
+            r: rngI(12, 22),
+            type: rngI(0, 2),
+          })
+        }
+        for (let i = 0; i < 20; i++) {
+          flowers.push({
+            x: rngI(10, W - 10),
+            y: rngI(10, H - 10),
+            color: ['#FF6B6B', '#FFD93D', '#FF8E53', '#C084FC', '#F472B6', '#fff'][rngI(0, 5)],
+            size: rngI(3, 6),
+          })
+        }
+      }
+
+      function generateLevel(level) {
+        const baseTrash = 5 + level * 2
+        const baseLemmings = 1 + Math.floor(level / 3)
+        const trashCount = Math.min(baseTrash, 85)
+        const lemmingCount = Math.min(baseLemmings, 14)
+        game.trashCount = trashCount
+        game.trashCollected = 0
+        game.timeLimit = 20 + level * 2
+        game.timeLeft = game.timeLimit
+        game.timerRunning = true
+        game.bonusAwarded = false
+
+        trashItems = []
+        lemmings = []
+        particles = []
+
+        generateDecor()
+
+        // Spawn trash
+        for (let i = 0; i < trashCount; i++) {
+          let x,
+            y,
+            ok = false
+          for (let a = 0; a < 50; a++) {
+            x = rngI(30, W - 30)
+            y = rngI(40, H - 30)
+            ok = true
+            if (Math.abs(x - grizzy.x) < 40 && Math.abs(y - grizzy.y) < 40) ok = false
+            for (let t of trashItems) {
+              if (Math.abs(x - t.x) < 20 && Math.abs(y - t.y) < 20) {
+                ok = false
+                break
+              }
+            }
+            for (let l of lemmings) {
+              if (Math.abs(x - l.x) < 25 && Math.abs(y - l.y) < 25) {
+                ok = false
+                break
+              }
+            }
+            if (ok) break
+          }
+          const types = ['can', 'bottle', 'paper']
+          trashItems.push({
+            x,
+            y,
+            w: 10,
+            h: 12,
+            type: types[rngI(0, 2)],
+            collected: false,
+          })
+        }
+
+        // Spawn lemmings
+        for (let i = 0; i < lemmingCount; i++) {
+          let x,
+            y,
+            ok = false
+          for (let a = 0; a < 50; a++) {
+            x = rngI(40, W - 40)
+            y = rngI(40, H - 40)
+            ok = true
+            if (Math.abs(x - grizzy.x) < 50 && Math.abs(y - grizzy.y) < 50) ok = false
+            for (let l of lemmings) {
+              if (Math.abs(x - l.x) < 35 && Math.abs(y - l.y) < 35) {
+                ok = false
+                break
+              }
+            }
+            if (ok) break
+          }
+          lemmings.push({
+            x,
+            y,
+            w: 18,
+            h: 20,
+            vx: rng(-0.6, 0.6),
+            vy: rng(-0.6, 0.6),
+            dir: 1,
+            frame: 0,
+            frameTimer: 0,
+            trashTimer: rngI(60, 180),
+            laughTimer: 0,
+            throwCooldown: rngI(40, 100),
+          })
+        }
+      }
+
+      // Particles
+      function spawnParticles(x, y, count = 8, color = '#4CAF50') {
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            x,
+            y,
+            vx: rng(-3, 3),
+            vy: rng(-3, 3),
+            life: rng(20, 50),
+            maxLife: 50,
+            size: rng(2, 5),
+            color: color || ['#4CAF50', '#81C784', '#A5D6A7', '#FFD54F'][rngI(0, 3)],
+            type: 'leaf',
+          })
+        }
+      }
+
+      function spawnHitParticles(x, y) {
+        for (let i = 0; i < 6; i++) {
+          particles.push({
+            x,
+            y,
+            vx: rng(-2, 2),
+            vy: rng(-2, 2),
+            life: rng(15, 30),
+            maxLife: 30,
+            size: rng(2, 4),
+            color: '#fff',
+            type: 'hit',
+          })
+        }
+      }
+
+      function spawnConfetti() {
+        for (let i = 0; i < 80; i++) {
+          const colors = [
+            '#FFD700',
+            '#FF6B6B',
+            '#4CAF50',
+            '#42A5F5',
+            '#FF8E53',
+            '#C084FC',
+            '#FFD93D',
+          ]
+          particles.push({
+            x: rng(0, W),
+            y: rng(-50, -10),
+            vx: rng(-2, 2),
+            vy: rng(1, 4),
+            life: rng(80, 180),
+            maxLife: 180,
+            size: rng(3, 8),
+            color: colors[rngI(0, colors.length - 1)],
+            type: 'confetti',
+            rot: rng(0, Math.PI * 2),
+            rotSpeed: rng(-0.1, 0.1),
+          })
+        }
+      }
+
+      // UPDATE
+      function update() {
+        if (game.state !== 'playing') return
+
+        // Grizzy movement
+        let dx = 0,
+          dy = 0
+        if (KEYS['w'] || KEYS['W'] || KEYS['ArrowUp']) dy = -1
+        if (KEYS['s'] || KEYS['S'] || KEYS['ArrowDown']) dy = 1
+        if (KEYS['a'] || KEYS['A'] || KEYS['ArrowLeft']) {
+          dx = -1
+          grizzy.dir = -1
+        }
+        if (KEYS['d'] || KEYS['D'] || KEYS['ArrowRight']) {
+          dx = 1
+          grizzy.dir = 1
+        }
+
+        if (dx || dy) {
+          const len = Math.sqrt(dx * dx + dy * dy)
+          dx /= len
+          dy /= len
+          grizzy.x += dx * grizzy.speed
+          grizzy.y += dy * grizzy.speed
+          grizzy.frameTimer++
+          if (grizzy.frameTimer > 8) {
+            grizzy.frame = (grizzy.frame + 1) % 4
+            grizzy.frameTimer = 0
+          }
+        } else {
+          grizzy.frame = 0
+          grizzy.frameTimer = 0
+        }
+
+        grizzy.x = Math.max(12, Math.min(W - 12, grizzy.x))
+        grizzy.y = Math.max(16, Math.min(H - 16, grizzy.y))
+
+        // Trash collection
+        for (let t of trashItems) {
+          if (t.collected) continue
+          const dx = t.x - grizzy.x,
+            dy = t.y - grizzy.y
+          if (Math.sqrt(dx * dx + dy * dy) < 18) {
+            t.collected = true
+            game.trashCollected++
+            game.totalScore += 10
+            soundCollect()
+            spawnParticles(t.x, t.y)
+          }
+        }
+
+        // Timer
+        if (game.timerRunning) {
+          game.timeLeft -= 1 / 60
+          if (game.timeLeft <= 0) {
+            game.timeLeft = 0
+            game.timerRunning = false
+            // Game over style - just end level with what you have
+          }
+        }
+
+        // Check level complete
+        if (game.trashCollected >= game.trashCount) {
+          game.timerRunning = false
+          const timeBonus = game.timeLeft > 5 ? Math.floor(game.timeLeft) * 2 : 0
+          if (timeBonus > 0 && !game.bonusAwarded) {
+            game.totalScore += timeBonus
+            game.bonusAwarded = true
+            soundBonus()
+          }
+          soundLevelUp()
+          game.state = 'levelComplete'
+          document.getElementById('completedLevelText').textContent = 'Nivel ' + game.level + ' ✓'
+          levelScreen.style.display = 'flex'
+          return
+        }
+
+        // Lemmings AI
+        for (let l of lemmings) {
+          l.x += l.vx
+          l.y += l.vy
+          l.frameTimer++
+          if (l.frameTimer > 12) {
+            l.frame = (l.frame + 1) % 4
+            l.frameTimer = 0
+          }
+          if (l.x < 10 || l.x > W - 10) l.vx *= -1
+          if (l.y < 10 || l.y > H - 10) l.vy *= -1
+          l.dir = l.vx < 0 ? -1 : 1
+
+          // Follow grizzy sometimes
+          if (Math.random() < 0.005) {
+            const dx = grizzy.x - l.x,
+              dy = grizzy.y - l.y
+            const d = Math.sqrt(dx * dx + dy * dy)
+            if (d > 0 && d < 200) {
+              l.vx += (dx / d) * 0.05
+              l.vy += (dy / d) * 0.05
+              const maxS = 0.8
+              const sp = Math.sqrt(l.vx * l.vx + l.vy * l.vy)
+              if (sp > maxS) {
+                l.vx = (l.vx / sp) * maxS
+                l.vy = (l.vy / sp) * maxS
+              }
+            }
+          }
+
+          // Throw trash near grizzy
+          l.throwCooldown--
+          if (l.throwCooldown <= 0) {
+            const dx = grizzy.x - l.x,
+              dy = grizzy.y - l.y
+            const d = Math.sqrt(dx * dx + dy * dy)
+            if (d < 130) {
+              l.throwCooldown = rngI(60, 180)
+              soundLemming()
+              spawnHitParticles(l.x, l.y - 10)
+              l.laughTimer = 30
+              // Spawn new trash near lemming
+              const nx = l.x + rng(-20, 20),
+                ny = l.y + rng(-10, 10)
+              if (nx > 10 && nx < W - 10 && ny > 10 && ny < H - 10) {
+                trashItems.push({
+                  x: nx,
+                  y: ny,
+                  w: 10,
+                  h: 12,
+                  type: ['can', 'bottle', 'paper'][rngI(0, 2)],
+                  collected: false,
+                })
+                game.trashCount++
+              }
+            }
+          }
+          if (l.laughTimer > 0) l.laughTimer--
+
+          // Collision with grizzy
+          const dx = grizzy.x - l.x,
+            dy = grizzy.y - l.y
+          if (Math.sqrt(dx * dx + dy * dy) < 22) {
+            // Push grizzy back
+            const ang = Math.atan2(dy, dx)
+            grizzy.x += Math.cos(ang) * 18
+            grizzy.y += Math.sin(ang) * 18
+            grizzy.x = Math.max(12, Math.min(W - 12, grizzy.x))
+            grizzy.y = Math.max(16, Math.min(H - 16, grizzy.y))
+            l.laughTimer = 20
+            spawnHitParticles(grizzy.x, grizzy.y)
+            // Drop a trash item
+            trashItems.push({
+              x: grizzy.x + rng(-15, 15),
+              y: grizzy.y + rng(-15, 15),
+              w: 10,
+              h: 12,
+              type: ['can', 'bottle', 'paper'][rngI(0, 2)],
+              collected: false,
+            })
+            game.trashCount++
+          }
+        }
+
+        // Update particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          if (p.type === 'leaf') {
+            p.vy += 0.05
+            p.vx += Math.sin(p.life * 0.1) * 0.05
+          }
+          if (p.type === 'confetti') {
+            p.vy += 0.02
+            p.rot += p.rotSpeed
+          }
+          p.life--
+          if (p.life <= 0) particles.splice(i, 1)
+        }
+      }
+
+      // ---- DRAWING ----
+      function drawTree(t) {
+        ctx.save()
+        ctx.translate(t.x, t.y)
+        const r = t.r
+        ctx.fillStyle = '#4CAF50'
+        ctx.shadowColor = 'rgba(0,0,0,0.3)'
+        ctx.shadowBlur = 8
+        // Trunk
+        ctx.fillStyle = '#5D4037'
+        ctx.fillRect(-4, -r + 4, 8, r + 6)
+        ctx.shadowBlur = 0
+        // Crown
+        ctx.fillStyle = ['#388E3C', '#43A047', '#2E7D32'][t.type]
+        ctx.beginPath()
+        ctx.arc(0, -r + 6, r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(76,175,80,0.2)'
+        ctx.beginPath()
+        ctx.arc(-4, -r + 2, r - 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function drawFlower(f) {
+        ctx.save()
+        ctx.translate(f.x, f.y)
+        ctx.fillStyle = '#5D4037'
+        ctx.fillRect(-1, 0, 2, 6)
+        ctx.fillStyle = f.color
+        for (let i = 0; i < 5; i++) {
+          const a = (i / 5) * Math.PI * 2
+          ctx.beginPath()
+          ctx.ellipse(
+            Math.cos(a) * f.size * 0.6,
+            Math.sin(a) * f.size * 0.6,
+            f.size * 0.4,
+            f.size * 0.3,
+            a,
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+        }
+        ctx.fillStyle = '#FFD700'
+        ctx.beginPath()
+        ctx.arc(0, 0, f.size * 0.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function drawTrash(t) {
+        if (t.collected) return
+        ctx.save()
+        ctx.translate(t.x, t.y)
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = 4
+        if (t.type === 'can') {
+          ctx.fillStyle = '#888'
+          ctx.fillRect(-4, -6, 8, 12)
+          ctx.fillStyle = '#aaa'
+          ctx.fillRect(-4, -6, 8, 3)
+          ctx.fillStyle = '#666'
+          ctx.fillRect(-3, -3, 2, 2)
+          ctx.fillRect(1, -3, 2, 2)
+          ctx.strokeStyle = '#555'
+          ctx.lineWidth = 1
+          ctx.strokeRect(-4, -6, 8, 12)
+        } else if (t.type === 'bottle') {
+          ctx.fillStyle = '#4CAF50'
+          ctx.beginPath()
+          ctx.moveTo(-3, -6)
+          ctx.lineTo(3, -6)
+          ctx.lineTo(4, 5)
+          ctx.lineTo(-4, 5)
+          ctx.closePath()
+          ctx.fill()
+          ctx.fillStyle = '#66BB6A'
+          ctx.fillRect(-1, -8, 2, 3)
+          ctx.strokeStyle = '#388E3C'
+          ctx.lineWidth = 1
+          ctx.strokeRect(-4, 5, 8, 2)
+        } else {
+          // paper
+          ctx.fillStyle = '#f0f0f0'
+          ctx.beginPath()
+          ctx.moveTo(-5, -5)
+          ctx.lineTo(3, -6)
+          ctx.lineTo(5, 2)
+          ctx.lineTo(-4, 6)
+          ctx.lineTo(-6, -2)
+          ctx.closePath()
+          ctx.fill()
+          ctx.strokeStyle = '#ccc'
+          ctx.lineWidth = 0.5
+          ctx.stroke()
+          ctx.fillStyle = '#ddd'
+          ctx.font = '5px sans-serif'
+          ctx.fillText('?', -2, 1)
+        }
+        ctx.restore()
+      }
+
+      function drawLemming(l) {
+        ctx.save()
+        ctx.translate(l.x, l.y)
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = 4
+        // Body
+        ctx.fillStyle = '#7E8A9E'
+        ctx.fillRect(-8, -9, 16, 18)
+        // Head
+        ctx.fillStyle = '#8E9AAC'
+        ctx.beginPath()
+        ctx.arc(0, -12, 8, 0, Math.PI * 2)
+        ctx.fill()
+        // Ears
+        ctx.fillStyle = '#9AA8B8'
+        ctx.beginPath()
+        ctx.ellipse(-6, -17, 4, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(6, -17, 4, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Eyes
+        ctx.fillStyle = '#000'
+        ctx.fillRect(-5, -13, 3, 3)
+        ctx.fillRect(2, -13, 3, 3)
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(-4, -12, 1, 1)
+        ctx.fillRect(3, -12, 1, 1)
+        // Nose
+        ctx.fillStyle = '#FFB6C1'
+        ctx.beginPath()
+        ctx.arc(0, -9, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Mouth
+        if (l.laughTimer > 0) {
+          ctx.fillStyle = '#000'
+          ctx.beginPath()
+          ctx.arc(0, -5, 3, 0, Math.PI)
+          ctx.fill()
+          ctx.fillStyle = '#FF6B6B'
+          ctx.beginPath()
+          ctx.arc(0, -5, 3, 0, Math.PI)
+          ctx.stroke()
+        } else {
+          ctx.strokeStyle = '#000'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(0, -6, 2, 0.1, Math.PI - 0.1)
+          ctx.stroke()
+        }
+        // Arms - throwing
+        ctx.fillStyle = '#7E8A9E'
+        ctx.save()
+        ctx.translate(-10, -4)
+        ctx.rotate(-0.3)
+        ctx.fillRect(-2, -2, 8, 4)
+        ctx.restore()
+        ctx.save()
+        ctx.translate(10, -4)
+        ctx.rotate(0.3)
+        ctx.fillRect(-6, -2, 8, 4)
+        ctx.restore()
+        // Legs
+        const legOff = l.frame % 2 === 0 ? 1 : -1
+        ctx.fillStyle = '#7E8A9E'
+        ctx.fillRect(-6, 9, 5, 5)
+        ctx.fillRect(1, 9, 5, 5)
+        // Feet
+        ctx.fillStyle = '#6B7A8E'
+        ctx.fillRect(-7, 13, 6, 3 + legOff)
+        ctx.fillRect(1, 13, 6, 3 - legOff)
+        ctx.restore()
+      }
+
+      function drawGrizzy() {
+        ctx.save()
+        ctx.translate(grizzy.x, grizzy.y)
+        ctx.scale(grizzy.dir, 1)
+        ctx.shadowColor = 'rgba(0,0,0,0.3)'
+        ctx.shadowBlur = 6
+
+        // Body - bear shape
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, 4, 13, 16, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Belly
+        ctx.fillStyle = '#A0724E'
+        ctx.beginPath()
+        ctx.ellipse(0, 6, 9, 12, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Recycling bag on back
+        ctx.fillStyle = '#388E3C'
+        ctx.fillRect(-14, -2, 6, 14)
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(-13, -1, 4, 12)
+        ctx.fillStyle = '#fff'
+        ctx.font = '5px sans-serif'
+        ctx.fillText('♻', -12, 8)
+
+        // Head
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(0, -11, 11, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Ears
+        ctx.fillStyle = '#7A4E2C'
+        ctx.beginPath()
+        ctx.ellipse(-8, -19, 5, 6, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(8, -19, 5, 6, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A0724E'
+        ctx.beginPath()
+        ctx.ellipse(-8, -19, 3, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(8, -19, 3, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Eyes
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.ellipse(-4, -12, 4, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(4, -12, 4, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.arc(-4, -12, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(4, -12, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-3, -13, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -13, 1, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Nose
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(0, -8, 2.5, 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Smile
+        ctx.strokeStyle = '#3E2723'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(0, -7, 4, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+
+        // Green gloves
+        ctx.fillStyle = '#4CAF50'
+        ctx.beginPath()
+        ctx.ellipse(-12, -2, 5, 4, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(12, -2, 5, 4, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Legs
+        const legOff = grizzy.frame % 2 === 0 ? 2 : -2
+        ctx.fillStyle = '#7A4E2C'
+        ctx.fillRect(-8, 16, 6, 7)
+        ctx.fillRect(2, 16, 6, 7)
+        ctx.fillStyle = '#5D4037'
+        ctx.fillRect(-9, 21, 8, 4)
+        ctx.fillRect(1, 21, 8, 4)
+
+        ctx.restore()
+      }
+
+      function drawBackground() {
+        // Sky gradient
+        const grad = ctx.createLinearGradient(0, 0, 0, H)
+        grad.addColorStop(0, '#87CEEB')
+        grad.addColorStop(0.3, '#B5E8B5')
+        grad.addColorStop(0.5, '#4CAF50')
+        grad.addColorStop(1, '#2D1B0E')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, W, H)
+
+        // Ground
+        ctx.fillStyle = '#2D1B0E'
+        ctx.fillRect(0, H - 40, W, 40)
+        ctx.fillStyle = '#3E2723'
+        for (let i = 0; i < 50; i++) {
+          const x = i * 13 + Math.sin(i) * 5
+          ctx.fillRect(x, H - 38, 8, 4)
+        }
+
+        // Grass tufts
+        ctx.fillStyle = '#388E3C'
+        for (let i = 0; i < 30; i++) {
+          const x = i * 22 + Math.sin(i * 3) * 8
+          ctx.fillRect(x, H - 42, 3, 5)
+          ctx.fillRect(x + 6, H - 40, 2, 4)
+        }
+
+        // Trees (back layer)
+        for (let t of trees) {
+          t._backLayer = true
+          drawTree(t)
+        }
+        // Flowers
+        for (let f of flowers) {
+          drawFlower(f)
+        }
+      }
+
+      function drawHUD() {
+        // Score
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(5, 5, 160, 32)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'left'
+        ctx.fillText('🌲 Puntos: ' + game.totalScore, 12, 22)
+
+        // Timer
+        const timeX = W - 115
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(timeX, 5, 110, 32)
+        ctx.fillStyle = game.timeLeft < 10 ? '#FF6B6B' : '#fff'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'center'
+        const secs = Math.max(0, Math.ceil(game.timeLeft))
+        ctx.fillText('⏱ ' + secs + 's', timeX + 55, 22)
+
+        // Level
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(W / 2 - 40, 5, 80, 32)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('Nivel ' + game.level, W / 2, 22)
+
+        // Progress bar
+        const pct = game.trashCount > 0 ? Math.min(1, game.trashCollected / game.trashCount) : 0
+        const barX = 5,
+          barY = 42,
+          barW = 180,
+          barH = 14
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(barX - 2, barY - 2, barW + 4, barH + 4)
+        ctx.fillStyle = '#333'
+        ctx.fillRect(barX, barY, barW, barH)
+        const grad2 = ctx.createLinearGradient(barX, 0, barX + barW, 0)
+        grad2.addColorStop(0, '#4CAF50')
+        grad2.addColorStop(1, '#81C784')
+        ctx.fillStyle = grad2
+        ctx.fillRect(barX, barY, barW * pct, barH)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 9px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('Limpieza: ' + ((pct * 100) | 0) + '%', barX + barW / 2, barY + 11)
+
+        // Lemming count
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        const lx = barX + barW + 10
+        ctx.fillRect(lx, 42, 80, 14)
+        ctx.fillStyle = '#7E8A9E'
+        ctx.font = 'bold 10px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('🐭 ' + lemmings.length, lx + 40, 53)
+      }
+
+      // Main draw
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+
+        if (game.state === 'menu') {
+          drawBackground()
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'
+          ctx.fillRect(0, 0, W, H)
+          // Title in canvas
+          ctx.fillStyle = '#4CAF50'
+          ctx.font = 'bold 28px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('🐻 Guardián del Bosque 🌳', W / 2, 120)
+          ctx.fillStyle = '#a5d6a7'
+          ctx.font = '16px sans-serif'
+          ctx.fillText('Ayuda a Grizzy a limpiar el bosque', W / 2, 160)
+          ctx.fillStyle = '#fff'
+          ctx.font = '13px sans-serif'
+          ctx.fillText('Presiona ESPACIO o haz clic en COMENZAR', W / 2, 210)
+          // Draw decorative grizzy
+          grizzy.x = W / 2
+          grizzy.y = 280
+          drawGrizzy()
+          return
+        }
+
+        if (game.state === 'levelComplete' || game.state === 'celebration') {
+          drawBackground()
+          if (game.state === 'levelComplete') {
+            // Dim
+            ctx.fillStyle = 'rgba(0,0,0,0.2)'
+            ctx.fillRect(0, 0, W, H)
+          }
+        }
+
+        drawBackground()
+        drawHUD()
+
+        // Draw trash
+        for (let t of trashItems) {
+          drawTrash(t)
+        }
+
+        // Draw lemmings
+        for (let l of lemmings) {
+          drawLemming(l)
+        }
+
+        // Draw particles
+        for (let p of particles) {
+          ctx.save()
+          ctx.globalAlpha = p.life / p.maxLife
+          if (p.type === 'confetti') {
+            ctx.translate(p.x, p.y)
+            ctx.rotate(p.rot || 0)
+            ctx.fillStyle = p.color
+            ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
+          } else {
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+
+        drawGrizzy()
+
+        // Warning if lemming near
+        for (let l of lemmings) {
+          const dx = grizzy.x - l.x,
+            dy = grizzy.y - l.y
+          if (Math.sqrt(dx * dx + dy * dy) < 50) {
+            ctx.save()
+            ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.01) * 0.15
+            ctx.fillStyle = '#FF6B6B'
+            ctx.font = 'bold 12px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('⚠', l.x, l.y - 20)
+            ctx.restore()
+          }
+        }
+      }
+
+      // Game loop
+      function loop() {
+        update()
+        draw()
+        requestAnimationFrame(loop)
+      }
+
+      // Level management
+      function startLevel(lvl) {
+        game.level = lvl
+        game.state = 'playing'
+        levelScreen.style.display = 'none'
+        celebrationScreen.style.display = 'none'
+        startScreen.style.display = 'none'
+        grizzy.x = 300
+        grizzy.y = 200
+        generateLevel(lvl)
+        saveGame({ level: lvl, totalScore: game.totalScore, maxLevel: game.maxLevel })
+      }
+
+      function nextLevel() {
+        if (game.level >= game.maxLevel) {
+          game.state = 'celebration'
+          finalScoreText.textContent = 'Puntuación final: ' + game.totalScore
+          celebrationScreen.style.display = 'flex'
+          soundCelebration()
+          spawnConfetti()
+          saveGame({ level: 1, totalScore: 0, maxLevel: game.maxLevel })
+        } else {
+          game.level++
+          startLevel(game.level)
+        }
+      }
+
+      function restartGame() {
+        game.totalScore = 0
+        game.level = 1
+        celebrationScreen.style.display = 'none'
+        startLevel(1)
+      }
+
+      // Event listeners
+      startBtn.addEventListener('click', () => {
+        initAudio()
+        startLevel(1)
+      })
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          if (game.state === 'menu') {
+            initAudio()
+            startLevel(1)
+          } else if (game.state === 'levelComplete') nextLevel()
+          else if (game.state === 'celebration') restartGame()
+        }
+      })
+
+      nextLevelBtn.addEventListener('click', nextLevel)
+      restartBtn.addEventListener('click', restartGame)
+
+      // Mobile touch controls
+      let touchX = null,
+        touchY = null
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        const t = e.touches[0]
+        touchX = t.clientX
+        touchY = t.clientY
+        if (game.state === 'menu') {
+          initAudio()
+          startLevel(1)
+        }
+      })
+      canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault()
+        if (!touchX || !touchY || game.state !== 'playing') return
+        const t = e.touches[0]
+        const dx = t.clientX - touchX,
+          dy = t.clientY - touchY
+        const thresh = 10
+        if (Math.abs(dx) > thresh || Math.abs(dy) > thresh) {
+          const ang = Math.atan2(dy, dx)
+          const force = Math.min(1, Math.sqrt(dx * dx + dy * dy) / 100)
+          KEYS['ArrowLeft'] = false
+          KEYS['ArrowRight'] = false
+          KEYS['ArrowUp'] = false
+          KEYS['ArrowDown'] = false
+          if (Math.abs(dx) > Math.abs(dy)) {
+            KEYS[dx > 0 ? 'ArrowRight' : 'ArrowLeft'] = force > 0.2
+          } else {
+            KEYS[dy > 0 ? 'ArrowDown' : 'ArrowUp'] = force > 0.2
+          }
+        }
+      })
+      canvas.addEventListener('touchend', (e) => {
+        e.preventDefault()
+        KEYS['ArrowLeft'] = false
+        KEYS['ArrowRight'] = false
+        KEYS['ArrowUp'] = false
+        KEYS['ArrowDown'] = false
+        touchX = null
+        touchY = null
+      })
+
+      // Load saved game
+      const saved = loadGame()
+      if (saved && saved.level && saved.level > 1 && saved.level <= game.maxLevel) {
+        // Could offer continue, but just show menu for now
+      }
+
+      // Start loop
+      loop()
+    </script>
+  </body>
+</html>

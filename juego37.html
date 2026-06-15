@@ -1,0 +1,1265 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>La Carrera de Robots - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #111;
+        font-family: Arial, sans-serif;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #gameContainer {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: #1a1a2e;
+      }
+      canvas {
+        display: block;
+        background: #3a7d3e;
+        image-rendering: auto;
+      }
+      #touchControls {
+        position: absolute;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: none;
+        gap: 6px;
+        z-index: 10;
+      }
+      #touchControls button {
+        width: 50px;
+        height: 50px;
+        font-size: 22px;
+        background: rgba(255, 255, 255, 0.2);
+        border: 2px solid rgba(255, 255, 255, 0.4);
+        border-radius: 10px;
+        color: #fff;
+        touch-action: none;
+      }
+      #touchControls .row {
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+      }
+      #touchControls .col {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        align-items: center;
+      }
+      @media (orientation: portrait) {
+        #touchControls button {
+          width: 44px;
+          height: 44px;
+          font-size: 18px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameContainer">
+      <canvas id="gameCanvas" width="600" height="400"></canvas>
+      <div id="touchControls">
+        <div class="col">
+          <div class="row"><button data-key="ArrowUp">▲</button></div>
+          <div class="row">
+            <button data-key="ArrowLeft">◄</button><button data-key="ArrowDown">▼</button
+            ><button data-key="ArrowRight">►</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      // =============================================================================
+      // SONIDO - Web Audio API
+      // =============================================================================
+      class SoundEngine {
+        constructor() {
+          this.ctx = null
+          this.engineOsc = null
+          this.engineGain = null
+          this.engineRunning = false
+        }
+        init() {
+          try {
+            this.ctx = new (window.AudioContext || window.webkitAudioContext)()
+          } catch (e) {}
+        }
+        resume() {
+          if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume()
+        }
+        startEngine() {
+          if (!this.ctx || this.engineRunning) return
+          this.engineRunning = true
+          this.engineOsc = this.ctx.createOscillator()
+          this.engineGain = this.ctx.createGain()
+          this.engineOsc.type = 'sawtooth'
+          this.engineOsc.frequency.value = 80
+          this.engineGain.gain.value = 0.025
+          this.engineOsc.connect(this.engineGain)
+          this.engineGain.connect(this.ctx.destination)
+          this.engineOsc.start()
+        }
+        updateEngine(speed) {
+          if (this.engineOsc) {
+            this.engineOsc.frequency.value = 80 + Math.abs(speed) * 55
+            this.engineGain.gain.value = 0.015 + Math.abs(speed) * 0.008
+          }
+        }
+        stopEngine() {
+          if (this.engineOsc) {
+            try {
+              this.engineOsc.stop()
+            } catch (e) {}
+            this.engineOsc = null
+            this.engineGain = null
+            this.engineRunning = false
+          }
+        }
+        playCoin() {
+          if (!this.ctx) return
+          const o = this.ctx.createOscillator(),
+            g = this.ctx.createGain()
+          o.connect(g)
+          g.connect(this.ctx.destination)
+          o.type = 'sine'
+          o.frequency.setValueAtTime(800, this.ctx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(1600, this.ctx.currentTime + 0.12)
+          g.gain.setValueAtTime(0.12, this.ctx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18)
+          o.start()
+          o.stop(this.ctx.currentTime + 0.18)
+        }
+        playCrash() {
+          if (!this.ctx) return
+          const sr = this.ctx.sampleRate,
+            bs = sr * 0.25,
+            b = this.ctx.createBuffer(1, bs, sr),
+            d = b.getChannelData(0)
+          for (let i = 0; i < bs; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / bs)
+          const s = this.ctx.createBufferSource()
+          s.buffer = b
+          const g = this.ctx.createGain()
+          s.connect(g)
+          g.connect(this.ctx.destination)
+          g.gain.setValueAtTime(0.18, this.ctx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25)
+          s.start()
+        }
+        playTurbo() {
+          if (!this.ctx) return
+          const o = this.ctx.createOscillator(),
+            g = this.ctx.createGain()
+          o.connect(g)
+          g.connect(this.ctx.destination)
+          o.type = 'sine'
+          o.frequency.setValueAtTime(400, this.ctx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(2000, this.ctx.currentTime + 0.25)
+          g.gain.setValueAtTime(0.1, this.ctx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3)
+          o.start()
+          o.stop(this.ctx.currentTime + 0.3)
+        }
+        playFinish() {
+          if (!this.ctx) return
+          ;[523, 659, 784, 1047].forEach((f, i) => {
+            const o = this.ctx.createOscillator(),
+              g = this.ctx.createGain()
+            o.connect(g)
+            g.connect(this.ctx.destination)
+            o.type = 'sine'
+            o.frequency.value = f
+            g.gain.setValueAtTime(0, this.ctx.currentTime + i * 0.15)
+            g.gain.linearRampToValueAtTime(0.13, this.ctx.currentTime + i * 0.15 + 0.04)
+            g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.15 + 0.35)
+            o.start(this.ctx.currentTime + i * 0.15)
+            o.stop(this.ctx.currentTime + i * 0.15 + 0.4)
+          })
+        }
+      }
+      // =============================================================================
+      // PISTA
+      // =============================================================================
+      const TCX = 300,
+        TCY = 195,
+        TRX = 200,
+        TRY = 115,
+        TW = 68,
+        THW = TW / 2,
+        TP = 240
+
+      function getTrackCenter(t) {
+        const a = t * Math.PI * 2
+        return { x: TCX + TRX * Math.cos(a), y: TCY + TRY * Math.sin(a) }
+      }
+      function getTrackTangent(t) {
+        const a = t * Math.PI * 2,
+          dx = -TRX * Math.sin(a),
+          dy = TRY * Math.cos(a),
+          l = Math.sqrt(dx * dx + dy * dy) || 1
+        return { x: dx / l, y: dy / l }
+      }
+      function getTrackNormal(t) {
+        const tg = getTrackTangent(t)
+        return { x: -tg.y, y: tg.x }
+      }
+      const trackPts = [],
+        trackNorms = [],
+        trackTans = []
+      for (let i = 0; i < TP; i++) {
+        const t = i / TP
+        trackPts.push(getTrackCenter(t))
+        trackNorms.push(getTrackNormal(t))
+        trackTans.push(getTrackTangent(t))
+      }
+      function findClosestTP(x, y) {
+        let md = Infinity,
+          mi = 0
+        for (let i = 0; i < TP; i++) {
+          const dx = x - trackPts[i].x,
+            dy = y - trackPts[i].y,
+            d = dx * dx + dy * dy
+          if (d < md) {
+            md = d
+            mi = i
+          }
+        }
+        return mi
+      }
+      function constrainToTrack(x, y) {
+        const idx = findClosestTP(x, y),
+          pt = trackPts[idx]
+        const dx = x - pt.x,
+          dy = y - pt.y,
+          dist = Math.sqrt(dx * dx + dy * dy)
+        if (dist > THW) {
+          const p = THW - 3
+          return { x: pt.x + (dx / dist) * p, y: pt.y + (dy / dist) * p }
+        }
+        return { x, y }
+      }
+      function isOnTrack(x, y) {
+        const idx = findClosestTP(x, y),
+          pt = trackPts[idx]
+        return Math.sqrt((x - pt.x) ** 2 + (y - pt.y) ** 2) <= THW
+      }
+      // =============================================================================
+      // PARTICULAS
+      // =============================================================================
+      let particles = []
+      function spawnParticles(x, y, color, count, spd, life) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2,
+            s = Math.random() * spd
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * s,
+            vy: Math.sin(a) * s,
+            life: life || 30,
+            maxLife: life || 30,
+            color: color || '#ff0',
+            size: 1 + Math.random() * 2,
+          })
+        }
+      }
+      function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vx *= 0.95
+          p.vy *= 0.95
+          p.life--
+          if (p.life <= 0) particles.splice(i, 1)
+        }
+      }
+      function drawParticles(ctx) {
+        for (const p of particles) {
+          const a = p.life / p.maxLife
+          ctx.globalAlpha = a
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      }
+      // =============================================================================
+      // ROBOT
+      // =============================================================================
+      class Robot {
+        constructor(x, y, angle, type, name, level) {
+          this.x = x
+          this.y = y
+          this.angle = angle
+          this.type = type
+          this.name = name
+          this.speed = 0
+          this.maxSpeed = type === 'player' ? 2.2 : 1.5
+          this.accel = type === 'player' ? 0.045 : 0.025
+          this.friction = 0.015
+          this.turnSpeed = type === 'player' ? 0.045 : 0.035
+          this.lap = 0
+          this.finished = false
+          this.finishTime = 0
+          this.racePos = 0
+          this.prevIdx = 0
+          this.targetWp = 0
+          this.turboTimer = 0
+          this.coins = 0
+          this.w = 10
+          this.h = 14
+          this.crashed = false
+          this.crashTimer = 0
+          this.level = level || 1
+          this.aiSpeed = 0.7 + (level - 1) * 0.022
+        }
+        getSpeed() {
+          return this.turboTimer > 0 ? this.speed * 2.2 : this.speed
+        }
+        updatePlayer(keys, sound) {
+          let accel = false
+          if (keys['ArrowUp']) {
+            this.speed = Math.min(this.speed + this.accel, this.maxSpeed)
+            accel = true
+          }
+          if (keys['ArrowDown']) this.speed = Math.max(this.speed - 0.1, -0.4)
+          if (this.turboTimer > 0) {
+            this.turboTimer = Math.max(0, this.turboTimer - 1 / 60)
+            if (this.turboTimer <= 0) sound && sound.playCrash()
+          }
+          if (!accel && !keys['ArrowDown']) {
+            if (this.speed > 0) this.speed = Math.max(0, this.speed - this.friction)
+            else if (this.speed < 0) this.speed = Math.min(0, this.speed + this.friction)
+          }
+          if (keys['ArrowLeft'])
+            this.angle -= this.turnSpeed * (0.5 + 0.5 * (1 - this.speed / this.maxSpeed))
+          if (keys['ArrowRight'])
+            this.angle += this.turnSpeed * (0.5 + 0.5 * (1 - this.speed / this.maxSpeed))
+          const sp = this.getSpeed()
+          this.x += sp * Math.cos(this.angle)
+          this.y += sp * Math.sin(this.angle)
+          if (this.crashTimer > 0) this.crashTimer--
+          const c = constrainToTrack(this.x, this.y)
+          if (Math.abs(c.x - this.x) > 0.1 || Math.abs(c.y - this.y) > 0.1) {
+            this.speed *= 0.4
+            this.x = c.x
+            this.y = c.y
+          }
+        }
+        updateAI(robots) {
+          if (this.finished) return
+          const idx = this.targetWp % TP,
+            tgt = trackPts[idx]
+          const dx = tgt.x - this.x,
+            dy = tgt.y - this.y,
+            dist = Math.sqrt(dx * dx + dy * dy)
+          const ta = Math.atan2(dy, dx)
+          let ad = ta - this.angle
+          while (ad > Math.PI) ad -= Math.PI * 2
+          while (ad < -Math.PI) ad += Math.PI * 2
+          this.angle += Math.sign(ad) * Math.min(Math.abs(ad), this.turnSpeed)
+          for (const r of robots) {
+            if (r === this || r.finished) continue
+            const ddx = r.x - this.x,
+              ddy = r.y - this.y,
+              dd = Math.sqrt(ddx * ddx + ddy * ddy)
+            if (dd < 28 && dd > 0) {
+              const aa = Math.atan2(-ddy, -ddx)
+              let ad2 = aa - this.angle
+              while (ad2 > Math.PI) ad2 -= Math.PI * 2
+              while (ad2 < -Math.PI) ad2 += Math.PI * 2
+              const blend = ((28 - dd) / 28) * 0.6
+              this.angle += Math.sign(ad2) * Math.min(Math.abs(ad2), this.turnSpeed * blend)
+              this.speed = Math.max(this.speed - 0.06, 0.15)
+            }
+          }
+          const targetSpeed = this.aiSpeed + (this.turboTimer > 0 ? 0.8 : 0)
+          if (this.speed < targetSpeed) this.speed = Math.min(this.speed + this.accel, targetSpeed)
+          else if (this.speed > targetSpeed) this.speed = Math.max(this.speed - 0.025, targetSpeed)
+          if (this.turboTimer > 0) this.turboTimer = Math.max(0, this.turboTimer - 1 / 60)
+          const sp = this.getSpeed()
+          this.x += sp * Math.cos(this.angle)
+          this.y += sp * Math.sin(this.angle)
+          if (dist < 6) this.targetWp = (this.targetWp + 1) % TP
+          const ci = findClosestTP(this.x, this.y)
+          if (this.prevIdx > TP * 0.85 && ci < TP * 0.15 && !this.finished) {
+            this.lap++
+            if (this.lap >= 3) {
+              this.finished = true
+              this.racePos = 0
+            }
+          }
+          this.prevIdx = ci
+        }
+        getTrackProgress() {
+          const ci = findClosestTP(this.x, this.y)
+          return (ci / TP + this.lap) / 3
+        }
+      }
+      // =============================================================================
+      // OBJETOS: MONEDAS Y TURBO
+      // =============================================================================
+      class Coin {
+        constructor(x, y) {
+          this.x = x
+          this.y = y
+          this.collected = false
+          this.r = 5
+          this.bob = Math.random() * Math.PI * 2
+        }
+      }
+      class Turbo {
+        constructor(x, y) {
+          this.x = x
+          this.y = y
+          this.collected = false
+          this.r = 7
+          this.bob = Math.random() * Math.PI * 2
+        }
+      }
+      function generateCoins(count) {
+        const coins = []
+        for (let i = 0; i < count; i++) {
+          const t = Math.random(),
+            idx = Math.floor(t * TP),
+            pt = trackPts[idx],
+            norm = trackNorms[idx]
+          const off = (Math.random() - 0.5) * TW * 0.5
+          coins.push(new Coin(pt.x + norm.x * off, pt.y + norm.y * off))
+        }
+        return coins
+      }
+      function generateTurbos(count) {
+        const turbos = []
+        for (let i = 0; i < count; i++) {
+          const t = Math.random(),
+            idx = Math.floor(t * TP),
+            pt = trackPts[idx],
+            norm = trackNorms[idx]
+          const off = (Math.random() - 0.5) * TW * 0.5
+          turbos.push(new Turbo(pt.x + norm.x * off, pt.y + norm.y * off))
+        }
+        return turbos
+      }
+      // =============================================================================
+      // CONFIGURACION DE NIVELES
+      // =============================================================================
+      function getLevelConfig(level) {
+        const l = Math.min(level, 40)
+        return {
+          aiCount: Math.min(2 + Math.floor((l - 1) / 5), 8),
+          aiSpeed: 0.65 + (l - 1) * 0.025,
+          coinCount: 8 + Math.floor(l / 3),
+          turboCount: Math.min(1 + Math.floor(l / 10), 3),
+        }
+      }
+      // =============================================================================
+      // ESTADO DEL JUEGO
+      // =============================================================================
+      const canvas = document.getElementById('gameCanvas')
+      const ctx = canvas.getContext('2d')
+      const container = document.getElementById('gameContainer')
+      const touchCtrl = document.getElementById('touchControls')
+
+      let gameState = 'menu' // menu | countdown | racing | results
+      let level = 1
+      let player,
+        robots = [],
+        coins = [],
+        turbos = []
+      let score = 0,
+        totalCoins = 0
+      let raceTimer = 0,
+        countdownTimer = 0,
+        countdownNum = 3
+      let keys = {}
+      let sound
+      let animId = null
+      let messageText = '',
+        messageTimer = 0
+      let lastTime = 0
+      let raceOrder = []
+
+      function loadSave() {
+        try {
+          const d = JSON.parse(localStorage.getItem('grizzy_robot_race'))
+          if (d) {
+            level = d.level || 1
+            totalCoins = d.totalCoins || 0
+            score = d.score || 0
+          }
+        } catch (e) {}
+      }
+      function saveGame() {
+        try {
+          localStorage.setItem('grizzy_robot_race', JSON.stringify({ level, totalCoins, score }))
+        } catch (e) {}
+      }
+
+      function initRace() {
+        const cfg = getLevelConfig(level)
+        robots = []
+        coins = []
+        turbos = []
+        particles = []
+        raceOrder = []
+        raceTimer = 0
+        const startT = 0.25
+        const startPt = getTrackCenter(startT)
+        const startNorm = getTrackNormal(startT)
+        const startTan = getTrackTangent(startT)
+        const startAngle = Math.atan2(startTan.y, startTan.x)
+        const totalR = 1 + cfg.aiCount
+        const cols = Math.min(3, totalR)
+        const rows = Math.ceil(totalR / cols)
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            const idx = r * cols + c
+            if (idx >= totalR) break
+            const xOff = (c - (cols - 1) / 2) * 14
+            const yOff = (r - (rows - 1) / 2) * 18
+            const x = startPt.x + startNorm.x * xOff - startTan.x * yOff
+            const y = startPt.y + startNorm.y * xOff - startTan.y * yOff
+            if (idx === 0) {
+              player = new Robot(x, y, startAngle, 'player', 'Grizzy', level)
+              player.coins = 0
+              robots.push(player)
+            } else {
+              const ai = new Robot(
+                x,
+                y,
+                startAngle + (Math.random() - 0.5) * 0.1,
+                'ai',
+                'LM' + idx,
+                level,
+              )
+              ai.targetWp = Math.floor(Math.random() * 10)
+              ai.aiSpeed = cfg.aiSpeed * (0.85 + Math.random() * 0.3)
+              ai.coins = 0
+              robots.push(ai)
+            }
+          }
+        }
+        coins = generateCoins(cfg.coinCount)
+        turbos = generateTurbos(cfg.turboCount)
+      }
+      // =============================================================================
+      // COLISIONES
+      // =============================================================================
+      function checkCollisions() {
+        for (let i = 0; i < robots.length; i++) {
+          for (let j = i + 1; j < robots.length; j++) {
+            const a = robots[i],
+              b = robots[j]
+            if (a.finished && b.finished) continue
+            const dx = b.x - a.x,
+              dy = b.y - a.y,
+              dist = Math.sqrt(dx * dx + dy * dy)
+            const minDist = 11
+            if (dist < minDist && dist > 0) {
+              const overlap = (minDist - dist) / 2
+              const nx = dx / dist,
+                ny = dy / dist
+              a.x -= nx * overlap
+              a.y -= ny * overlap
+              b.x += nx * overlap
+              b.y += ny * overlap
+              const relVx = a.speed * Math.cos(a.angle) - b.speed * Math.cos(b.angle)
+              const relVy = a.speed * Math.sin(a.angle) - b.speed * Math.sin(b.angle)
+              const relV = relVx * nx + relVy * ny
+              if (relV > 0.1) {
+                a.speed = Math.max(a.speed - 0.15, 0)
+                b.speed = Math.max(b.speed - 0.15, 0)
+                if (Math.random() < 0.3) {
+                  spawnParticles((a.x + b.x) / 2, (a.y + b.y) / 2, '#ff8800', 5, 2, 20)
+                  if (sound) sound.playCrash()
+                }
+              }
+              if (a === player && !a.crashed) {
+                a.crashed = true
+                a.crashTimer = 15
+              }
+              if (b === player && !b.crashed) {
+                b.crashed = true
+                b.crashTimer = 15
+              }
+            }
+          }
+        }
+      }
+      function checkItemPickup() {
+        for (const c of coins) {
+          if (c.collected) continue
+          const dx = player.x - c.x,
+            dy = player.y - c.y
+          if (dx * dx + dy * dy < 14 * 14) {
+            c.collected = true
+            player.coins++
+            score += 10
+            totalCoins++
+            if (sound) sound.playCoin()
+            spawnParticles(c.x, c.y, '#FFD700', 8, 3, 25)
+          }
+        }
+        for (const t of turbos) {
+          if (t.collected) continue
+          const dx = player.x - t.x,
+            dy = player.y - t.y
+          if (dx * dx + dy * dy < 18 * 18) {
+            t.collected = true
+            player.turboTimer = 3
+            if (sound) sound.playTurbo()
+            spawnParticles(t.x, t.y, '#00BFFF', 10, 4, 30)
+          }
+        }
+      }
+      // =============================================================================
+      // ORDEN DE LLEGADA
+      // =============================================================================
+      function getRaceOrder() {
+        const order = robots.filter((r) => r.finished).sort((a, b) => a.finishTime - b.finishTime)
+        const racing = robots
+          .filter((r) => !r.finished)
+          .sort((a, b) => {
+            if (b.lap !== a.lap) return b.lap - a.lap
+            return b.getTrackProgress() - a.getTrackProgress()
+          })
+        return [...order, ...racing]
+      }
+      // =============================================================================
+      // DIBUJADO
+      // =============================================================================
+      function drawTrack() {
+        ctx.fillStyle = '#3a7d3e'
+        ctx.fillRect(0, 0, 600, 400)
+        ctx.beginPath()
+        for (let i = 0; i <= TP; i++) {
+          const pt = trackPts[i % TP]
+          i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y)
+        }
+        ctx.closePath()
+        ctx.lineWidth = TW + 6
+        ctx.strokeStyle = '#e8e0d0'
+        ctx.lineJoin = 'round'
+        ctx.stroke()
+        ctx.lineWidth = TW
+        ctx.strokeStyle = '#777'
+        ctx.stroke()
+        ctx.lineWidth = 2
+        ctx.strokeStyle = '#fff'
+        ctx.setLineDash([6, 14])
+        ctx.stroke()
+        ctx.setLineDash([])
+        const si = 0,
+          sp = trackPts[si],
+          sn = trackNorms[si]
+        const sq = Math.floor(TW / 7)
+        for (let i = -sq / 2; i < sq / 2; i++) {
+          const off = (i + 0.5) * (TW / sq) - THW
+          const x = sp.x + sn.x * off,
+            y = sp.y + sn.y * off
+          ctx.fillStyle = Math.floor(i + sq / 2) % 2 === 0 ? '#fff' : '#222'
+          ctx.save()
+          ctx.translate(x, y)
+          ctx.rotate(Math.atan2(sn.y, sn.x))
+          ctx.fillRect(-2.5, -2.5, 5, 5)
+          ctx.restore()
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'
+        ctx.font = '8px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('META', sp.x + sn.x * (THW + 12), sp.y + sn.y * (THW + 12) + 3)
+      }
+      function drawGrandstands() {
+        const drawStand = (x, y, w, h) => {
+          ctx.fillStyle = '#8a7b6a'
+          ctx.beginPath()
+          ctx.roundRect(x, y, w, h, 3)
+          ctx.fill()
+          ctx.strokeStyle = '#6b5d4e'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          const rows = 4
+          for (let r = 0; r < rows; r++) {
+            const ry = y + 2 + (r * (h - 4)) / rows
+            for (let s = 0; s < Math.floor(w / 6); s++) {
+              const sx = x + 3 + s * 6
+              const colors = ['#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#e67e22']
+              ctx.fillStyle = colors[(r + s) % colors.length]
+              ctx.beginPath()
+              ctx.arc(sx, ry + 2, 1.5, 0, Math.PI * 2)
+              ctx.fill()
+            }
+          }
+        }
+        drawStand(40, 10, 120, 28)
+        drawStand(440, 10, 120, 28)
+        drawStand(40, 362, 120, 28)
+        drawStand(440, 362, 120, 28)
+        const trees = [
+          [20, 120, 8],
+          [15, 250, 7],
+          [575, 100, 9],
+          [580, 280, 8],
+          [300, 10, 7],
+          [300, 385, 7],
+        ]
+        for (const [tx, ty, tr] of trees) {
+          ctx.fillStyle = '#2d6b2d'
+          ctx.beginPath()
+          ctx.arc(tx, ty, tr, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#1a4d1a'
+          ctx.beginPath()
+          ctx.arc(tx - 2, ty - 1, tr * 0.6, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      function drawRobot(robot) {
+        const isP = robot.type === 'player'
+        const bc = isP ? '#C0C0C0' : '#7E8A9E'
+        const bd = isP ? '#808080' : '#5A6570'
+        const hc = isP ? '#8B4513' : '#7E8A9E'
+        const lc = isP ? '#00BFFF' : '#FF0000'
+        ctx.save()
+        ctx.translate(robot.x, robot.y)
+        ctx.rotate(robot.angle)
+        ctx.fillStyle = '#333'
+        const wh = 4.5,
+          hh = 6.5
+        ;[-1, 1].forEach((s) => {
+          ctx.beginPath()
+          ctx.arc(hh * 0.45, wh * s + 1.2 * s, 1.6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(-hh * 0.45, wh * s + 1.2 * s, 1.6, 0, Math.PI * 2)
+          ctx.fill()
+        })
+        ctx.fillStyle = bc
+        ctx.strokeStyle = bd
+        ctx.lineWidth = 0.8
+        ctx.beginPath()
+        ctx.roundRect(-hh * 0.55, -wh, hh * 1.1, wh * 2, 1.8)
+        ctx.fill()
+        ctx.stroke()
+        const hr = 3.8
+        ctx.fillStyle = hc
+        ctx.strokeStyle = bd
+        ctx.lineWidth = 0.8
+        ctx.beginPath()
+        ctx.arc(hh * 0.5 + hr - 0.5, 0, hr, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        if (isP) {
+          ctx.fillStyle = '#6B3410'
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr - 2.5, -hr + 1, 1.6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr + 1, -hr + 1, 1.6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B4513'
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr - 2.5, -hr + 1, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr + 1, -hr + 1, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          ctx.fillStyle = bc
+          ctx.strokeStyle = bd
+          ctx.lineWidth = 0.6
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr - 2, -hr + 1.5, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr + 2, -hr + 1.5, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          ctx.fillStyle = '#D4A0A0'
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr - 2, -hr + 1.5, 1, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(hh * 0.5 + hr + 2, -hr + 1.5, 1, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.fillStyle = lc
+        ctx.beginPath()
+        ctx.arc(hh * 0.5 + hr + 0.8, -1.5, 1.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(hh * 0.5 + hr + 0.8, 1.5, 1.1, 0, Math.PI * 2)
+        ctx.fill()
+        const glow = isP ? 'rgba(0,191,255,0.25)' : 'rgba(255,0,0,0.25)'
+        ctx.fillStyle = glow
+        ctx.beginPath()
+        ctx.arc(hh * 0.5 + hr + 0.8, -1.5, 2.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(hh * 0.5 + hr + 0.8, 1.5, 2.2, 0, Math.PI * 2)
+        ctx.fill()
+        if (robot.turboTimer > 0) {
+          ctx.fillStyle = `rgba(0,191,255,${0.12 + 0.08 * Math.sin(Date.now() / 80)})`
+          ctx.beginPath()
+          ctx.arc(0, 0, 11, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.fillStyle = '#fff'
+        ctx.font = '3.5px monospace'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        if (isP) ctx.fillText('GZ', 0, 0)
+        else ctx.fillText(robot.name.slice(-1), 0, 0)
+        ctx.restore()
+        if (robot.crashed && robot.crashTimer > 0 && robot.crashTimer % 4 < 2) {
+          ctx.fillStyle = 'rgba(255,100,0,0.15)'
+          ctx.beginPath()
+          ctx.arc(robot.x, robot.y, 16, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      function drawCoins(co) {
+        for (const c of co) {
+          if (c.collected) continue
+          c.bob += 0.05
+          const bobY = Math.sin(c.bob) * 1.5
+          ctx.fillStyle = '#FFD700'
+          ctx.strokeStyle = '#B8860B'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(c.x, c.y + bobY, c.r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.stroke()
+          ctx.fillStyle = '#FFF8DC'
+          ctx.beginPath()
+          ctx.arc(c.x - 1.5, c.y + bobY - 1.5, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+      function drawTurbos(tb) {
+        for (const t of tb) {
+          if (t.collected) continue
+          t.bob += 0.06
+          const bobY = Math.sin(t.bob) * 1.5
+          ctx.save()
+          ctx.translate(t.x, t.y + bobY)
+          ctx.fillStyle = 'rgba(0,191,255,0.12)'
+          ctx.beginPath()
+          ctx.arc(0, 0, 10, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#00BFFF'
+          ctx.strokeStyle = '#00688B'
+          ctx.lineWidth = 1.2
+          ctx.beginPath()
+          ctx.moveTo(0, -5.5)
+          ctx.lineTo(3, -1.5)
+          ctx.lineTo(1, -1.5)
+          ctx.lineTo(4, 4)
+          ctx.lineTo(-2, 1)
+          ctx.lineTo(-0.5, -0.5)
+          ctx.lineTo(-3.5, -3)
+          ctx.closePath()
+          ctx.fill()
+          ctx.stroke()
+          ctx.fillStyle = 'rgba(255,255,255,0.4)'
+          ctx.beginPath()
+          ctx.arc(-0.5, -1, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+      function drawHUD() {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.beginPath()
+        ctx.roundRect(8, 8, 160, 62, 6)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 13px Arial'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        ctx.fillText('NIVEL ' + level, 18, 14)
+        ctx.fillStyle = '#ffd700'
+        ctx.font = '11px Arial'
+        ctx.fillText('\u25A0 ' + (player ? player.coins : 0) + '  Pts: ' + score, 18, 32)
+        ctx.fillStyle = '#00BFFF'
+        ctx.fillText(
+          '\u26A1 ' + (player ? Math.floor(player.turboTimer * 10) / 10 + 's' : '0.0s'),
+          18,
+          48,
+        )
+        const order = getRaceOrder()
+        let playerPos = 0
+        for (let i = 0; i < order.length; i++) {
+          if (order[i] === player) {
+            playerPos = i + 1
+            break
+          }
+        }
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.beginPath()
+        ctx.roundRect(430, 8, 162, 62, 6)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 13px Arial'
+        ctx.textAlign = 'right'
+        ctx.fillText('Vuelta ' + (player ? player.lap + 1 : 1) + '/3', 580, 14)
+        ctx.fillStyle = '#ccc'
+        ctx.font = '11px Arial'
+        ctx.fillText('Pos: ' + playerPos + '/' + robots.length, 580, 32)
+        const mt = raceTimer
+        ctx.fillStyle = '#fff'
+        ctx.font = '11px monospace'
+        const mins = Math.floor(mt / 60),
+          secs = Math.floor(mt % 60),
+          cs = Math.floor((mt % 1) * 100)
+        ctx.textAlign = 'right'
+        ctx.fillText(
+          mins + ':' + (secs < 10 ? '0' : '') + secs + '.' + (cs < 10 ? '0' : '') + cs,
+          580,
+          50,
+        )
+      }
+      function drawStartScreen() {
+        ctx.fillStyle = '#3a7d3e'
+        ctx.fillRect(0, 0, 600, 400)
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, 600, 400)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 32px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('LA CARRERA DE ROBOTS', 300, 100)
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 18px Arial'
+        ctx.fillText('Grizzy & the Lemmings', 300, 140)
+        ctx.fillStyle = '#C0C0C0'
+        ctx.font = '14px Arial'
+        ctx.fillText('Nivel ' + level, 300, 180)
+        const instructions = [
+          '\u2191 Acelerar    \u2193 Frenar',
+          '\u2190 \u2192 Girar',
+          '\u25A0 Monedas +10    \u26A1 Turbo',
+          '3 vueltas por carrera',
+        ]
+        ctx.fillStyle = '#ddd'
+        ctx.font = '12px Arial'
+        instructions.forEach((t, i) => ctx.fillText(t, 300, 225 + i * 20))
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 16px Arial'
+        const blink = Math.sin(Date.now() / 400) > 0
+        if (blink) ctx.fillText('PRESIONA ESPACIO PARA COMENZAR', 300, 340)
+      }
+      function drawCountdown() {
+        const drawNum = (num) => {
+          ctx.fillStyle = 'rgba(0,0,0,0.35)'
+          ctx.fillRect(0, 0, 600, 400)
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 72px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.strokeStyle = '#333'
+          ctx.lineWidth = 4
+          const txt = num > 0 ? String(num) : '\u00A1YA!'
+          ctx.strokeText(txt, 300, 200)
+          ctx.fillText(txt, 300, 200)
+        }
+        if (countdownNum > 0) drawNum(countdownNum)
+        else drawNum(0)
+      }
+      function drawResults() {
+        ctx.fillStyle = 'rgba(0,0,0,0.8)'
+        ctx.fillRect(0, 0, 600, 400)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 28px Arial'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('RESULTADOS', 300, 50)
+        const order = getRaceOrder()
+        let playerPos = 0
+        for (let i = 0; i < order.length; i++) {
+          if (order[i] === player) playerPos = i + 1
+        }
+        const posText =
+          playerPos === 1
+            ? '\u00A1GANASTE!'
+            : playerPos === 2
+              ? '\u00A12\u00BA lugar!'
+              : playerPos === 3
+                ? '\u00A13\u00BA lugar!'
+                : playerPos + ' \u00BA lugar'
+        ctx.fillStyle =
+          playerPos === 1
+            ? '#FFD700'
+            : playerPos === 2
+              ? '#C0C0C0'
+              : playerPos === 3
+                ? '#CD7F32'
+                : '#fff'
+        ctx.font = 'bold 20px Arial'
+        ctx.fillText(posText, 300, 90)
+        ctx.fillStyle = '#fff'
+        ctx.font = '14px Arial'
+        const mt = player ? player.finishTime : raceTimer
+        const mins = Math.floor(mt / 60),
+          secs = Math.floor(mt % 60),
+          cs = Math.floor((mt % 1) * 100)
+        ctx.fillText(
+          'Tiempo: ' + mins + ':' + (secs < 10 ? '0' : '') + secs + '.' + (cs < 10 ? '0' : '') + cs,
+          300,
+          125,
+        )
+        ctx.fillStyle = '#ffd700'
+        ctx.fillText('Monedas: ' + player.coins + '  Puntaje: ' + score, 300, 148)
+        ctx.fillStyle = '#888'
+        ctx.font = '11px Arial'
+        let yy = 175
+        for (let i = 0; i < Math.min(order.length, 8); i++) {
+          const r = order[i],
+            col = i === playerPos - 1 ? '#fff' : '#888'
+          ctx.fillStyle = i < 3 ? ['#FFD700', '#C0C0C0', '#CD7F32'][i] : col
+          const mark = r === player ? ' <--' : ''
+          ctx.fillText(i + 1 + '. ' + r.name + ' - ' + r.lap + '/' + 3 + ' vueltas' + mark, 300, yy)
+          yy += 18
+        }
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 14px Arial'
+        const blink = Math.sin(Date.now() / 400) > 0
+        if (blink)
+          ctx.fillText(
+            'PRESIONA ESPACIO PARA ' + (level < 40 ? 'SIGUIENTE NIVEL' : 'VOLVER A JUGAR'),
+            300,
+            yy + 25,
+          )
+        if (level >= 40) {
+          ctx.fillStyle = '#ffd700'
+          ctx.font = 'bold 16px Arial'
+          ctx.fillText('\u00A1FELICITACIONES! COMPLETASTE LOS 40 NIVELES', 300, 355)
+        }
+      }
+      // =============================================================================
+      // BUCLE PRINCIPAL
+      // =============================================================================
+      function update(dt) {
+        if (gameState === 'racing') {
+          updateParticles()
+          checkItemPickup()
+          checkCollisions()
+          player.updatePlayer(keys, sound)
+          for (const r of robots) {
+            if (r !== player && !r.finished) {
+              r.level = level
+              r.aiSpeed = 0.65 + (level - 1) * 0.022 * (0.85 + Math.random() * 0.3)
+              r.updateAI(robots)
+            }
+          }
+          let allFinished = true
+          for (const r of robots) {
+            if (!r.finished) {
+              allFinished = false
+              break
+            }
+          }
+          if (player.finished) {
+            if (!player.finishTime) {
+              player.finishTime = raceTimer
+              sound && sound.playFinish()
+              saveGame()
+            }
+            raceTimer += dt
+            if (allFinished || raceTimer > player.finishTime + 8) {
+              gameState = 'results'
+            }
+          } else {
+            raceTimer += dt
+          }
+          if (sound) sound.updateEngine(player.speed)
+        }
+        if (gameState === 'countdown') {
+          countdownTimer -= dt
+          if (countdownTimer <= 0) {
+            countdownNum--
+            if (countdownNum < 0) {
+              gameState = 'racing'
+              if (sound) sound.startEngine()
+            } else {
+              countdownTimer = 1
+            }
+          }
+        }
+      }
+      function render() {
+        ctx.clearRect(0, 0, 600, 400)
+        if (gameState === 'menu') {
+          drawStartScreen()
+          return
+        }
+        drawGrandstands()
+        drawTrack()
+        if (gameState === 'racing' || gameState === 'countdown' || gameState === 'results') {
+          drawCoins(coins)
+          drawTurbos(turbos)
+          for (const r of robots) if (r !== player) drawRobot(r)
+          drawRobot(player)
+          drawParticles(ctx)
+          drawHUD()
+        }
+        if (gameState === 'countdown') drawCountdown()
+        if (gameState === 'results') drawResults()
+      }
+      function gameLoop(timestamp) {
+        const dt = lastTime ? Math.min((timestamp - lastTime) / 1000, 0.05) : 1 / 60
+        lastTime = timestamp
+        update(dt)
+        render()
+        animId = requestAnimationFrame(gameLoop)
+      }
+      // =============================================================================
+      // MENSAJES
+      // =============================================================================
+      function showMessage(text, time) {
+        messageText = text
+        messageTimer = time || 2
+      }
+      // =============================================================================
+      // INICIO DE CARRERA
+      // =============================================================================
+      function startRace() {
+        initRace()
+        gameState = 'countdown'
+        countdownNum = 3
+        countdownTimer = 1
+        raceTimer = 0
+        if (sound) sound.resume()
+      }
+      function nextLevel() {
+        if (level < 40) {
+          level++
+          saveGame()
+          startRace()
+        } else {
+          level = 1
+          saveGame()
+          gameState = 'menu'
+        }
+      }
+      // =============================================================================
+      // INPUT
+      // =============================================================================
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          if (gameState === 'menu') {
+            sound && sound.resume()
+            startRace()
+          } else if (gameState === 'results') {
+            nextLevel()
+          }
+        }
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) e.preventDefault()
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+      })
+      if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+        touchCtrl.style.display = 'flex'
+        document.querySelectorAll('#touchControls button').forEach((btn) => {
+          const key = btn.dataset.key
+          const start = () => {
+            keys[key] = true
+            if (key === 'ArrowUp' || key === 'ArrowDown') {
+              sound && sound.resume()
+              if (gameState === 'menu') startRace()
+            }
+          }
+          const end = () => {
+            keys[key] = false
+          }
+          btn.addEventListener('touchstart', (e) => {
+            e.preventDefault()
+            start()
+          })
+          btn.addEventListener('touchend', (e) => {
+            e.preventDefault()
+            end()
+          })
+          btn.addEventListener('touchcancel', (e) => {
+            e.preventDefault()
+            end()
+          })
+          btn.addEventListener('mousedown', (e) => {
+            e.preventDefault()
+            start()
+          })
+          btn.addEventListener('mouseup', (e) => {
+            e.preventDefault()
+            end()
+          })
+          btn.addEventListener('mouseleave', (e) => {
+            e.preventDefault()
+            end()
+          })
+        })
+      } else {
+        touchCtrl.style.display = 'none'
+      }
+      // =============================================================================
+      // RESPONSIVE
+      // =============================================================================
+      function resize() {
+        const cw = container.clientWidth,
+          ch = container.clientHeight
+        const ratio = 600 / 400
+        let w, h
+        if (cw / ch > ratio) {
+          h = ch
+          w = h * ratio
+        } else {
+          w = cw
+          h = w / ratio
+        }
+        canvas.style.width = Math.floor(w) + 'px'
+        canvas.style.height = Math.floor(h) + 'px'
+      }
+      window.addEventListener('resize', resize)
+      // =============================================================================
+      // INICIALIZACION
+      // =============================================================================
+      loadSave()
+      sound = new SoundEngine()
+      sound.init()
+      initRace()
+      resize()
+      gameLoop(0)
+    </script>
+  </body>
+</html>

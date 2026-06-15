@@ -1,0 +1,11 @@
+
+Running 3045 tests using 2 workers
+
+  ✓     1 [chromium] › verificacion-total/suites/01-load/load.test.js:7:11 › Carga (Load) › Saltador Nubes (juego01.html) › Carga sin errores de red (1.8s)
+  ✓     2 [chromium] › verificacion-total/suites/02-canvas/canvas.test.js:7:11 › Canvas › Saltador Nubes (juego01.html) › Canvas existe con contexto 2d válido (1.8s)
+  ✓     3 [chromium] › verificacion-total/suites/01-load/load.test.js:16:11 › Carga (Load) › Saltador Nubes (juego01.html) › Título de página presente (1.2s)
+  ✓     4 [chromium] › verificacion-total/suites/02-canvas/canvas.test.js:26:11 › Canvas › Saltador Nubes (juego01.html) › Canvas no está en blanco (1.8s)
+  ✓     5 [chromium] › verificacion-total/suites/01-load/load.test.js:23:11 › Carga (Load) › Saltador Nubes (juego01.html) › Body tiene contenido (1.1s)
+  ✓     6 [chromium] › verificacion-total/suites/02-canvas/canvas.test.js:36:11 › Canvas › Saltador Nubes (juego01.html) › Canvas tiene dimensiones válidas (1.1s)
+  ✓     7 [chromium] › verificacion-total/suites/01-load/load.test.js:33:11 › Carga (Load) › Saltador Nubes (juego01.html) › No hay errores JS en consola (1.1s)
+  ✓     8 [chromium] › verificacion-total/suites/02-canvas/canvas.test.js:51:11 › Canvas › Saltador Nubes (juego01.html) › Captura de snapshot funciona (1.6s)

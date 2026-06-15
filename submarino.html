@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Submarino Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0a0a;
+        font-family: 'Segoe UI', sans-serif;
+      }
+      #gameWrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        background: #0d3b66;
+        image-rendering: auto;
+      }
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        pointer-events: none;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+      #restartBtn,
+      #backBtn {
+        position: absolute;
+        top: 12px;
+        background: rgba(255, 248, 225, 0.85);
+        border: 2px solid #8b5e3c;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        font-size: 22px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          transform 0.15s,
+          background 0.15s;
+        z-index: 10;
+        color: #4a2c10;
+      }
+      #restartBtn:hover,
+      #backBtn:hover {
+        transform: scale(1.15);
+        background: rgba(255, 248, 225, 1);
+      }
+      #restartBtn {
+        right: 12px;
+      }
+      #backBtn {
+        left: 12px;
+        text-decoration: none;
+        font-weight: bold;
+      }
+      @media (max-width: 600px) {
+        #restartBtn,
+        #backBtn {
+          width: 36px;
+          height: 36px;
+          font-size: 18px;
+          top: 8px;
+        }
+        #restartBtn {
+          right: 8px;
+        }
+        #backBtn {
+          left: 8px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameWrapper">
+      <canvas id="game"></canvas>
+      <div id="ui">
+        <a href="index.html" id="backBtn">&#8592;</a>
+        <button id="restartBtn">&#x21bb;</button>
+      </div>
+    </div>
+    <script>
+      ;(function () {
+        const canvas = document.getElementById('game')
+        const ctx = canvas.getContext('2d')
+
+        // ── Virtual resolution ──
+        const VW = 800,
+          VH = 600
+
+        // ── Audio ──
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        function playShoot() {
+          const o = audioCtx.createOscillator()
+          const g = audioCtx.createGain()
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.type = 'square'
+          o.frequency.setValueAtTime(220, audioCtx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(440, audioCtx.currentTime + 0.08)
+          g.gain.setValueAtTime(0.12, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.12)
+          o.start()
+          o.stop(audioCtx.currentTime + 0.12)
+        }
+        function playExplosion() {
+          const b = audioCtx.createBufferSource()
+          const g = audioCtx.createGain()
+          const buf = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.3, audioCtx.sampleRate)
+          const d = buf.getChannelData(0)
+          for (let i = 0; i < d.length; i++)
+            d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2)
+          b.buffer = buf
+          b.connect(g)
+          g.connect(audioCtx.destination)
+          g.gain.setValueAtTime(0.15, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3)
+          b.start()
+        }
+        function playHit() {
+          const o = audioCtx.createOscillator()
+          const g = audioCtx.createGain()
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.type = 'sawtooth'
+          o.frequency.setValueAtTime(120, audioCtx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15)
+          g.gain.setValueAtTime(0.1, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15)
+          o.start()
+          o.stop(audioCtx.currentTime + 0.15)
+        }
+        function playPowerup() {
+          const o = audioCtx.createOscillator()
+          const g = audioCtx.createGain()
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.type = 'sine'
+          o.frequency.setValueAtTime(400, audioCtx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.2)
+          g.gain.setValueAtTime(0.1, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25)
+          o.start()
+          o.stop(audioCtx.currentTime + 0.25)
+        }
+        function playLevelUp() {
+          ;[523, 659, 784, 1047].forEach((f, i) => {
+            const o = audioCtx.createOscillator()
+            const g = audioCtx.createGain()
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.type = 'sine'
+            o.frequency.setValueAtTime(f, audioCtx.currentTime + i * 0.1)
+            g.gain.setValueAtTime(0.08, audioCtx.currentTime + i * 0.1)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.1 + 0.2)
+            o.start(audioCtx.currentTime + i * 0.1)
+            o.stop(audioCtx.currentTime + i * 0.1 + 0.2)
+          })
+        }
+
+        // ── Particles ──
+        class Particle {
+          constructor(x, y, color, speed, life) {
+            const ang = Math.random() * Math.PI * 2
+            const sp = speed || Math.random() * 3 + 1
+            this.x = x
+            this.y = y
+            this.vx = Math.cos(ang) * sp
+            this.vy = Math.sin(ang) * sp - 1
+            this.life = life || Math.random() * 30 + 20
+            this.maxLife = this.life
+            this.color = color || '#FFB74D'
+            this.size = Math.random() * 5 + 2
+          }
+          update() {
+            this.x += this.vx
+            this.y += this.vy
+            this.vy += 0.05
+            this.life--
+          }
+          draw(ctx) {
+            const a = this.life / this.maxLife
+            ctx.globalAlpha = a
+            ctx.fillStyle = this.color
+            ctx.beginPath()
+            ctx.arc(this.x, this.y, this.size * a, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.globalAlpha = 1
+          }
+          get dead() {
+            return this.life <= 0
+          }
+        }
+
+        // ── Water surface ──
+        function drawWaterSurface(y, t) {
+          ctx.save()
+          ctx.strokeStyle = 'rgba(255,255,255,0.35)'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          for (let x = 0; x <= VW; x += 4) {
+            const wy = y + Math.sin(x * 0.03 + t * 0.015) * 4 + Math.sin(x * 0.07 + t * 0.02) * 2
+            x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy)
+          }
+          ctx.stroke()
+          ctx.strokeStyle = 'rgba(255,255,255,0.15)'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          for (let x = 0; x <= VW; x += 4) {
+            const wy =
+              y + 4 + Math.sin(x * 0.04 + t * 0.018) * 3 + Math.sin(x * 0.09 + t * 0.025) * 1.5
+            x === 0 ? ctx.moveTo(x, wy) : ctx.lineTo(x, wy)
+          }
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        // ── Lentils/lights underwater ──
+        function drawUnderwaterLights(t) {
+          ctx.save()
+          for (let i = 0; i < 8; i++) {
+            const bx = (i * 137 + 50) % VW
+            const by = (i * 97 + 30) % VH
+            const bsize = 4 + Math.sin(t * 0.003 + i * 2) * 2
+            const alpha = 0.08 + Math.sin(t * 0.005 + i * 3) * 0.05
+            ctx.fillStyle = `rgba(255,235,180,${Math.max(0, alpha)})`
+            ctx.beginPath()
+            ctx.arc(
+              bx + Math.sin(t * 0.002 + i) * 30,
+              by + Math.cos(t * 0.002 + i) * 15,
+              bsize,
+              0,
+              Math.PI * 2,
+            )
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+
+        // ── Tier definitions ──
+        const TIERS = [
+          {
+            name: 'La Playa',
+            icon: '🟢',
+            levels: 10,
+            enemySpeed: 1,
+            bombFreq: 90,
+            maxEnemies: 3,
+            enemyFireChance: 0.006,
+            specialChance: 0.1,
+            bgTop: '#87CEEB',
+            bgBot: '#3AA8C1',
+          },
+          {
+            name: 'El Muelle',
+            icon: '🟡',
+            levels: 10,
+            enemySpeed: 1.6,
+            bombFreq: 75,
+            maxEnemies: 4,
+            enemyFireChance: 0.009,
+            specialChance: 0.15,
+            bgTop: '#FFB74D',
+            bgBot: '#E65100',
+          },
+          {
+            name: 'El Acantilado',
+            icon: '🔴',
+            levels: 10,
+            enemySpeed: 2.3,
+            bombFreq: 60,
+            maxEnemies: 5,
+            enemyFireChance: 0.013,
+            specialChance: 0.2,
+            bgTop: '#BF360C',
+            bgBot: '#4E342E',
+          },
+          {
+            name: 'La Tormenta',
+            icon: '🟣',
+            levels: 10,
+            enemySpeed: 3.2,
+            bombFreq: 45,
+            maxEnemies: 6,
+            enemyFireChance: 0.018,
+            specialChance: 0.3,
+            bgTop: '#311B92',
+            bgBot: '#1A237E',
+          },
+        ]
+
+        // ── Game State ──
+        let game = {}
+
+        function resetGame() {
+          game = {
+            player: {
+              x: VW / 2,
+              y: VH * 0.65,
+              w: 40,
+              h: 30,
+              speed: 3.5,
+              lives: 3,
+              invincible: 0,
+              shootCooldown: 0,
+            },
+            enemies: [],
+            enemyBullets: [],
+            playerBullets: [],
+            particles: [],
+            score: 0,
+            level: 1,
+            combo: 0,
+            maxCombo: 0,
+            state: 'playing', // playing, gameover, levelTransition, won
+            transitionTimer: 0,
+            waterSurfaceY: VH * 0.15,
+            time: 0,
+            screenShake: 0,
+            showTier: false,
+            tierDisplayTimer: 0,
+          }
+          for (let i = 0; i < 3; i++) spawnEnemy()
+          saveGame()
+        }
+
+        // ── Tier helpers ──
+        function getTierIndex(level) {
+          return Math.min(Math.floor((level - 1) / 10), TIERS.length - 1)
+        }
+        function getTier(level) {
+          return TIERS[getTierIndex(level)]
+        }
+        function getLevelProgress(level) {
+          const idx = getTierIndex(level)
+          return level - 1 - idx * 10 + 1
+        }
+
+        // ── Enemy spawning ──
+        function spawnEnemy() {
+          const tier = getTier(game.level)
+          const isPlane = Math.random() < (getTierIndex(game.level) >= 2 ? 0.35 : 0.15)
+          const enemy = {
+            x: Math.random() < 0.5 ? -50 : VW + 50,
+            y: game.waterSurfaceY - (isPlane ? 35 : 15),
+            w: isPlane ? 44 : 36,
+            h: isPlane ? 24 : 22,
+            speed: tier.enemySpeed + (game.level % 10) * 0.08 + (Math.random() * 0.5 - 0.25),
+            type: isPlane ? 'plane' : 'boat',
+            fireTimer: 0,
+            fireInterval: Math.max(
+              30,
+              tier.bombFreq - game.level * 0.8 + (Math.random() * 20 - 10),
+            ),
+            alive: true,
+          }
+          if (enemy.x < VW / 2) enemy.speed = Math.abs(enemy.speed)
+          else enemy.speed = -Math.abs(enemy.speed)
+          game.enemies.push(enemy)
+        }
+
+        // ── Drawing Grizzy submarine ──
+        function drawSubmarine(x, y, w, h, t) {
+          ctx.save()
+          // Submarine body (capsule)
+          const bodyGrad = ctx.createLinearGradient(x - w / 2, y, x + w / 2, y)
+          bodyGrad.addColorStop(0, '#6D4C2A')
+          bodyGrad.addColorStop(0.5, '#8B5E3C')
+          bodyGrad.addColorStop(1, '#5D3A1A')
+          ctx.fillStyle = bodyGrad
+          ctx.beginPath()
+          const rx = w * 0.45,
+            ry = h * 0.5
+          ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#4A2C10'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+
+          // porthole
+          ctx.fillStyle = 'rgba(180,230,255,0.5)'
+          ctx.beginPath()
+          ctx.arc(x + w * 0.2, y - h * 0.05, 7, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#4A2C10'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(x + w * 0.2, y - h * 0.05, 4, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(200,240,255,0.35)'
+          ctx.fill()
+
+          // Grizzy head peeking from top
+          const gx = x,
+            gy = y - ry + 2
+          // ears
+          ctx.fillStyle = '#6D4C2A'
+          ctx.beginPath()
+          ctx.ellipse(gx - 12, gy - 8, 6, 8, -0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(gx + 12, gy - 8, 6, 8, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.ellipse(gx - 12, gy - 8, 4, 5, -0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(gx + 12, gy - 8, 4, 5, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          // face
+          ctx.fillStyle = '#A0724E'
+          ctx.beginPath()
+          ctx.ellipse(gx, gy, 13, 12, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // eyes
+          ctx.fillStyle = '#FFF'
+          ctx.beginPath()
+          ctx.ellipse(gx - 5, gy - 2, 4, 4.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(gx + 5, gy - 2, 4, 4.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(gx - 4, gy - 1, 2.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(gx + 6, gy - 1, 2.2, 0, Math.PI * 2)
+          ctx.fill()
+          // nose
+          ctx.fillStyle = '#4A2C10'
+          ctx.beginPath()
+          ctx.ellipse(gx, gy + 2, 3, 2.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // snout
+          ctx.fillStyle = '#C4956A'
+          ctx.beginPath()
+          ctx.ellipse(gx, gy + 5, 7, 4, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // mouth
+          ctx.strokeStyle = '#4A2C10'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(gx, gy + 6, 3, 0.1, Math.PI - 0.1)
+          ctx.stroke()
+
+          // propeller
+          const propY = y + h * 0.2
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.rect(x - 2, propY - 2, 4, 8)
+          ctx.fill()
+          ctx.strokeStyle = '#795548'
+          ctx.lineWidth = 1.5
+          for (let i = 0; i < 3; i++) {
+            const a = t * 0.12 + (i * Math.PI * 2) / 3
+            ctx.beginPath()
+            ctx.moveTo(x, propY + 2)
+            ctx.lineTo(x + Math.cos(a) * 8, propY + 2 + Math.sin(a) * 8)
+            ctx.stroke()
+          }
+
+          ctx.restore()
+        }
+
+        // ── Drawing Lemming ──
+        function drawLemming(x, y, size) {
+          ctx.save()
+          const s = size || 1
+          // body
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(x, y, 8 * s, 10 * s, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // head
+          ctx.fillStyle = '#95A0B0'
+          ctx.beginPath()
+          ctx.ellipse(x, y - 10 * s, 6 * s, 7 * s, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // ears
+          ctx.fillStyle = '#B0B8C4'
+          ctx.beginPath()
+          ctx.ellipse(x - 5 * s, y - 15 * s, 3 * s, 5 * s, -0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x + 5 * s, y - 15 * s, 3 * s, 5 * s, 0.3, 0, Math.PI * 2)
+          ctx.fill()
+          // eyes
+          ctx.fillStyle = '#111'
+          ctx.beginPath()
+          ctx.arc(x - 2.5 * s, y - 10 * s, 1.5 * s, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + 2.5 * s, y - 10 * s, 1.5 * s, 0, Math.PI * 2)
+          ctx.fill()
+          // nose
+          ctx.fillStyle = '#4A5568'
+          ctx.beginPath()
+          ctx.ellipse(x, y - 8 * s, 2 * s, 1.5 * s, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // teeth
+          ctx.fillStyle = '#FFF'
+          ctx.fillRect(x - 1.5 * s, y - 6 * s, 3 * s, 3 * s)
+          ctx.strokeStyle = '#7E8A9E'
+          ctx.lineWidth = 0.5
+          ctx.strokeRect(x - 1.5 * s, y - 6 * s, 3 * s, 3 * s)
+          ctx.restore()
+        }
+
+        // ── Drawing boat ──
+        function drawBoat(x, y, w, h) {
+          ctx.save()
+          // hull
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.moveTo(x - w / 2, y + h / 3)
+          ctx.lineTo(x - w / 2 + 6, y + h / 2)
+          ctx.lineTo(x + w / 2 - 6, y + h / 2)
+          ctx.lineTo(x + w / 2, y + h / 3)
+          ctx.closePath()
+          ctx.fill()
+          ctx.strokeStyle = '#3E2723'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          // cabin
+          ctx.fillStyle = '#8D6E63'
+          ctx.fillRect(x - w / 4, y - h / 2, w / 2, h / 2 - h / 3 + 2)
+          ctx.strokeStyle = '#3E2723'
+          ctx.lineWidth = 0.8
+          ctx.strokeRect(x - w / 4, y - h / 2, w / 2, h / 2 - h / 3 + 2)
+          // Lemming in boat
+          drawLemming(x, y - h / 2 + 2, 1)
+          ctx.restore()
+        }
+
+        // ── Drawing plane ──
+        function drawPlane(x, y, w, h) {
+          ctx.save()
+          // body
+          ctx.fillStyle = '#6D7A8A'
+          ctx.beginPath()
+          ctx.ellipse(x, y, w / 2, h / 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // wings
+          ctx.fillStyle = '#5A6978'
+          ctx.beginPath()
+          ctx.moveTo(x - w / 4, y)
+          ctx.lineTo(x - w / 2 - 8, y - h / 2)
+          ctx.lineTo(x - w / 4, y - h / 3)
+          ctx.closePath()
+          ctx.fill()
+          ctx.beginPath()
+          ctx.moveTo(x + w / 4, y)
+          ctx.lineTo(x + w / 2 + 8, y - h / 2)
+          ctx.lineTo(x + w / 4, y - h / 3)
+          ctx.closePath()
+          ctx.fill()
+          // tail
+          ctx.fillStyle = '#4A5568'
+          ctx.beginPath()
+          ctx.moveTo(x - w / 2 + 2, y - h / 6)
+          ctx.lineTo(x - w / 2 - 5, y - h / 2)
+          ctx.lineTo(x - w / 2 + 2, y - h / 4)
+          ctx.closePath()
+          ctx.fill()
+          // Lemming pilot
+          drawLemming(x, y - h / 4, 0.8)
+          ctx.restore()
+        }
+
+        // ── Drawing bomb (Lemming face) ──
+        function drawBomb(x, y, r, isSpecial) {
+          ctx.save()
+          // bomb body
+          const grad = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r)
+          grad.addColorStop(0, isSpecial ? '#FF7043' : '#37474F')
+          grad.addColorStop(1, isSpecial ? '#BF360C' : '#1A1A1A')
+          ctx.fillStyle = grad
+          ctx.beginPath()
+          ctx.arc(x, y, r, 0, Math.PI * 2)
+          ctx.fill()
+          // fuse
+          ctx.strokeStyle = '#8D6E63'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(x + r * 0.5, y - r * 0.6)
+          ctx.lineTo(x + r * 0.8, y - r * 0.9)
+          ctx.stroke()
+          // spark
+          ctx.fillStyle = '#FF6F00'
+          ctx.beginPath()
+          ctx.arc(x + r * 0.8, y - r * 0.9, 3, 0, Math.PI * 2)
+          ctx.fill()
+          // Lemming face on bomb
+          ctx.fillStyle = '#B0B8C4'
+          ctx.beginPath()
+          ctx.arc(x, y - r * 0.1, r * 0.4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(x - r * 0.15, y - r * 0.1, r * 0.12, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + r * 0.15, y - r * 0.1, r * 0.12, 0, Math.PI * 2)
+          ctx.fill()
+          // scared mouth
+          ctx.fillStyle = '#4A2C10'
+          ctx.beginPath()
+          ctx.ellipse(x, y + r * 0.15, r * 0.15, r * 0.12, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+
+        // ── Drawing enemy bullet ──
+        function drawEnemyBullet(b) {
+          ctx.save()
+          drawBomb(b.x, b.y, 7, b.special)
+          ctx.restore()
+        }
+
+        // ── Drawing player bullet ──
+        function drawPlayerBullet(b) {
+          ctx.save()
+          ctx.fillStyle = '#FFD54F'
+          ctx.shadowColor = '#FFD54F'
+          ctx.shadowBlur = 8
+          ctx.beginPath()
+          ctx.arc(b.x, b.y, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          ctx.restore()
+        }
+
+        // ── Draw background ──
+        function drawBackground(t) {
+          const tier = getTier(game.level)
+          // sky
+          const skyGrad = ctx.createLinearGradient(0, 0, 0, game.waterSurfaceY)
+          skyGrad.addColorStop(0, tier.bgTop)
+          skyGrad.addColorStop(1, tier.bgBot)
+          ctx.fillStyle = skyGrad
+          ctx.fillRect(0, 0, VW, game.waterSurfaceY)
+
+          // clouds
+          ctx.fillStyle = 'rgba(255,255,255,0.15)'
+          for (let i = 0; i < 4; i++) {
+            const cx = ((i * 237 + t * 0.02 * (i % 2 === 0 ? 1 : -1) * 30) % (VW + 100)) - 50
+            const cy = 20 + i * 18
+            ctx.beginPath()
+            ctx.ellipse(cx, cy, 45 + i * 8, 14 + i * 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.ellipse(cx - 30, cy + 5, 30, 12, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.ellipse(cx + 35, cy + 3, 28, 10, 0, 0, Math.PI * 2)
+            ctx.fill()
+          }
+
+          // underwater
+          const underGrad = ctx.createLinearGradient(0, game.waterSurfaceY, 0, VH)
+          underGrad.addColorStop(0, '#1A6B8A')
+          underGrad.addColorStop(1, '#0D3B66')
+          ctx.fillStyle = underGrad
+          ctx.fillRect(0, game.waterSurfaceY, VW, VH - game.waterSurfaceY)
+
+          // underwater lights
+          drawUnderwaterLights(t)
+
+          // sea floor
+          ctx.fillStyle = '#1A2A3A'
+          ctx.beginPath()
+          ctx.moveTo(0, VH)
+          for (let x = 0; x <= VW; x += 10) {
+            const y = VH - 20 + Math.sin(x * 0.02) * 8 + Math.sin(x * 0.05) * 4
+            ctx.lineTo(x, y)
+          }
+          ctx.lineTo(VW, VH)
+          ctx.closePath()
+          ctx.fill()
+
+          // seaweed
+          for (let i = 0; i < 10; i++) {
+            const sx = 30 + i * 80 + Math.sin(i * 3) * 20
+            ctx.strokeStyle = `rgba(46,125,50,${0.3 + Math.sin(i * 2) * 0.15})`
+            ctx.lineWidth = 3
+            ctx.beginPath()
+            ctx.moveTo(sx, VH - 20)
+            for (let sy = VH - 20; sy > VH - 80 - Math.sin(i * 5) * 20; sy -= 4) {
+              ctx.lineTo(sx + Math.sin((sy + t * 0.005 + i * 10) * 0.04) * 8, sy)
+            }
+            ctx.stroke()
+          }
+
+          // water surface
+          drawWaterSurface(game.waterSurfaceY, t)
+
+          // sun/light at top
+          ctx.fillStyle = tier.bgTop
+          ctx.globalAlpha = 0.08
+          ctx.beginPath()
+          ctx.arc(VW * 0.8, 0, 120, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+        }
+
+        // ── Draw HUD ──
+        function drawHUD(t) {
+          ctx.save()
+          const tier = getTier(game.level)
+          const progress = getLevelProgress(game.level)
+
+          // Top bar background
+          ctx.fillStyle = 'rgba(0,0,0,0.35)'
+          ctx.fillRect(0, 0, VW, 38)
+          ctx.fillStyle = 'rgba(255,248,225,0.08)'
+          ctx.fillRect(0, 37, VW, 1)
+
+          // Level info
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = 'bold 14px "Segoe UI", sans-serif'
+          ctx.textAlign = 'left'
+          ctx.textBaseline = 'middle'
+          ctx.fillText(`${tier.icon} ${tier.name}`, 12, 19)
+          ctx.fillStyle = '#FFE0B2'
+          ctx.font = '12px "Segoe UI", sans-serif'
+          ctx.fillText(`Nivel ${game.level} (${progress}/10)`, 115, 19)
+
+          // Score
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = 'bold 14px "Segoe UI", sans-serif'
+          ctx.fillText(`Pts: ${game.score}`, VW / 2, 19)
+
+          // Lives
+          ctx.textAlign = 'right'
+          ctx.font = '14px "Segoe UI", sans-serif'
+          let livesStr = ''
+          for (let i = 0; i < game.player.lives; i++) livesStr += '🧸 '
+          ctx.fillText(livesStr.trim(), VW - 12, 19)
+
+          // Combo
+          if (game.combo > 1) {
+            ctx.textAlign = 'center'
+            ctx.fillStyle = '#FFD54F'
+            ctx.font = `bold ${13 + Math.min(game.combo, 10)}px "Segoe UI", sans-serif`
+            ctx.fillText(`${game.combo}x COMBO!`, VW / 2, 60 + Math.sin(t * 0.01) * 2)
+          }
+
+          ctx.restore()
+        }
+
+        // ── Draw level transition ──
+        function drawLevelTransition(t) {
+          ctx.save()
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'
+          ctx.fillRect(0, 0, VW, VH)
+
+          const tier = getTier(game.level)
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = 'bold 42px "Segoe UI", sans-serif'
+          ctx.fillText(`NIVEL ${game.level}`, VW / 2, VH / 2 - 40)
+
+          ctx.fillStyle = '#FFE0B2'
+          ctx.font = '22px "Segoe UI", sans-serif'
+          ctx.fillText(`${tier.icon} ${tier.name}`, VW / 2, VH / 2 + 20)
+
+          ctx.fillStyle = '#B0BEC5'
+          ctx.font = '15px "Segoe UI", sans-serif'
+          ctx.fillText(`Progreso: ${getLevelProgress(game.level)}/10`, VW / 2, VH / 2 + 60)
+
+          ctx.fillStyle = '#FFCC80'
+          ctx.font = '13px "Segoe UI", sans-serif'
+          ctx.fillText('¡PREPARATE!', VW / 2, VH / 2 + 100)
+
+          ctx.restore()
+        }
+
+        // ── Draw Game Over ──
+        function drawGameOver(t) {
+          ctx.save()
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'
+          ctx.fillRect(0, 0, VW, VH)
+
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+
+          ctx.fillStyle = '#FF5252'
+          ctx.font = 'bold 48px "Segoe UI", sans-serif'
+          ctx.fillText('GAME OVER', VW / 2, VH / 2 - 60)
+
+          ctx.fillStyle = '#FFE0B2'
+          ctx.font = '22px "Segoe UI", sans-serif'
+          ctx.fillText(`Puntuación: ${game.score}`, VW / 2, VH / 2 + 10)
+
+          ctx.fillStyle = '#B0BEC5'
+          ctx.font = '16px "Segoe UI", sans-serif'
+          ctx.fillText(`Nivel alcanzado: ${game.level}`, VW / 2, VH / 2 + 50)
+          ctx.fillText(`Mejor combo: ${game.maxCombo}x`, VW / 2, VH / 2 + 75)
+
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = '18px "Segoe UI", sans-serif'
+          const blink = Math.sin(t * 0.005) > 0
+          if (blink) ctx.fillText('Presiona ESPACIO o toca para reiniciar', VW / 2, VH / 2 + 130)
+
+          ctx.restore()
+        }
+
+        // ── Draw win screen ──
+        function drawWinScreen(t) {
+          ctx.save()
+          ctx.fillStyle = 'rgba(0,0,0,0.7)'
+          ctx.fillRect(0, 0, VW, VH)
+
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+
+          ctx.fillStyle = '#FFD54F'
+          ctx.font = 'bold 44px "Segoe UI", sans-serif'
+          ctx.fillText('¡VICTORIA!', VW / 2, VH / 2 - 60)
+
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = '20px "Segoe UI", sans-serif'
+          ctx.fillText('Grizzy ha derrotado a todos los Lemmings', VW / 2, VH / 2)
+
+          ctx.fillStyle = '#FFE0B2'
+          ctx.font = '24px "Segoe UI", sans-serif'
+          ctx.fillText(`Puntuación final: ${game.score}`, VW / 2, VH / 2 + 50)
+
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = '18px "Segoe UI", sans-serif'
+          ctx.fillText(`Mejor combo: ${game.maxCombo}x`, VW / 2, VH / 2 + 85)
+
+          const blink = Math.sin(t * 0.005) > 0
+          if (blink) ctx.fillText('Presiona ESPACIO o toca para reiniciar', VW / 2, VH / 2 + 140)
+
+          ctx.restore()
+        }
+
+        // ── Save / Load ──
+        function saveGame() {
+          try {
+            const data = {
+              level: game.level,
+              score: game.score,
+              maxCombo: game.maxCombo,
+              playerLives: game.player.lives,
+            }
+            localStorage.setItem('submarino_grizzy', JSON.stringify(data))
+          } catch (e) {}
+        }
+
+        function loadGame() {
+          try {
+            const raw = localStorage.getItem('submarino_grizzy')
+            if (!raw) return false
+            const data = JSON.parse(raw)
+            if (data && data.level && data.level >= 1 && data.level <= 40) {
+              game.level = data.level || 1
+              game.score = data.score || 0
+              game.maxCombo = data.maxCombo || 0
+              game.player.lives = data.playerLives || 3
+              return true
+            }
+          } catch (e) {}
+          return false
+        }
+
+        // ── Physics / Game logic ──
+        function update() {
+          const p = game.player
+          game.time++
+
+          // Invincibility
+          if (p.invincible > 0) p.invincible--
+
+          // Player movement
+          let dx = 0,
+            dy = 0
+          if (keys['ArrowLeft'] || keys['KeyA']) dx = -p.speed
+          if (keys['ArrowRight'] || keys['KeyD']) dx = p.speed
+          if (keys['ArrowUp'] || keys['KeyW']) dy = -p.speed
+          if (keys['ArrowDown'] || keys['KeyS']) dy = p.speed
+          if (dx && dy) {
+            dx *= 0.707
+            dy *= 0.707
+          }
+
+          const minY = game.waterSurfaceY + 40
+          const maxY = VH - 35
+          p.x = Math.max(25, Math.min(VW - 25, p.x + dx))
+          p.y = Math.max(minY, Math.min(maxY, p.y + dy))
+
+          // Shoot
+          if (p.shootCooldown > 0) p.shootCooldown--
+          if (keys['Space'] && p.shootCooldown === 0 && game.state === 'playing') {
+            game.playerBullets.push({ x: p.x, y: p.y - p.h / 2, w: 6, h: 8, speed: 7 })
+            p.shootCooldown = 15
+            playShoot()
+          }
+
+          // Enemy spawning
+          const tier = getTier(game.level)
+          const maxEnemies = tier.maxEnemies + Math.floor((game.level - 1) / 4)
+          if (game.enemies.length < maxEnemies && Math.random() < 0.008) {
+            spawnEnemy()
+          }
+
+          // Update enemies
+          for (let i = game.enemies.length - 1; i >= 0; i--) {
+            const e = game.enemies[i]
+            e.x += e.speed
+            e.fireTimer++
+
+            // Enemy shooting
+            if (e.fireTimer > e.fireInterval && game.state === 'playing') {
+              e.fireTimer = 0
+              if (Math.random() < tier.enemyFireChance * 1.5) {
+                const isSpecial = Math.random() < tier.specialChance
+                game.enemyBullets.push({
+                  x: e.x,
+                  y: e.y + e.h / 2,
+                  vx: isSpecial ? (Math.random() < 0.5 ? 1.5 : -1.5) : 0,
+                  vy: isSpecial ? 0.8 : 2.5,
+                  w: 12,
+                  h: 12,
+                  special: isSpecial,
+                  phase: 0,
+                })
+              }
+            }
+
+            // Remove if off screen
+            if (e.x > VW + 70 || e.x < -70) {
+              game.enemies.splice(i, 1)
+            }
+          }
+
+          // Update enemy bullets
+          for (let i = game.enemyBullets.length - 1; i >= 0; i--) {
+            const b = game.enemyBullets[i]
+            b.x += b.vx
+            b.y += b.vy
+            b.phase++
+            if (b.special && b.y > game.waterSurfaceY + 20) {
+              // after dropping a bit, start horizontal movement
+              if (b.phase > 30) {
+                b.vx = b.vx || (Math.random() < 0.5 ? -1.5 : 1.5)
+              }
+            }
+            if (b.y > VH + 20 || b.x < -30 || b.x > VW + 30) {
+              game.enemyBullets.splice(i, 1)
+              continue
+            }
+
+            // Collision with player (AABB)
+            if (game.state === 'playing' && p.invincible === 0) {
+              if (
+                b.x + b.w / 2 > p.x - p.w / 2 &&
+                b.x - b.w / 2 < p.x + p.w / 2 &&
+                b.y + b.h / 2 > p.y - p.h / 2 &&
+                b.y - b.h / 2 < p.y + p.h / 2
+              ) {
+                // hit player
+                p.lives--
+                p.invincible = 120
+                game.screenShake = 15
+                game.combo = 0
+                for (let k = 0; k < 20; k++) {
+                  game.particles.push(new Particle(b.x, b.y, '#FF5252', 3, 20))
+                }
+                playHit()
+                game.enemyBullets.splice(i, 1)
+                saveGame()
+                if (p.lives <= 0) {
+                  game.state = 'gameover'
+                }
+                continue
+              }
+            }
+          }
+
+          // Update player bullets
+          for (let i = game.playerBullets.length - 1; i >= 0; i--) {
+            const b = game.playerBullets[i]
+            b.y -= b.speed
+
+            // Collision with enemies
+            let hit = false
+            for (let j = game.enemies.length - 1; j >= 0; j--) {
+              const e = game.enemies[j]
+              if (
+                b.x + b.w / 2 > e.x - e.w / 2 &&
+                b.x - b.w / 2 < e.x + e.w / 2 &&
+                b.y + b.h / 2 > e.y - e.h / 2 &&
+                b.y - b.h / 2 < e.y + e.h / 2
+              ) {
+                // destroy enemy
+                for (let k = 0; k < 25; k++) {
+                  game.particles.push(new Particle(e.x, e.y, '#7E8A9E', 3.5, 25))
+                }
+                for (let k = 0; k < 10; k++) {
+                  game.particles.push(new Particle(e.x, e.y, '#FFB74D', 2.5, 15))
+                }
+                game.enemies.splice(j, 1)
+                game.combo++
+                if (game.combo > game.maxCombo) game.maxCombo = game.combo
+                const comboBonus = Math.floor(game.combo * 10)
+                game.score += 100 + comboBonus
+                game.screenShake = 8
+                playExplosion()
+                hit = true
+                break
+              }
+            }
+            if (hit || b.y < -10) {
+              game.playerBullets.splice(i, 1)
+            }
+          }
+
+          // Update particles
+          for (let i = game.particles.length - 1; i >= 0; i--) {
+            game.particles[i].update()
+            if (game.particles[i].dead) game.particles.splice(i, 1)
+          }
+
+          // Screen shake
+          if (game.screenShake > 0) game.screenShake--
+
+          // Check level completed (kill all enemies, survive)
+          if (
+            game.state === 'playing' &&
+            game.enemies.length === 0 &&
+            game.enemyBullets.length === 0
+          ) {
+            // Check if enough enemies have been killed = score threshold
+            const targetScore = game.level * 300 + getTierIndex(game.level) * 500
+            if (game.score >= targetScore * 0.7 || game.enemies.length === 0) {
+              // Level complete
+              if (game.level >= 40) {
+                game.state = 'won'
+              } else {
+                game.state = 'levelTransition'
+                game.transitionTimer = 120
+                playLevelUp()
+              }
+            }
+          }
+
+          // Level transition timer
+          if (game.state === 'levelTransition') {
+            game.transitionTimer--
+            if (game.transitionTimer <= 0) {
+              game.level++
+              const newTier = getTier(game.level)
+              // clear remaining enemies/bullets
+              game.enemies = []
+              game.enemyBullets = []
+              game.playerBullets = []
+              for (let i = 0; i < Math.min(3, newTier.maxEnemies); i++) spawnEnemy()
+              game.state = 'playing'
+              saveGame()
+            }
+          }
+        }
+
+        // ── Render ──
+        function render() {
+          ctx.save()
+
+          // Screen shake offset
+          let sx = 0,
+            sy = 0
+          if (game.screenShake > 0) {
+            sx = (Math.random() - 0.5) * game.screenShake * 0.6
+            sy = (Math.random() - 0.5) * game.screenShake * 0.6
+          }
+          ctx.translate(sx, sy)
+
+          drawBackground(game.time)
+
+          // Draw enemies
+          for (const e of game.enemies) {
+            if (e.type === 'plane') drawPlane(e.x, e.y, e.w, e.h)
+            else drawBoat(e.x, e.y, e.w, e.h)
+          }
+
+          // Draw enemy bullets
+          for (const b of game.enemyBullets) {
+            drawEnemyBullet(b)
+          }
+
+          // Draw player bullets
+          for (const b of game.playerBullets) {
+            drawPlayerBullet(b)
+          }
+
+          // Draw player submarine
+          if (game.state !== 'gameover' && game.state !== 'won') {
+            const blink =
+              game.player.invincible > 0 && Math.floor(game.player.invincible / 4) % 2 === 0
+            if (!blink) {
+              drawSubmarine(game.player.x, game.player.y, game.player.w, game.player.h, game.time)
+            }
+          }
+
+          // Draw particles
+          for (const p of game.particles) {
+            p.draw(ctx)
+          }
+
+          ctx.restore()
+
+          // Draw HUD
+          drawHUD(game.time)
+
+          // Overlays
+          if (game.state === 'levelTransition') {
+            drawLevelTransition(game.time)
+          } else if (game.state === 'gameover') {
+            drawGameOver(game.time)
+          } else if (game.state === 'won') {
+            drawWinScreen(game.time)
+          }
+        }
+
+        // ── Game loop ──
+        function gameLoop() {
+          resizeCanvas()
+          update()
+          render()
+          requestAnimationFrame(gameLoop)
+        }
+
+        // ── Resize ──
+        let lastScale = 1
+        function resizeCanvas() {
+          const wrapper = document.getElementById('gameWrapper')
+          const ww = wrapper.clientWidth
+          const wh = wrapper.clientHeight
+          const scale = Math.min(ww / VW, wh / VH)
+          canvas.width = VW
+          canvas.height = VH
+          canvas.style.width = Math.floor(VW * scale) + 'px'
+          canvas.style.height = Math.floor(VH * scale) + 'px'
+          lastScale = scale
+        }
+
+        // ── Input ──
+        const keys = {}
+        document.addEventListener('keydown', (e) => {
+          keys[e.code] = true
+          if (e.code === 'Space') e.preventDefault()
+          if (e.code === 'Space' && (game.state === 'gameover' || game.state === 'won')) {
+            resetGame()
+          }
+          // resume audio context on interaction
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+        })
+        document.addEventListener('keyup', (e) => {
+          keys[e.code] = false
+        })
+
+        // Touch input
+        let touchX = null,
+          touchY = null
+        canvas.addEventListener('touchstart', (e) => {
+          e.preventDefault()
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          const rect = canvas.getBoundingClientRect()
+          touchX = (e.touches[0].clientX - rect.left) / lastScale
+          touchY = (e.touches[0].clientY - rect.top) / lastScale
+          if (game.state === 'gameover' || game.state === 'won') {
+            resetGame()
+            return
+          }
+          // tap on top half = shoot
+          if (touchY < VH * 0.3 && game.player.shootCooldown === 0 && game.state === 'playing') {
+            game.playerBullets.push({
+              x: game.player.x,
+              y: game.player.y - game.player.h / 2,
+              w: 6,
+              h: 8,
+              speed: 7,
+            })
+            game.player.shootCooldown = 15
+            playShoot()
+          }
+        })
+        canvas.addEventListener('touchmove', (e) => {
+          e.preventDefault()
+          const rect = canvas.getBoundingClientRect()
+          touchX = (e.touches[0].clientX - rect.left) / lastScale
+          touchY = (e.touches[0].clientY - rect.top) / lastScale
+        })
+        canvas.addEventListener('touchend', (e) => {
+          touchX = null
+          touchY = null
+        })
+
+        // Touch to move player
+        function updateTouchMove() {
+          if (touchX !== null && game.state === 'playing') {
+            const p = game.player
+            const dx = touchX - p.x
+            const dy = touchY - p.y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist > 5) {
+              const speed = Math.min(p.speed, dist * 0.08)
+              p.x += (dx / dist) * speed
+              p.y += (dy / dist) * speed
+              const minY = game.waterSurfaceY + 40
+              const maxY = VH - 35
+              p.x = Math.max(25, Math.min(VW - 25, p.x))
+              p.y = Math.max(minY, Math.min(maxY, p.y))
+            }
+          }
+        }
+
+        // Patch update to include touch movement
+        const origUpdate = update
+        update = function () {
+          updateTouchMove()
+          origUpdate()
+        }
+
+        // ── Restart button ──
+        document.getElementById('restartBtn').addEventListener('click', () => {
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          resetGame()
+        })
+
+        // ── Init ──
+        resetGame()
+        // Try loading saved game
+        if (!loadGame()) {
+          // if load fails, ensure default state
+          game.enemies = []
+          for (let i = 0; i < 3; i++) spawnEnemy()
+        } else {
+          // restore enemies for loaded level
+          game.enemies = []
+          for (let i = 0; i < Math.min(3, getTier(game.level).maxEnemies); i++) spawnEnemy()
+          game.enemyBullets = []
+          game.playerBullets = []
+          game.particles = []
+          game.state = 'playing'
+          game.screenShake = 0
+          game.player.invincible = 60
+          game.player.shootCooldown = 0
+          game.transitionTimer = 0
+          game.time = 0
+        }
+
+        window.addEventListener('resize', resizeCanvas)
+        resizeCanvas()
+        gameLoop()
+      })()
+    </script>
+  </body>
+</html>

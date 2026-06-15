@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Mini Magos - Grizzy Wizard</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a0a00;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', Arial, sans-serif;
+      }
+      #game-wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      canvas {
+        display: block;
+        background: #2d1b0e;
+        image-rendering: pixelated;
+        cursor: crosshair;
+      }
+      canvas:active {
+        cursor: crosshair;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="game-wrapper">
+      <canvas id="gameCanvas"></canvas>
+    </div>
+    <script>
+      ;(function () {
+        const canvas = document.getElementById('gameCanvas')
+        const ctx = canvas.getContext('2d')
+
+        const VIRTUAL_W = 600
+        const VIRTUAL_H = 400
+        let scale = 1
+        let offsetX = 0
+        let offsetY = 0
+
+        // Audio context for sound synthesis
+        let audioCtx = null
+        function initAudio() {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        }
+
+        function playSound(type) {
+          try {
+            initAudio()
+            const osc = audioCtx.createOscillator()
+            const gain = audioCtx.createGain()
+            osc.connect(gain)
+            gain.connect(audioCtx.destination)
+            gain.gain.value = 0.15
+            switch (type) {
+              case 'spell':
+                osc.type = 'sine'
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime)
+                osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.1)
+                osc.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 0.2)
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3)
+                osc.start()
+                osc.stop(audioCtx.currentTime + 0.3)
+                break
+              case 'creature':
+                osc.type = 'triangle'
+                osc.frequency.setValueAtTime(300, audioCtx.currentTime)
+                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.15)
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25)
+                osc.start()
+                osc.stop(audioCtx.currentTime + 0.25)
+                break
+              case 'bonus':
+                osc.type = 'sine'
+                osc.frequency.setValueAtTime(500, audioCtx.currentTime)
+                osc.frequency.setValueAtTime(700, audioCtx.currentTime + 0.08)
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime + 0.16)
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35)
+                osc.start()
+                osc.start(audioCtx.currentTime)
+                osc.stop(audioCtx.currentTime + 0.35)
+                break
+              case 'gameover':
+                osc.type = 'sawtooth'
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime)
+                osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 1.0)
+                gain.gain.value = 0.1
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.2)
+                osc.start()
+                osc.stop(audioCtx.currentTime + 1.2)
+                break
+              case 'hit':
+                osc.type = 'square'
+                osc.frequency.setValueAtTime(200, audioCtx.currentTime)
+                osc.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.2)
+                gain.gain.value = 0.12
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25)
+                osc.start()
+                osc.stop(audioCtx.currentTime + 0.25)
+                break
+              case 'levelup':
+                osc.type = 'sine'
+                osc.frequency.setValueAtTime(400, audioCtx.currentTime)
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime + 0.1)
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime + 0.2)
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime + 0.3)
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5)
+                osc.start()
+                osc.stop(audioCtx.currentTime + 0.5)
+                break
+            }
+          } catch (e) {}
+        }
+
+        const GAME_STATE = { MENU: 0, PLAYING: 1, GAMEOVER: 2 }
+        let state = GAME_STATE.MENU
+        let score = 0
+        let highScore = parseInt(localStorage.getItem('grizzy_wizard')) || 0
+        let lives = 3
+        let level = 1
+        let maxLevel = 40
+        let creatures = []
+        let particles = []
+        let spells = []
+        let transformed = []
+        let stars = []
+        let moons = []
+        let gameTime = 0
+        let creatureSpawnTimer = 0
+        let spawnInterval = 120
+        let hitShake = 0
+        let transitionTimer = 0
+        let comboCount = 0
+        let isVictory = false
+        let creaturesConverted = 0
+        let creaturesToAdvance = 10
+
+        // Stars background
+        for (let i = 0; i < 30; i++) {
+          stars.push({
+            x: Math.random() * VIRTUAL_W,
+            y: Math.random() * VIRTUAL_H * 0.6,
+            r: Math.random() * 1.5 + 0.5,
+            phase: Math.random() * Math.PI * 2,
+          })
+        }
+        // Moons background
+        for (let i = 0; i < 3; i++) {
+          moons.push({
+            x: 50 + Math.random() * (VIRTUAL_W - 100),
+            y: 30 + Math.random() * 80,
+            r: 10 + Math.random() * 8,
+            phase: Math.random() * Math.PI * 2,
+          })
+        }
+
+        const CREATURE_TYPES = ['lemming', 'bat', 'ghost']
+        const TRANSFORM_TYPES = ['frog', 'hat', 'flower', 'star']
+
+        function createCreature() {
+          const types = level < 5 ? ['lemming'] : level < 15 ? ['lemming', 'bat'] : CREATURE_TYPES
+          const type = types[Math.floor(Math.random() * types.length)]
+          const isGold = Math.random() < 0.12
+
+          const side = Math.floor(Math.random() * 4)
+          let x, y, vx, vy
+          const speed = 0.5 + (level - 1) * 0.08 + Math.random() * 0.5
+          const r = 12 + Math.random() * 4
+
+          switch (side) {
+            case 0:
+              x = -r
+              y = Math.random() * VIRTUAL_H * 0.7
+              vx = speed
+              vy = (Math.random() - 0.5) * 0.4
+              break
+            case 1:
+              x = VIRTUAL_W + r
+              y = Math.random() * VIRTUAL_H * 0.7
+              vx = -speed
+              vy = (Math.random() - 0.5) * 0.4
+              break
+            case 2:
+              x = Math.random() * VIRTUAL_W
+              y = -r
+              vx = (Math.random() - 0.5) * 0.6
+              vy = speed
+              break
+            case 3:
+              x = Math.random() * VIRTUAL_W
+              y = VIRTUAL_H * 0.7 + r
+              vx = (Math.random() - 0.5) * 0.6
+              vy = -speed
+              break
+          }
+
+          creatures.push({
+            type,
+            x,
+            y,
+            vx,
+            vy,
+            r,
+            isGold,
+            wobble: Math.random() * Math.PI * 2,
+            alive: true,
+            scale: 1,
+            rotation: 0,
+            flashTimer: 0,
+          })
+        }
+
+        function drawCreature(c) {
+          const x = c.x,
+            y = c.y,
+            r = c.r
+
+          if (c.isGold) {
+            ctx.shadowColor = '#FFD700'
+            ctx.shadowBlur = 15
+          }
+
+          if (c.type === 'lemming') {
+            // Lemming with bat wings
+            ctx.fillStyle = c.isGold ? '#F0E68C' : '#7E8A9E'
+            ctx.beginPath()
+            ctx.ellipse(x, y, r * 0.7, r * 0.8, 0, 0, Math.PI * 2)
+            ctx.fill()
+            // Head
+            ctx.fillStyle = c.isGold ? '#FFD700' : '#8A9AAA'
+            ctx.beginPath()
+            ctx.arc(x + r * 0.3, y - r * 0.4, r * 0.5, 0, Math.PI * 2)
+            ctx.fill()
+            // Eyes
+            ctx.fillStyle = '#fff'
+            ctx.beginPath()
+            ctx.arc(x + r * 0.4, y - r * 0.5, r * 0.15, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#000'
+            ctx.beginPath()
+            ctx.arc(x + r * 0.4, y - r * 0.5, r * 0.07, 0, Math.PI * 2)
+            ctx.fill()
+            // Bat wings
+            ctx.fillStyle = c.isGold ? '#DAA520' : '#4A4A5A'
+            ctx.beginPath()
+            ctx.moveTo(x - r * 0.5, y - r * 0.1)
+            ctx.quadraticCurveTo(x - r * 1.2, y - r * 0.8, x - r * 0.3, y - r * 0.3)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.moveTo(x + r * 0.5, y - r * 0.1)
+            ctx.quadraticCurveTo(x + r * 1.2, y - r * 0.8, x + r * 0.3, y - r * 0.3)
+            ctx.fill()
+            // Ears
+            ctx.fillStyle = c.isGold ? '#DAA520' : '#6A7A8A'
+            ctx.beginPath()
+            ctx.arc(x + r * 0.5, y - r * 0.8, r * 0.15, 0, Math.PI * 2)
+            ctx.arc(x + r * 0.1, y - r * 0.8, r * 0.15, 0, Math.PI * 2)
+            ctx.fill()
+          } else if (c.type === 'bat') {
+            ctx.fillStyle = c.isGold ? '#8B4513' : '#1a1a2e'
+            ctx.beginPath()
+            ctx.ellipse(x, y, r * 0.5, r * 0.4, 0, 0, Math.PI * 2)
+            ctx.fill()
+            // Body
+            ctx.fillStyle = c.isGold ? '#A0522D' : '#2a2a3e'
+            ctx.beginPath()
+            ctx.ellipse(x, y + r * 0.1, r * 0.4, r * 0.6, 0, 0, Math.PI * 2)
+            ctx.fill()
+            // Wings
+            ctx.fillStyle = c.isGold ? '#6B3410' : '#0a0a1e'
+            ctx.beginPath()
+            ctx.moveTo(x - r * 0.3, y)
+            ctx.quadraticCurveTo(x - r * 1.4, y - r * 0.9, x - r * 0.2, y - r * 0.4)
+            ctx.lineTo(x - r * 0.3, y)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.moveTo(x + r * 0.3, y)
+            ctx.quadraticCurveTo(x + r * 1.4, y - r * 0.9, x + r * 0.2, y - r * 0.4)
+            ctx.lineTo(x + r * 0.3, y)
+            ctx.fill()
+            // Eyes
+            ctx.fillStyle = '#ff0000'
+            ctx.beginPath()
+            ctx.arc(x - r * 0.15, y - r * 0.1, r * 0.1, 0, Math.PI * 2)
+            ctx.arc(x + r * 0.15, y - r * 0.1, r * 0.1, 0, Math.PI * 2)
+            ctx.fill()
+          } else if (c.type === 'ghost') {
+            ctx.fillStyle = c.isGold ? '#FFFACD' : 'rgba(255,255,255,0.7)'
+            ctx.beginPath()
+            ctx.arc(x, y - r * 0.2, r * 0.7, Math.PI, 0)
+            ctx.lineTo(x + r * 0.7, y + r * 0.2)
+            // Wavy bottom
+            const waveY = y + r * 0.2
+            ctx.quadraticCurveTo(x + r * 0.4, waveY + r * 0.3, x + r * 0.2, waveY + r * 0.1)
+            ctx.quadraticCurveTo(x, waveY + r * 0.4, x - r * 0.2, waveY + r * 0.1)
+            ctx.quadraticCurveTo(x - r * 0.4, waveY + r * 0.3, x - r * 0.7, waveY + r * 0.2)
+            ctx.closePath()
+            ctx.fill()
+            // Eyes
+            ctx.fillStyle = '#000'
+            ctx.beginPath()
+            ctx.arc(x - r * 0.2, y - r * 0.3, r * 0.08, 0, Math.PI * 2)
+            ctx.arc(x + r * 0.2, y - r * 0.3, r * 0.08, 0, Math.PI * 2)
+            ctx.fill()
+          }
+
+          ctx.shadowBlur = 0
+        }
+
+        function drawTransformed(t) {
+          const x = t.x,
+            y = t.y
+          ctx.save()
+          ctx.translate(x, y)
+          ctx.rotate(t.rot || 0)
+
+          switch (t.type) {
+            case 'frog':
+              ctx.fillStyle = '#4CAF50'
+              ctx.beginPath()
+              ctx.ellipse(0, 0, 8, 6, 0, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.fillStyle = '#2E7D32'
+              ctx.beginPath()
+              ctx.arc(-4, -4, 4, 0, Math.PI * 2)
+              ctx.arc(4, -4, 4, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.fillStyle = '#fff'
+              ctx.beginPath()
+              ctx.arc(-4, -5, 2, 0, Math.PI * 2)
+              ctx.arc(4, -5, 2, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.fillStyle = '#000'
+              ctx.beginPath()
+              ctx.arc(-4, -5, 1, 0, Math.PI * 2)
+              ctx.arc(4, -5, 1, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.strokeStyle = '#2E7D32'
+              ctx.lineWidth = 1.5
+              ctx.beginPath()
+              ctx.arc(-1, 1, 2, 0, Math.PI)
+              ctx.stroke()
+              break
+            case 'hat':
+              ctx.fillStyle = '#D32F2F'
+              ctx.beginPath()
+              ctx.moveTo(-10, 0)
+              ctx.lineTo(10, 0)
+              ctx.lineTo(8, -15)
+              ctx.lineTo(-8, -15)
+              ctx.closePath()
+              ctx.fill()
+              ctx.fillStyle = '#B71C1C'
+              ctx.fillRect(-10, -1, 20, 3)
+              ctx.fillStyle = '#FFD700'
+              ctx.fillRect(-3, -14, 6, 3)
+              break
+            case 'flower':
+              const petalCount = 5
+              for (let i = 0; i < petalCount; i++) {
+                const a = (i / petalCount) * Math.PI * 2 + (t.rot || 0)
+                ctx.fillStyle = i % 2 === 0 ? '#FF69B4' : '#FF1493'
+                ctx.beginPath()
+                ctx.ellipse(Math.cos(a) * 5, Math.sin(a) * 5, 4, 3, a, 0, Math.PI * 2)
+                ctx.fill()
+              }
+              ctx.fillStyle = '#FFD700'
+              ctx.beginPath()
+              ctx.arc(0, 0, 3, 0, Math.PI * 2)
+              ctx.fill()
+              break
+            case 'star':
+              ctx.fillStyle = '#FFD700'
+              ctx.beginPath()
+              for (let i = 0; i < 10; i++) {
+                const a = (i * Math.PI) / 5 - Math.PI / 2 + (t.rot || 0)
+                const rad = i % 2 === 0 ? 8 : 4
+                ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad)
+              }
+              ctx.closePath()
+              ctx.fill()
+              ctx.fillStyle = '#FFF8DC'
+              ctx.beginPath()
+              ctx.arc(0, 0, 2.5, 0, Math.PI * 2)
+              ctx.fill()
+              break
+          }
+          ctx.restore()
+        }
+
+        function spawnParticles(x, y, color, count) {
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2
+            const speed = 1 + Math.random() * 3
+            particles.push({
+              x,
+              y,
+              vx: Math.cos(angle) * speed,
+              vy: Math.sin(angle) * speed,
+              r: 2 + Math.random() * 4,
+              life: 1,
+              decay: 0.01 + Math.random() * 0.02,
+              color: color || `hsl(${Math.random() * 360}, 100%, 60%)`,
+            })
+          }
+        }
+
+        function castSpell(target) {
+          const tx = target.x
+          const ty = target.y
+
+          spells.push({
+            sx: VIRTUAL_W / 2,
+            sy: VIRTUAL_H - 50,
+            ex: tx,
+            ey: ty,
+            progress: 0,
+            speed: 0.08,
+            targetIdx: creatures.indexOf(target),
+          })
+
+          playSound('spell')
+        }
+
+        function updateSpells() {
+          for (let i = spells.length - 1; i >= 0; i--) {
+            const s = spells[i]
+            s.progress += s.speed
+            if (s.progress >= 1) {
+              const idx = s.targetIdx
+              const target = creatures.find((c, ci) => ci === idx)
+              if (target && target.alive) {
+                target.alive = false
+                const isGold = target.isGold
+                const pts = isGold ? 30 : 10
+                score += pts
+                comboCount++
+                creaturesConverted++
+                if (comboCount > 1) score += 2
+                playSound(isGold ? 'bonus' : 'creature')
+                const newType = TRANSFORM_TYPES[Math.floor(Math.random() * TRANSFORM_TYPES.length)]
+                transformed.push({
+                  type: newType,
+                  x: target.x,
+                  y: target.y,
+                  life: 1,
+                  rot: 0,
+                  vy: -1,
+                })
+                spawnParticles(target.x, target.y, null, isGold ? 30 : 15)
+                spawnParticles(target.x, target.y, '#FFD700', 5)
+              }
+              spells.splice(i, 1)
+            }
+          }
+        }
+
+        function drawSpell(s) {
+          const progress = s.progress
+          const x = s.sx + (s.ex - s.sx) * progress
+          const y = s.sy + (s.ey - s.sy) * progress
+          const px = s.sx + (s.ex - s.sx) * (progress - 0.03)
+          const py = s.sy + (s.ey - s.sy) * (progress - 0.03)
+
+          const gradient = ctx.createLinearGradient(px, py, x, y)
+          gradient.addColorStop(0, '#FF6B6B')
+          gradient.addColorStop(0.25, '#FFE66D')
+          gradient.addColorStop(0.5, '#4ECDC4')
+          gradient.addColorStop(0.75, '#A78BFA')
+          gradient.addColorStop(1, '#FF6B6B')
+          ctx.strokeStyle = gradient
+          ctx.lineWidth = 3 + Math.sin(progress * 30) * 1.5
+          ctx.shadowColor = '#fff'
+          ctx.shadowBlur = 10
+          ctx.beginPath()
+          ctx.moveTo(px, py)
+          ctx.lineTo(x, y)
+          ctx.stroke()
+
+          // Star at beam tip
+          ctx.fillStyle = '#FFD700'
+          ctx.shadowColor = '#FFD700'
+          ctx.shadowBlur = 15
+          ctx.beginPath()
+          ctx.arc(x, y, 4 + Math.sin(progress * 20) * 1, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.shadowBlur = 0
+        }
+
+        function drawGrizzy() {
+          const cx = VIRTUAL_W / 2
+          const baseY = VIRTUAL_H - 10
+
+          // Body (bear)
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.ellipse(cx, baseY - 18, 18, 22, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Belly
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.ellipse(cx, baseY - 15, 12, 15, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Head
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.arc(cx, baseY - 40, 14, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Ears
+          ctx.fillStyle = '#5A3520'
+          ctx.beginPath()
+          ctx.arc(cx - 10, baseY - 50, 6, 0, Math.PI * 2)
+          ctx.arc(cx + 10, baseY - 50, 6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.arc(cx - 10, baseY - 50, 3, 0, Math.PI * 2)
+          ctx.arc(cx + 10, baseY - 50, 3, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Snout
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.ellipse(cx, baseY - 37, 7, 5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#2a1a0a'
+          ctx.beginPath()
+          ctx.arc(cx, baseY - 38, 2, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Eyes
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(cx - 5, baseY - 44, 3, 0, Math.PI * 2)
+          ctx.arc(cx + 5, baseY - 44, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#1a0a00'
+          ctx.beginPath()
+          ctx.arc(cx - 5, baseY - 44, 1.5, 0, Math.PI * 2)
+          ctx.arc(cx + 5, baseY - 44, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Hat (wizard hat)
+          ctx.fillStyle = '#1a237e'
+          ctx.beginPath()
+          ctx.moveTo(cx - 16, baseY - 48)
+          ctx.lineTo(cx + 16, baseY - 48)
+          ctx.lineTo(cx + 10, baseY - 48)
+          ctx.lineTo(cx, baseY - 85)
+          ctx.lineTo(cx - 10, baseY - 48)
+          ctx.closePath()
+          ctx.fill()
+          // Hat brim
+          ctx.fillStyle = '#283593'
+          ctx.beginPath()
+          ctx.ellipse(cx, baseY - 47, 18, 4, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // Hat stars
+          ctx.fillStyle = '#FFD700'
+          for (let i = 0; i < 3; i++) {
+            const hx = cx - 6 + i * 6
+            const hy = baseY - 65 - i * 8
+            ctx.beginPath()
+            ctx.arc(hx, hy, 1.5, 0, Math.PI * 2)
+            ctx.fill()
+          }
+
+          // Cape
+          ctx.fillStyle = '#6A1B9A'
+          ctx.beginPath()
+          ctx.moveTo(cx - 16, baseY - 36)
+          ctx.lineTo(cx - 22, baseY + 5)
+          ctx.lineTo(cx + 22, baseY + 5)
+          ctx.lineTo(cx + 16, baseY - 36)
+          ctx.closePath()
+          ctx.fill()
+
+          // Arms
+          ctx.fillStyle = '#6B4226'
+          ctx.save()
+          const armWave = Math.sin(gameTime * 0.003) * 0.2
+          ctx.translate(cx - 20, baseY - 28)
+          ctx.rotate(-0.3 + armWave)
+          ctx.fillRect(-3, 0, 5, 16)
+          ctx.restore()
+          ctx.save()
+          ctx.translate(cx + 20, baseY - 28)
+          ctx.rotate(0.3 - armWave)
+          ctx.fillRect(-3, 0, 5, 16)
+          ctx.restore()
+
+          // Wand
+          ctx.save()
+          ctx.translate(cx + 22, baseY - 30)
+          ctx.rotate(0.6)
+          ctx.fillStyle = '#4E342E'
+          ctx.fillRect(0, -2, 2, 22)
+          ctx.fillStyle = '#FFD700'
+          ctx.beginPath()
+          ctx.arc(1, -3, 3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FF6B6B'
+          ctx.beginPath()
+          ctx.arc(1, -3, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+
+        function drawBackground() {
+          // Sky gradient
+          const grad = ctx.createLinearGradient(0, 0, 0, VIRTUAL_H)
+          grad.addColorStop(0, '#0d0610')
+          grad.addColorStop(0.3, '#1a0d2e')
+          grad.addColorStop(0.6, '#2D1B0E')
+          grad.addColorStop(1, '#1a0a00')
+          ctx.fillStyle = grad
+          ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+
+          // Stars
+          ctx.fillStyle = '#fff'
+          for (const s of stars) {
+            const alpha = 0.5 + Math.sin(gameTime * 0.002 + s.phase) * 0.4
+            ctx.globalAlpha = alpha
+            ctx.beginPath()
+            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.globalAlpha = 1
+
+          // Moons
+          for (const m of moons) {
+            ctx.fillStyle = `hsla(40, 60%, ${80 + Math.sin(gameTime * 0.001 + m.phase) * 10}%, 0.4)`
+            ctx.beginPath()
+            ctx.arc(m.x, m.y, m.r, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = 'rgba(45,27,14,0.6)'
+            ctx.beginPath()
+            ctx.arc(m.x + m.r * 0.25, m.y - m.r * 0.15, m.r * 0.8, 0, Math.PI * 2)
+            ctx.fill()
+          }
+
+          // Ground / castle silhouette
+          ctx.fillStyle = '#1a0a00'
+          ctx.fillRect(0, VIRTUAL_H - 20, VIRTUAL_W, 20)
+
+          // Castle silhouette
+          ctx.fillStyle = '#1a0a00'
+          // Main towers
+          ctx.fillRect(30, VIRTUAL_H - 78, 15, 58)
+          ctx.fillRect(60, VIRTUAL_H - 90, 18, 70)
+          ctx.fillRect(VIRTUAL_W - 75, VIRTUAL_H - 85, 15, 65)
+          ctx.fillRect(VIRTUAL_W - 45, VIRTUAL_H - 95, 18, 75)
+          // Center
+          ctx.fillRect(80, VIRTUAL_H - 50, VIRTUAL_W - 160, 30)
+          // Crenellations
+          for (let i = 0; i < 5; i++) {
+            ctx.fillRect(30 + i * 15, VIRTUAL_H - 85, 8, 7)
+            ctx.fillRect(VIRTUAL_W - 75 + i * 15, VIRTUAL_H - 92, 8, 7)
+          }
+          // Windows (small lit)
+          ctx.fillStyle = '#FFD700'
+          ctx.globalAlpha = 0.3
+          ctx.fillRect(65, VIRTUAL_H - 70, 5, 8)
+          ctx.fillRect(VIRTUAL_W - 40, VIRTUAL_H - 75, 5, 8)
+          ctx.fillRect(VIRTUAL_W - 70, VIRTUAL_H - 65, 5, 8)
+          ctx.globalAlpha = 1
+        }
+
+        function drawHUD() {
+          // Score
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 14px "Segoe UI", Arial, sans-serif'
+          ctx.textAlign = 'left'
+          ctx.fillText('⭐ ' + score, 10, 20)
+
+          // High score
+          ctx.fillStyle = '#aaa'
+          ctx.font = '10px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('RECORD: ' + highScore, 10, 35)
+
+          // Lives
+          ctx.textAlign = 'right'
+          ctx.font = '14px "Segoe UI", Arial, sans-serif'
+          let livesStr = ''
+          for (let i = 0; i < lives; i++) livesStr += '❤️'
+          ctx.fillStyle = '#ff4444'
+          ctx.fillText(livesStr, VIRTUAL_W - 10, 20)
+
+          // Level
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('NIVEL ' + level + '/' + maxLevel, VIRTUAL_W / 2, 15)
+
+          // Combo
+          if (comboCount > 1) {
+            ctx.fillStyle = '#FFE66D'
+            ctx.font = 'bold 16px "Segoe UI", Arial, sans-serif'
+            ctx.textAlign = 'center'
+            ctx.fillText('COMBO x' + comboCount + '!', VIRTUAL_W / 2, 35)
+          }
+
+          // Creature counter
+          ctx.textAlign = 'right'
+          ctx.fillStyle = '#7E8A9E'
+          ctx.font = '10px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('Criaturas: ' + creatures.filter((c) => c.alive).length, VIRTUAL_W - 10, 35)
+
+          // Progress bar
+          const prog = Math.min(1, creaturesConverted / creaturesToAdvance)
+          ctx.fillStyle = 'rgba(255,255,255,0.1)'
+          ctx.fillRect(VIRTUAL_W / 2 - 50, 22, 100, 6)
+          ctx.fillStyle = '#FFD700'
+          ctx.fillRect(VIRTUAL_W / 2 - 50, 22, 100 * prog, 6)
+        }
+
+        function drawMenu() {
+          // Dark overlay
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'
+          ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+
+          // Title
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 36px "Segoe UI", Arial, sans-serif'
+          ctx.shadowColor = '#FF6B6B'
+          ctx.shadowBlur = 10
+          ctx.fillText('MINI MAGOS', VIRTUAL_W / 2, 100)
+          ctx.shadowBlur = 0
+
+          ctx.fillStyle = '#E0E0E0'
+          ctx.font = '16px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('Grizzy & los Lemmings', VIRTUAL_W / 2, 130)
+
+          // Grizzy preview
+          drawGrizzy()
+
+          // Instructions
+          ctx.fillStyle = '#fff'
+          ctx.font = '12px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('🖱️ Toca las criaturas para lanzar un hechizo', VIRTUAL_W / 2, 230)
+          ctx.fillText(
+            '✨ Criatura normal: +10 pts  |  Criatura dorada: +30 pts',
+            VIRTUAL_W / 2,
+            250,
+          )
+          ctx.fillText('💔 Si escapan: -1 vida  |  🏆 40 niveles', VIRTUAL_W / 2, 270)
+
+          if (highScore > 0) {
+            ctx.fillStyle = '#FFD700'
+            ctx.font = '14px "Segoe UI", Arial, sans-serif'
+            ctx.fillText('🏆 RECORD: ' + highScore, VIRTUAL_W / 2, 300)
+          }
+
+          // Animated play button
+          const pulse = 0.8 + Math.sin(gameTime * 0.005) * 0.2
+          ctx.fillStyle = '#6A1B9A'
+          ctx.shadowColor = '#9C27B0'
+          ctx.shadowBlur = 15 * pulse
+          const btnW = 160,
+            btnH = 45
+          ctx.beginPath()
+          ctx.roundRect(VIRTUAL_W / 2 - btnW / 2, 320 - btnH / 2, btnW, btnH, 10)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 20px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('▶  JUGAR', VIRTUAL_W / 2, 327)
+
+          ctx.fillStyle = '#999'
+          ctx.font = '10px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('v1.0 - Hecho con 🧙', VIRTUAL_W / 2, 380)
+        }
+
+        function drawGameOver() {
+          ctx.fillStyle = 'rgba(0,0,0,0.75)'
+          ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#ff4444'
+          ctx.font = 'bold 32px "Segoe UI", Arial, sans-serif'
+          ctx.shadowColor = '#ff0000'
+          ctx.shadowBlur = 15
+          ctx.fillText(isVictory ? '🎉 VICTORIA! 🎉' : 'GAME OVER', VIRTUAL_W / 2, 120)
+          ctx.shadowBlur = 0
+
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 22px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('Puntuación: ' + score, VIRTUAL_W / 2, 175)
+
+          ctx.fillStyle = '#aaa'
+          ctx.font = '16px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('Nivel alcanzado: ' + level, VIRTUAL_W / 2, 205)
+
+          if (score >= highScore && score > 0) {
+            ctx.fillStyle = '#FFD700'
+            ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif'
+            ctx.shadowColor = '#FFD700'
+            ctx.shadowBlur = 10
+            ctx.fillText('🏆 NUEVO RÉCORD! 🏆', VIRTUAL_W / 2, 240)
+            ctx.shadowBlur = 0
+          }
+
+          const pulse = 0.8 + Math.sin(gameTime * 0.005) * 0.2
+          ctx.fillStyle = '#6A1B9A'
+          ctx.shadowColor = '#9C27B0'
+          ctx.shadowBlur = 15 * pulse
+          const btnW = 180,
+            btnH = 45
+          ctx.beginPath()
+          ctx.roundRect(VIRTUAL_W / 2 - btnW / 2, 270 - btnH / 2, btnW, btnH, 10)
+          ctx.fill()
+          ctx.shadowBlur = 0
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 18px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('🔄 JUGAR DE NUEVO', VIRTUAL_W / 2, 277)
+        }
+
+        function drawLevelUp() {
+          if (transitionTimer <= 0) return
+          ctx.fillStyle = 'rgba(0,0,0,' + transitionTimer / 60 + ')'
+          ctx.fillRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+          ctx.textAlign = 'center'
+          ctx.fillStyle = '#FFD700'
+          ctx.font =
+            'bold ' + (28 + Math.sin(gameTime * 0.01) * 2) + 'px "Segoe UI", Arial, sans-serif'
+          ctx.shadowColor = '#FF6B6B'
+          ctx.shadowBlur = 15
+          ctx.fillText('🎉 NIVEL ' + level + ' 🎉', VIRTUAL_W / 2, VIRTUAL_H / 2)
+          ctx.shadowBlur = 0
+          ctx.fillStyle = '#fff'
+          ctx.font = '14px "Segoe UI", Arial, sans-serif'
+          ctx.fillText('¡Más rápido! ⚡', VIRTUAL_W / 2, VIRTUAL_H / 2 + 30)
+        }
+
+        function startGame() {
+          state = GAME_STATE.PLAYING
+          score = 0
+          lives = 3
+          level = 1
+          creatures = []
+          particles = []
+          spells = []
+          transformed = []
+          comboCount = 0
+          creatureSpawnTimer = 0
+          spawnInterval = 120
+          hitShake = 0
+          transitionTimer = 0
+          creaturesConverted = 0
+          creaturesToAdvance = 10
+        }
+
+        function gameOver(victory) {
+          state = GAME_STATE.GAMEOVER
+          isVictory = !!victory
+          playSound('gameover')
+          if (score > highScore) {
+            highScore = score
+            localStorage.setItem('grizzy_wizard', highScore)
+          }
+        }
+
+        function handlePointer(e) {
+          e.preventDefault()
+          const rect = canvas.getBoundingClientRect()
+          let clientX, clientY
+          if (e.touches) {
+            clientX = e.touches[0].clientX
+            clientY = e.touches[0].clientY
+          } else {
+            clientX = e.clientX
+            clientY = e.clientY
+          }
+          const mx = (clientX - offsetX) / scale
+          const my = (clientY - offsetY) / scale
+
+          if (mx < 0 || mx > VIRTUAL_W || my < 0 || my > VIRTUAL_H) return
+
+          if (state === GAME_STATE.MENU) {
+            const btnY = 320
+            if (
+              my >= btnY - 22 &&
+              my <= btnY + 22 &&
+              mx >= VIRTUAL_W / 2 - 80 &&
+              mx <= VIRTUAL_W / 2 + 80
+            ) {
+              initAudio()
+              startGame()
+            }
+            return
+          }
+
+          if (state === GAME_STATE.GAMEOVER) {
+            const btnY = 270
+            if (
+              my >= btnY - 22 &&
+              my <= btnY + 22 &&
+              mx >= VIRTUAL_W / 2 - 90 &&
+              mx <= VIRTUAL_W / 2 + 90
+            ) {
+              startGame()
+            }
+            return
+          }
+
+          // Playing - find nearest creature
+          let closest = null
+          let closestDist = Infinity
+          for (const c of creatures) {
+            if (!c.alive) continue
+            const dist = Math.hypot(mx - c.x, my - c.y)
+            if (dist < c.r * 2.5 && dist < closestDist) {
+              closest = c
+              closestDist = dist
+            }
+          }
+          if (closest) {
+            castSpell(closest)
+          } else {
+            // Miss click - small feedback
+            spawnParticles(mx, my, '#ffffff', 3)
+          }
+        }
+
+        function resize() {
+          const wrapper = document.getElementById('game-wrapper')
+          const ww = window.innerWidth
+          const wh = window.innerHeight
+
+          const scaleX = ww / VIRTUAL_W
+          const scaleY = wh / VIRTUAL_H
+          scale = Math.min(scaleX, scaleY)
+          const sw = VIRTUAL_W * scale
+          const sh = VIRTUAL_H * scale
+          offsetX = (ww - sw) / 2
+          offsetY = (wh - sh) / 2
+
+          canvas.width = VIRTUAL_W
+          canvas.height = VIRTUAL_H
+          canvas.style.width = sw + 'px'
+          canvas.style.height = sh + 'px'
+          canvas.style.position = 'absolute'
+          canvas.style.left = offsetX + 'px'
+          canvas.style.top = offsetY + 'px'
+        }
+
+        function update() {
+          gameTime++
+          if (state !== GAME_STATE.PLAYING) return
+
+          // Spawn creatures
+          creatureSpawnTimer++
+          spawnInterval = Math.max(30, 120 - level * 2)
+          if (
+            creatureSpawnTimer >= spawnInterval &&
+            creatures.filter((c) => c.alive).length < 8 + Math.floor(level / 5)
+          ) {
+            creatureSpawnTimer = 0
+            createCreature()
+          }
+
+          // Update creatures
+          for (const c of creatures) {
+            if (!c.alive) continue
+            c.x += c.vx
+            c.y += c.vy
+            c.wobble += 0.05
+            c.y += Math.sin(c.wobble) * 0.2
+
+            // Check if escaped
+            if (c.x < -30 || c.x > VIRTUAL_W + 30 || c.y < -30 || c.y > VIRTUAL_H + 30) {
+              c.alive = false
+              lives--
+              comboCount = 0
+              hitShake = 15
+              playSound('hit')
+              if (lives <= 0) {
+                gameOver(false)
+                return
+              }
+            }
+          }
+
+          // Update spells
+          updateSpells()
+
+          // Update particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.02
+            p.life -= p.decay
+            p.vx *= 0.98
+            p.vy *= 0.98
+            if (p.life <= 0) particles.splice(i, 1)
+          }
+
+          // Update transformed objects
+          for (let i = transformed.length - 1; i >= 0; i--) {
+            const t = transformed[i]
+            t.life -= 0.008
+            t.vy += 0.02
+            t.y += t.vy
+            t.rot += 0.03
+            if (t.life <= 0) transformed.splice(i, 1)
+          }
+
+          // Shake decay
+          if (hitShake > 0) hitShake *= 0.9
+          if (hitShake < 0.5) hitShake = 0
+
+          // Level transition
+          if (transitionTimer > 0) {
+            transitionTimer--
+          } else if (creaturesConverted >= creaturesToAdvance) {
+            if (level < maxLevel) {
+              level++
+              creaturesConverted = 0
+              creaturesToAdvance = 10 + level
+              creatures = []
+              spawnInterval = Math.max(30, 120 - level * 2)
+              playSound('levelup')
+            } else {
+              gameOver(true)
+              return
+            }
+            transitionTimer = 60
+          }
+
+          // Remove dead creatures periodically
+          creatures = creatures.filter((c) => c.alive)
+        }
+
+        function render() {
+          ctx.clearRect(0, 0, VIRTUAL_W, VIRTUAL_H)
+
+          ctx.save()
+          if (hitShake > 0.5) {
+            const shakeX = (Math.random() - 0.5) * hitShake * 0.5
+            const shakeY = (Math.random() - 0.5) * hitShake * 0.5
+            ctx.translate(shakeX, shakeY)
+          }
+
+          drawBackground()
+
+          // Draw creatures
+          for (const c of creatures) {
+            if (c.alive) drawCreature(c)
+          }
+
+          // Draw transformed
+          for (const t of transformed) {
+            ctx.globalAlpha = t.life
+            drawTransformed(t)
+            ctx.globalAlpha = 1
+          }
+
+          // Draw spells
+          for (const s of spells) {
+            drawSpell(s)
+          }
+
+          // Draw Grizzy
+          drawGrizzy()
+
+          // Particles
+          for (const p of particles) {
+            ctx.globalAlpha = p.life
+            ctx.fillStyle = p.color
+            ctx.shadowColor = p.color
+            ctx.shadowBlur = 6
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.shadowBlur = 0
+          ctx.globalAlpha = 1
+
+          // HUD
+          if (state === GAME_STATE.PLAYING) {
+            drawHUD()
+          }
+
+          ctx.restore()
+
+          // Overlays (not affected by shake)
+          if (state === GAME_STATE.MENU) {
+            drawMenu()
+          } else if (state === GAME_STATE.GAMEOVER) {
+            drawGameOver()
+          }
+
+          // Level up animation
+          drawLevelUp()
+        }
+
+        function gameLoop() {
+          update()
+          render()
+          requestAnimationFrame(gameLoop)
+        }
+
+        // Event listeners
+        canvas.addEventListener('click', handlePointer)
+        canvas.addEventListener('touchstart', handlePointer, { passive: false })
+
+        window.addEventListener('resize', resize)
+        resize()
+
+        // Start loop
+        gameLoop()
+      })()
+    </script>
+  </body>
+</html>

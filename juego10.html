@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+    <title>Pintor Loco - Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      #gameContainer {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fff8e1;
+      }
+      canvas {
+        display: block;
+        background: #fff8e1;
+        border-radius: 4px;
+        cursor: none;
+        touch-action: none;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 248, 225, 0.92);
+        z-index: 10;
+        transition: opacity 0.4s;
+      }
+      .overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .overlay h1 {
+        font-size: clamp(28px, 6vw, 56px);
+        color: #5d4037;
+        margin-bottom: 8px;
+        text-shadow: 2px 2px 0 #d7ccc8;
+      }
+      .overlay h2 {
+        font-size: clamp(18px, 3.5vw, 32px);
+        color: #6d4c41;
+        margin-bottom: 20px;
+      }
+      .overlay p {
+        font-size: clamp(14px, 2.5vw, 22px);
+        color: #795548;
+        max-width: 80%;
+        text-align: center;
+        margin-bottom: 12px;
+        line-height: 1.5;
+      }
+      .btn {
+        background: #8b4513;
+        color: #fff8e1;
+        border: none;
+        padding: 14px 40px;
+        font-size: clamp(18px, 3vw, 28px);
+        border-radius: 30px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(139, 69, 19, 0.4);
+        transition:
+          transform 0.15s,
+          box-shadow 0.15s;
+        margin: 6px;
+        touch-action: manipulation;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 6px 18px rgba(139, 69, 19, 0.5);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .btn-small {
+        background: #6d4c41;
+        padding: 10px 24px;
+        font-size: clamp(14px, 2vw, 18px);
+      }
+      .hud {
+        position: absolute;
+        top: 8px;
+        left: 0;
+        width: 100%;
+        padding: 0 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        pointer-events: none;
+        z-index: 5;
+        font-size: clamp(14px, 2.5vw, 22px);
+        color: #5d4037;
+        font-weight: bold;
+      }
+      .hud span {
+        background: rgba(255, 248, 225, 0.85);
+        padding: 4px 14px;
+        border-radius: 16px;
+        border: 2px solid #d7ccc8;
+      }
+      .celebration-particle {
+        position: absolute;
+        pointer-events: none;
+        z-index: 20;
+      }
+      .grizzy-icon {
+        font-size: clamp(60px, 12vw, 120px);
+        margin-bottom: 10px;
+        line-height: 1;
+      }
+      .level-stars {
+        font-size: clamp(20px, 3vw, 36px);
+        margin: 6px 0;
+        letter-spacing: 6px;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="gameContainer">
+      <canvas id="gameCanvas"></canvas>
+
+      <div id="menuScreen" class="overlay">
+        <div class="grizzy-icon">🐻</div>
+        <h1>Pintor Loco 🎨</h1>
+        <h2>Grizzy &amp; the Lemmings</h2>
+        <p>
+          ¡Ayuda a Grizzy a pintar todas las figuras con su pincel mágico!<br />Cuidado con los
+          Lemmings que despintan...
+        </p>
+        <button class="btn" id="startBtn">🎨 ¡Empezar a pintar!</button>
+        <p
+          style="font-size: clamp(12px, 2vw, 16px); margin-top: 10px; color: #a1887f"
+          id="continueInfo"
+        ></p>
+      </div>
+
+      <div id="levelCompleteScreen" class="overlay hidden">
+        <h1>🎉 ¡Nivel Completado!</h1>
+        <div class="level-stars">⭐ ⭐ ⭐</div>
+        <p id="levelCompleteText">Pasando al siguiente nivel...</p>
+        <button class="btn" id="nextLevelBtn">➡️ Siguiente Nivel</button>
+      </div>
+
+      <div id="celebrationScreen" class="overlay hidden">
+        <h1>🏆 ¡ERES UN ARTISTA!</h1>
+        <div class="grizzy-icon" style="font-size: clamp(80px, 16vw, 160px)">🐻🎨</div>
+        <h2>¡40 niveles completados!</h2>
+        <p>Grizzy está orgulloso de ti.<br />¡Eres el mejor pintor del mundo!</p>
+        <button class="btn" id="restartBtn">🔄 Jugar de nuevo</button>
+      </div>
+
+      <div class="hud" id="hud">
+        <span id="levelDisplay">Nivel 1</span>
+        <span id="progressDisplay">0/0</span>
+      </div>
+    </div>
+
+    <script>
+      const VIRT_W = 600,
+        VIRT_H = 400
+      const COLORS = {
+        circle: '#E53935',
+        square: '#1565C0',
+        triangle: '#4CAF50',
+        star: '#FFC107',
+        heart: '#E91E63',
+      }
+      const SHAPE_TYPES = ['circle', 'square', 'triangle', 'star', 'heart']
+      const MAX_LEVEL = 40
+
+      let canvas, ctx, vScale, offX, offY
+      let gameState = 'menu' // menu|playing|levelComplete|celebration
+      let level = 1,
+        score = 0,
+        shapes = [],
+        particles = [],
+        lemming = null
+      let gx = VIRT_W / 2,
+        gy = VIRT_H / 2
+      let lastTime = 0
+      let shapesPainted = 0,
+        totalShapes = 0
+      let paintSound = null,
+        levelSound = null,
+        lemmingSound = null
+      let levelCompleteTimer = 0
+      let lemmingTimer = 0,
+        lemmingInterval = 0
+      let animFrameId = null
+      let mouseDown = false
+      let gamePaused = false
+
+      // === AUDIO ===
+      function initAudio() {
+        paintSound = createOscillatorSound(600, 800, 0.15, 'sine')
+        levelSound = createJingleSound()
+        lemmingSound = createOscillatorSound(400, 200, 0.2, 'sawtooth')
+      }
+
+      function createOscillatorSound(f1, f2, dur, type) {
+        return function () {
+          try {
+            const ac = new (window.AudioContext || webkitAudioContext)()
+            const osc = ac.createOscillator()
+            const gain = ac.createGain()
+            osc.type = type
+            osc.frequency.setValueAtTime(f1, ac.currentTime)
+            osc.frequency.exponentialRampToValueAtTime(Math.max(f2, 20), ac.currentTime + dur)
+            gain.gain.setValueAtTime(0.3, ac.currentTime)
+            gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + dur)
+            osc.connect(gain)
+            gain.connect(ac.destination)
+            osc.start(ac.currentTime)
+            osc.stop(ac.currentTime + dur)
+            setTimeout(() => ac.close(), dur * 1000 + 100)
+          } catch (e) {}
+        }
+      }
+
+      function createJingleSound() {
+        return function () {
+          try {
+            const ac = new (window.AudioContext || webkitAudioContext)()
+            const notes = [523, 659, 784]
+            notes.forEach((f, i) => {
+              const osc = ac.createOscillator()
+              const gain = ac.createGain()
+              osc.type = 'sine'
+              osc.frequency.value = f
+              gain.gain.setValueAtTime(0.25, ac.currentTime + i * 0.12)
+              gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + i * 0.12 + 0.25)
+              osc.connect(gain)
+              gain.connect(ac.destination)
+              osc.start(ac.currentTime + i * 0.12)
+              osc.stop(ac.currentTime + i * 0.12 + 0.25)
+            })
+            setTimeout(() => ac.close(), 1000)
+          } catch (e) {}
+        }
+      }
+
+      function playSound(snd) {
+        if (snd)
+          try {
+            snd()
+          } catch (e) {}
+      }
+
+      // === SHAPES ===
+      function createShape() {
+        const type = SHAPE_TYPES[Math.floor(Math.random() * SHAPE_TYPES.length)]
+        const size = 40 + Math.random() * 20
+        const pad = size
+        const x = pad + Math.random() * (VIRT_W - pad * 2)
+        const y = pad + Math.random() * (VIRT_H - pad * 2)
+        const baseSpeed = 0.5 + level * 0.08
+        const speed = baseSpeed * (0.7 + Math.random() * 0.6)
+        const angle = Math.random() * Math.PI * 2
+        return {
+          type,
+          size,
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          painted: false,
+          paintProgress: 0,
+          color: COLORS[type],
+          targetProgress: 0,
+          id: Math.random().toString(36).substr(2, 6),
+        }
+      }
+
+      function getShapesCount(level) {
+        return Math.min(3 + Math.floor(level * 0.35), 20)
+      }
+
+      function initLevel(lvl) {
+        level = lvl
+        const count = getShapesCount(level)
+        shapes = []
+        particles = []
+        lemming = null
+        shapesPainted = 0
+        totalShapes = count
+        lemmingTimer = 0
+        lemmingInterval = 5000 + Math.random() * 5000
+        for (let i = 0; i < count; i++) shapes.push(createShape())
+        updateHUD()
+      }
+
+      function getPaintProgress(target) {
+        return target
+      }
+
+      function hitTestShape(s, px, py) {
+        const hSize = s.size / 2
+        switch (s.type) {
+          case 'circle':
+            return Math.hypot(px - s.x, py - s.y) < hSize
+          case 'square':
+            return Math.abs(px - s.x) < hSize && Math.abs(py - s.y) < hSize
+          case 'triangle':
+            return pointInTriangle(
+              px,
+              py,
+              s.x,
+              s.y - hSize,
+              s.x - hSize,
+              s.y + hSize,
+              s.x + hSize,
+              s.y + hSize,
+            )
+          case 'star':
+            return Math.hypot(px - s.x, py - s.y) < hSize
+          case 'heart':
+            return Math.hypot(px - s.x, py - s.y * 0.7) < hSize * 0.85
+        }
+        return false
+      }
+
+      function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+        const d1 = sign(px, py, x1, y1, x2, y2)
+        const d2 = sign(px, py, x2, y2, x3, y3)
+        const d3 = sign(px, py, x3, y3, x1, y1)
+        const hasNeg = d1 < 0 || d2 < 0 || d3 < 0
+        const hasPos = d1 > 0 || d2 > 0 || d3 > 0
+        return !(hasNeg && hasPos)
+      }
+      function sign(px, py, x1, y1, x2, y2) {
+        return (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2)
+      }
+
+      // === PARTICLES ===
+      function spawnPaintParticles(x, y, color, count) {
+        count = count || 25
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const speed = 30 + Math.random() * 80
+          const size = 2 + Math.random() * 5
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            life: 1,
+            decay: 0.8 + Math.random() * 0.5,
+            size,
+            color,
+            type: 'paint',
+          })
+        }
+      }
+
+      function spawnConfetti() {
+        for (let i = 0; i < 80; i++) {
+          const x = Math.random() * VIRT_W
+          const y = -20 - Math.random() * 200
+          const colors = [
+            '#E53935',
+            '#1565C0',
+            '#4CAF50',
+            '#FFC107',
+            '#E91E63',
+            '#FF9800',
+            '#9C27B0',
+          ]
+          particles.push({
+            x,
+            y,
+            vx: (-50 + Math.random() * 100) * 0.5,
+            vy: 30 + Math.random() * 80,
+            life: 1,
+            decay: 0.15 + Math.random() * 0.1,
+            size: 4 + Math.random() * 6,
+            color: colors[Math.floor(Math.random() * colors.length)],
+            type: 'confetti',
+            rot: Math.random() * Math.PI * 2,
+            rotSpeed: -3 + Math.random() * 6,
+          })
+        }
+      }
+
+      // === LEMMING ===
+      function spawnLemming() {
+        const painted = shapes.filter((s) => s.painted)
+        if (painted.length === 0 || shapes.length === 0) return
+        const target = painted[Math.floor(Math.random() * painted.length)]
+        if (!target) return
+        const side = Math.floor(Math.random() * 4)
+        let lx, ly
+        switch (side) {
+          case 0:
+            lx = Math.random() * VIRT_W
+            ly = -30
+            break
+          case 1:
+            lx = VIRT_W + 30
+            ly = Math.random() * VIRT_H
+            break
+          case 2:
+            lx = Math.random() * VIRT_W
+            ly = VIRT_H + 30
+            break
+          case 3:
+            lx = -30
+            ly = Math.random() * VIRT_H
+            break
+        }
+        lemming = {
+          x: lx,
+          y: ly,
+          target: target,
+          speed: 25 + level * 0.5,
+          state: 'moving', // moving|unpainting|leaving
+          timer: 0,
+          alpha: 1,
+        }
+        playSound(lemmingSound)
+      }
+
+      function updateLemming(dt) {
+        if (!lemming) return
+        const t = lemming.target
+        if (!t || shapes.indexOf(t) === -1) {
+          lemming = null
+          return
+        }
+        switch (lemming.state) {
+          case 'moving': {
+            const dx = t.x - lemming.x,
+              dy = t.y - lemming.y
+            const dist = Math.hypot(dx, dy)
+            if (dist < 15) {
+              lemming.state = 'unpainting'
+              lemming.timer = 0
+            } else {
+              const step = lemming.speed * dt
+              lemming.x += (dx / dist) * step
+              lemming.y += (dy / dist) * step
+            }
+            break
+          }
+          case 'unpainting': {
+            lemming.timer += dt
+            if (lemming.timer > 0.4) {
+              t.painted = false
+              t.paintProgress = 0
+              t.targetProgress = 0
+              spawnPaintParticles(t.x, t.y, '#7E8A9E', 12)
+              lemming.state = 'leaving'
+              lemming.timer = 0
+              const angle = Math.atan2(lemming.y - VIRT_H / 2, lemming.x - VIRT_W / 2)
+              lemming.vx = Math.cos(angle) * lemming.speed * 1.5
+              lemming.vy = Math.sin(angle) * lemming.speed * 1.5
+            }
+            break
+          }
+          case 'leaving': {
+            lemming.timer += dt
+            lemming.x += lemming.vx * dt
+            lemming.y += lemming.vy * dt
+            lemming.alpha = Math.max(0, 1 - lemming.timer / 2)
+            if (
+              lemming.timer > 2 ||
+              lemming.x < -50 ||
+              lemming.x > VIRT_W + 50 ||
+              lemming.y < -50 ||
+              lemming.y > VIRT_H + 50
+            ) {
+              lemming = null
+            }
+            break
+          }
+        }
+      }
+
+      function drawLemming(ctx) {
+        if (!lemming) return
+        const { l } = lemming
+        ctx.save()
+        ctx.globalAlpha = lemming.alpha
+        const x = lemming.x,
+          y = lemming.y
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(x, y, 10, 13, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x, y - 13, 9, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#90A4AE'
+        ctx.beginPath()
+        ctx.arc(x - 6, y - 19, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + 6, y - 19, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#000'
+        ctx.beginPath()
+        ctx.arc(x - 4, y - 15, 1.8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + 4, y - 15, 1.8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#EF9A9A'
+        ctx.beginPath()
+        ctx.arc(x, y - 11, 1.8, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#000'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(x, y - 9, 2.5, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+        ctx.fillStyle = '#5D4037'
+        ctx.save()
+        ctx.translate(x + 8, y - 4)
+        ctx.rotate(0.3)
+        ctx.fillRect(0, 0, 3, 10)
+        ctx.fillStyle = '#78909C'
+        ctx.beginPath()
+        ctx.arc(5, 2, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+        ctx.fillStyle = '#5D4037'
+        ctx.save()
+        ctx.translate(x - 6, y - 2)
+        ctx.rotate(-0.2)
+        ctx.fillRect(0, 0, 2.5, 8)
+        ctx.restore()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.arc(x - 3, y + 4, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x + 3, y + 4, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      // === GRIZZY ===
+      function drawGrizzy(ctx, x, y) {
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.fillStyle = '#6D4C41'
+        ctx.beginPath()
+        ctx.ellipse(0, 6, 18, 20, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8D6E63'
+        ctx.beginPath()
+        ctx.ellipse(-10, 16, 6, 8, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(10, 16, 6, 8, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.arc(-1, 1, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#D32F2F'
+        ctx.beginPath()
+        ctx.ellipse(0, -24, 16, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(0, -26, 6, Math.PI, 0)
+        ctx.fill()
+        ctx.fillStyle = '#B71C1C'
+        ctx.beginPath()
+        ctx.arc(0, -26, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.arc(-1, -17, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#3E2723'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(-1, -17, 6, 0.15, Math.PI - 0.15)
+        ctx.stroke()
+        ctx.fillStyle = '#FFF'
+        ctx.beginPath()
+        ctx.arc(-4.5, -19, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(2.5, -19, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.arc(-4.5, -19, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(2.5, -19, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(-1, -15, 2.5, 1.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#3E2723'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(-1, -12, 3.5, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+        ctx.save()
+        ctx.translate(14, 0)
+        ctx.strokeStyle = '#6D4C41'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.moveTo(0, 0)
+        ctx.lineTo(18, 10)
+        ctx.stroke()
+        ctx.strokeStyle = '#8D6E63'
+        ctx.lineWidth = 2.5
+        ctx.beginPath()
+        ctx.moveTo(16, 8)
+        ctx.lineTo(26, 16)
+        ctx.stroke()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.arc(27, 17, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FF8A65'
+        ctx.beginPath()
+        ctx.arc(27, 17, 2, 0.2, Math.PI * 2 - 0.2)
+        ctx.fill()
+        ctx.strokeStyle = '#3E2723'
+        ctx.lineWidth = 0.8
+        ctx.beginPath()
+        ctx.arc(27, 17, 2.5, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+        ctx.restore()
+      }
+
+      // === SHAPE DRAWING ===
+      function drawShape(ctx, s) {
+        ctx.save()
+        ctx.strokeStyle = '#000'
+        ctx.lineWidth = 2.5
+        const h = s.size / 2
+        const alpha = s.painted ? Math.min(1, s.paintProgress) : 0
+        const fillColor = s.painted ? s.color : '#FFF'
+        switch (s.type) {
+          case 'circle':
+            ctx.beginPath()
+            ctx.arc(s.x, s.y, h, 0, Math.PI * 2)
+            if (alpha > 0) {
+              ctx.fillStyle = fillColor
+              ctx.globalAlpha = alpha
+              ctx.fill()
+              ctx.globalAlpha = 1
+            }
+            ctx.stroke()
+            break
+          case 'square':
+            ctx.beginPath()
+            ctx.rect(s.x - h, s.y - h, s.size, s.size)
+            if (alpha > 0) {
+              ctx.fillStyle = fillColor
+              ctx.globalAlpha = alpha
+              ctx.fill()
+              ctx.globalAlpha = 1
+            }
+            ctx.stroke()
+            break
+          case 'triangle':
+            ctx.beginPath()
+            ctx.moveTo(s.x, s.y - h)
+            ctx.lineTo(s.x - h, s.y + h)
+            ctx.lineTo(s.x + h, s.y + h)
+            ctx.closePath()
+            if (alpha > 0) {
+              ctx.fillStyle = fillColor
+              ctx.globalAlpha = alpha
+              ctx.fill()
+              ctx.globalAlpha = 1
+            }
+            ctx.stroke()
+            break
+          case 'star': {
+            const spikes = 5
+            const or = h,
+              ir = h * 0.4
+            ctx.beginPath()
+            for (let i = 0; i < spikes * 2; i++) {
+              const r = i % 2 === 0 ? or : ir
+              const a = (i * Math.PI) / spikes - Math.PI / 2
+              const px = s.x + r * Math.cos(a),
+                py = s.y + r * Math.sin(a)
+              i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+            }
+            ctx.closePath()
+            if (alpha > 0) {
+              ctx.fillStyle = fillColor
+              ctx.globalAlpha = alpha
+              ctx.fill()
+              ctx.globalAlpha = 1
+            }
+            ctx.stroke()
+            break
+          }
+          case 'heart':
+            ctx.beginPath()
+            ctx.moveTo(s.x, s.y + h * 0.6)
+            ctx.bezierCurveTo(
+              s.x - h * 1.1,
+              s.y + h * 0.1,
+              s.x - h * 0.7,
+              s.y - h * 0.7,
+              s.x,
+              s.y - h * 0.15,
+            )
+            ctx.bezierCurveTo(
+              s.x + h * 0.7,
+              s.y - h * 0.7,
+              s.x + h * 1.1,
+              s.y + h * 0.1,
+              s.x,
+              s.y + h * 0.6,
+            )
+            if (alpha > 0) {
+              ctx.fillStyle = fillColor
+              ctx.globalAlpha = alpha
+              ctx.fill()
+              ctx.globalAlpha = 1
+            }
+            ctx.stroke()
+            break
+        }
+        if (!s.painted) {
+          ctx.fillStyle = 'rgba(255,255,255,0.3)'
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, 3, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+
+      // === SCREENS ===
+      function showMenu() {
+        gameState = 'menu'
+        document.getElementById('menuScreen').classList.remove('hidden')
+        document.getElementById('levelCompleteScreen').classList.add('hidden')
+        document.getElementById('celebrationScreen').classList.add('hidden')
+        const saved = localStorage.getItem('grizzy_painter')
+        const info = document.getElementById('continueInfo')
+        if (saved) {
+          const data = JSON.parse(saved)
+          if (data.level && data.level <= MAX_LEVEL) {
+            info.textContent = '🐻 Progreso guardado: Nivel ' + data.level
+          }
+        }
+      }
+
+      function startGame() {
+        initAudio()
+        const saved = localStorage.getItem('grizzy_painter')
+        let startLvl = 1
+        if (saved) {
+          const data = JSON.parse(saved)
+          if (data.level && data.level <= MAX_LEVEL) startLvl = data.level
+        }
+        document.getElementById('menuScreen').classList.add('hidden')
+        gameState = 'playing'
+        initLevel(startLvl)
+      }
+
+      function completeLevel() {
+        gameState = 'levelComplete'
+        document.getElementById('levelCompleteScreen').classList.remove('hidden')
+        document.getElementById('levelCompleteText').textContent =
+          '¡Has pintado todas las figuras del nivel ' + level + '!'
+        playSound(levelSound)
+        levelCompleteTimer = 2.5
+        saveProgress()
+      }
+
+      function nextLevel() {
+        if (gameState !== 'levelComplete') return
+        document.getElementById('levelCompleteScreen').classList.add('hidden')
+        if (level >= MAX_LEVEL) {
+          gameState = 'celebration'
+          document.getElementById('celebrationScreen').classList.remove('hidden')
+          spawnConfetti()
+          saveProgress()
+        } else {
+          gameState = 'playing'
+          initLevel(level + 1)
+        }
+      }
+
+      function restartGame() {
+        if (gameState !== 'celebration') return
+        document.getElementById('celebrationScreen').classList.add('hidden')
+        gameState = 'playing'
+        initLevel(1)
+        saveProgress()
+      }
+
+      function saveProgress() {
+        try {
+          localStorage.setItem('grizzy_painter', JSON.stringify({ level, score, date: Date.now() }))
+        } catch (e) {}
+      }
+
+      function updateHUD() {
+        document.getElementById('levelDisplay').textContent = 'Nivel ' + level + '/' + MAX_LEVEL
+        document.getElementById('progressDisplay').textContent = shapesPainted + '/' + totalShapes
+      }
+
+      // === MAIN LOOP ===
+      function updateParticles(dt) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx * dt
+          p.y += p.vy * dt
+          p.life -= p.decay * dt
+          if (p.type === 'confetti') {
+            p.vy += 40 * dt
+            p.rot = (p.rot || 0) + (p.rotSpeed || 0) * dt
+          }
+          if (p.life <= 0) particles.splice(i, 1)
+        }
+      }
+
+      function update(dt) {
+        if (gameState !== 'playing') return
+        for (let i = 0; i < shapes.length; i++) {
+          const s = shapes[i]
+          s.x += s.vx * dt
+          s.y += s.vy * dt
+          if (s.x < s.size / 2) {
+            s.x = s.size / 2
+            s.vx *= -1
+          }
+          if (s.x > VIRT_W - s.size / 2) {
+            s.x = VIRT_W - s.size / 2
+            s.vx *= -1
+          }
+          if (s.y < s.size / 2) {
+            s.y = s.size / 2
+            s.vy *= -1
+          }
+          if (s.y > VIRT_H - s.size / 2) {
+            s.y = VIRT_H - s.size / 2
+            s.vy *= -1
+          }
+          if (s.painted && s.paintProgress < 1) {
+            s.paintProgress = Math.min(1, s.paintProgress + dt * 3)
+          }
+        }
+        lemmingTimer += dt * 1000
+        if (lemmingTimer >= lemmingInterval) {
+          lemmingTimer = 0
+          lemmingInterval = 8000 + Math.random() * 7000 - Math.min(level * 100, 5000)
+          lemmingInterval = Math.max(lemmingInterval, 4000)
+          spawnLemming()
+        }
+        updateLemming(dt)
+        if (shapesPainted === totalShapes && totalShapes > 0) {
+          completeLevel()
+        }
+      }
+
+      function render() {
+        ctx.clearRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = '#FFF8E1'
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        for (const s of shapes) drawShape(ctx, s)
+        for (const p of particles) {
+          ctx.save()
+          if (p.type === 'confetti') {
+            ctx.translate(p.x, p.y)
+            ctx.rotate(p.rot || 0)
+            ctx.globalAlpha = Math.max(0, p.life)
+            ctx.fillStyle = p.color
+            ctx.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2)
+          } else {
+            ctx.globalAlpha = Math.max(0, p.life)
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size * (0.3 + 0.7 * p.life), 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+        drawLemming(ctx)
+        drawGrizzy(ctx, gx, gy)
+      }
+
+      function gameLoop(timestamp) {
+        const dt = lastTime ? Math.min((timestamp - lastTime) / 1000, 0.05) : 0.016
+        lastTime = timestamp
+        if (gameState === 'playing') update(dt)
+        updateParticles(dt)
+        render()
+        if (gameState === 'levelComplete' && levelCompleteTimer > 0) {
+          levelCompleteTimer -= dt
+          if (levelCompleteTimer <= 0) {
+            document.getElementById('nextLevelBtn').click()
+          }
+        }
+        animFrameId = requestAnimationFrame(gameLoop)
+      }
+
+      // === EVENTS ===
+      function handlePointerDown(px, py) {
+        if (gameState === 'playing') {
+          for (let i = shapes.length - 1; i >= 0; i--) {
+            const s = shapes[i]
+            if (!s.painted && hitTestShape(s, px, py)) {
+              const dist = Math.hypot(px - gx, py - gy)
+              if (dist < 80) {
+                s.painted = true
+                s.targetProgress = 1
+                if (s.paintProgress < 0.01) s.paintProgress = 0.01
+                shapesPainted++
+                updateHUD()
+                spawnPaintParticles(s.x, s.y, s.color, 30)
+                playSound(paintSound)
+                return
+              }
+            }
+          }
+        }
+      }
+
+      function getCanvasCoords(e) {
+        const rect = canvas.getBoundingClientRect()
+        const clientX = e.clientX !== undefined ? e.clientX : e.touches[0].clientX
+        const clientY = e.clientY !== undefined ? e.clientY : e.touches[0].clientY
+        return {
+          x: (clientX - rect.left) / vScale,
+          y: (clientY - rect.top) / vScale,
+        }
+      }
+
+      function setupCanvas() {
+        canvas = document.getElementById('gameCanvas')
+        ctx = canvas.getContext('2d')
+        resizeCanvas()
+        window.addEventListener('resize', resizeCanvas)
+      }
+
+      function resizeCanvas() {
+        const container = document.getElementById('gameContainer')
+        const cw = container.clientWidth,
+          ch = container.clientHeight
+        const scale = Math.min(cw / VIRT_W, ch / VIRT_H)
+        canvas.width = VIRT_W * scale
+        canvas.height = VIRT_H * scale
+        canvas.style.width = VIRT_W * scale + 'px'
+        canvas.style.height = VIRT_H * scale + 'px'
+        vScale = scale
+        offX = (cw - canvas.width) / 2
+        offY = (ch - canvas.height) / 2
+        canvas.style.marginLeft = offX + 'px'
+        canvas.style.marginTop = offY + 'px'
+      }
+
+      document.getElementById('startBtn').addEventListener('click', startGame)
+      document.getElementById('nextLevelBtn').addEventListener('click', nextLevel)
+      document.getElementById('restartBtn').addEventListener('click', restartGame)
+
+      // === INIT ===
+      setupCanvas()
+      canvas.addEventListener('mousemove', (e) => {
+        const c = getCanvasCoords(e)
+        gx = c.x
+        gy = c.y
+      })
+      canvas.addEventListener('mousedown', (e) => {
+        const c = getCanvasCoords(e)
+        gx = c.x
+        gy = c.y
+        handlePointerDown(c.x, c.y)
+      })
+      canvas.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault()
+          const c = getCanvasCoords(e)
+          gx = c.x
+          gy = c.y
+        },
+        { passive: false },
+      )
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          const c = getCanvasCoords(e)
+          gx = c.x
+          gy = c.y
+          handlePointerDown(c.x, c.y)
+        },
+        { passive: false },
+      )
+      showMenu()
+      requestAnimationFrame(gameLoop)
+    </script>
+  </body>
+</html>

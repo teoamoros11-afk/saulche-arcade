@@ -1,0 +1,9 @@
+{"timestamp":1781379947178,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego20","rule":"canvas_exists","passed":true}
+{"timestamp":1781379947191,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego20","rule":"score_non_negative","passed":true}
+{"timestamp":1781379947201,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego20","rule":"level_in_range","passed":true}
+{"timestamp":1781379955783,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego21","rule":"canvas_exists","passed":true}
+{"timestamp":1781379955785,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego21","rule":"score_non_negative","passed":true}
+{"timestamp":1781379955788,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego21","rule":"level_in_range","passed":true}
+{"timestamp":1781379964166,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego22","rule":"canvas_exists","passed":true}
+{"timestamp":1781379964168,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego22","rule":"score_non_negative","passed":true}
+{"timestamp":1781379964170,"sessionId":"2026-06-13T19-45-41-407Z","eventType":"rule","gameId":"juego22","rule":"level_in_range","passed":true}

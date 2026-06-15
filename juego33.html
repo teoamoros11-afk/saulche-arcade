@@ -1,0 +1,1054 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>La Carrera del Hámster - Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <script>
+      const VIRT_W = 500,
+        VIRT_H = 400
+      const canvas = document.createElement('canvas')
+      canvas.width = VIRT_W
+      canvas.height = VIRT_H
+      const ctx = canvas.getContext('2d')
+      document.body.appendChild(canvas)
+
+      function resize() {
+        const ww = window.innerWidth,
+          wh = window.innerHeight
+        const s = Math.min(ww / VIRT_W, wh / VIRT_H)
+        canvas.style.width = Math.round(VIRT_W * s) + 'px'
+        canvas.style.height = Math.round(VIRT_H * s) + 'px'
+        canvas.width = VIRT_W
+        canvas.height = VIRT_H
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      let actx = null
+      function initAudio() {
+        if (!actx) actx = new AudioCtx()
+      }
+      function tone(f, d, t, v) {
+        if (!actx) return
+        const o = actx.createOscillator(),
+          g = actx.createGain()
+        o.type = t || 'square'
+        o.frequency.value = f
+        g.gain.setValueAtTime(v || 0.15, actx.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + d)
+        o.connect(g)
+        g.connect(actx.destination)
+        o.start()
+        o.stop(actx.currentTime + d)
+      }
+      function sfx(seq) {
+        seq.forEach((s, i) => setTimeout(() => tone(s[0], s[1], s[2], s[3]), s[4] || 0))
+      }
+      const SOUNDS = {
+        jump: () =>
+          sfx([
+            [500, 0.08, 'square', 0.1, 0],
+            [700, 0.08, 'square', 0.08, 50],
+          ]),
+        seed: () =>
+          sfx([
+            [880, 0.08, 'sine', 0.1, 0],
+            [1100, 0.08, 'sine', 0.08, 60],
+            [1320, 0.1, 'sine', 0.06, 120],
+          ]),
+        crash: () =>
+          sfx([
+            [200, 0.25, 'sawtooth', 0.15, 0],
+            [150, 0.25, 'sawtooth', 0.12, 120],
+          ]),
+        gameover: () =>
+          sfx([
+            [300, 0.3, 'sawtooth', 0.12, 0],
+            [200, 0.3, 'sawtooth', 0.1, 200],
+            [100, 0.5, 'sawtooth', 0.08, 400],
+          ]),
+        start: () =>
+          sfx([
+            [440, 0.1, 'square', 0.1, 0],
+            [660, 0.15, 'square', 0.1, 100],
+          ]),
+        levelup: () =>
+          sfx([
+            [523, 0.1, 'sine', 0.1, 0],
+            [659, 0.1, 'sine', 0.1, 80],
+            [784, 0.15, 'sine', 0.1, 160],
+          ]),
+        wheel: () => {
+          if (!actx) return
+          const o = actx.createOscillator(),
+            g = actx.createGain()
+          o.type = 'sine'
+          o.frequency.value = 120
+          g.gain.setValueAtTime(0.03, actx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.3)
+          o.connect(g)
+          g.connect(actx.destination)
+          o.start()
+          o.stop(actx.currentTime + 0.3)
+        },
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          handleAction()
+        }
+      })
+      canvas.addEventListener('click', (e) => {
+        initAudio()
+        handleAction()
+      })
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          initAudio()
+          handleAction()
+        },
+        { passive: false },
+      )
+
+      let state = 'start'
+      let score = 0,
+        best = parseInt(localStorage.getItem('grizzy_hamster_best')) || 0
+      let level = 1
+      let wheelAngle = 0
+      let obstacles = []
+      let seeds = []
+      let particles = []
+      let hamster = { y: 0, vy: 0, jumping: false, runFrame: 0, whiskerPhase: 0, earWiggle: 0 }
+      let baseSpeed = 2
+      let gameTimer = 0
+      let obstacleTimer = 0
+      let seedTimer = 0
+      let wheelSpin = 0
+      let wheelCenterX = 250,
+        wheelCenterY = 210,
+        wheelRadius = 140
+      let groundY = wheelCenterY + wheelRadius - 18
+      let comboCount = 0
+      let screenShake = 0
+      let levelTextTimer = 0
+      let wheelSqueakTimer = 0
+      let starField = []
+
+      for (let i = 0; i < 20; i++) {
+        starField.push({
+          x: Math.random() * VIRT_W,
+          y: Math.random() * 280,
+          size: 0.5 + Math.random() * 2,
+          phase: Math.random() * 100,
+        })
+      }
+
+      function reset() {
+        score = 0
+        level = 1
+        obstacles = []
+        seeds = []
+        particles = []
+        hamster.y = 0
+        hamster.vy = 0
+        hamster.jumping = false
+        hamster.runFrame = 0
+        baseSpeed = 2
+        wheelAngle = 0
+        wheelSpin = 0
+        gameTimer = 0
+        obstacleTimer = 0
+        seedTimer = 0
+        comboCount = 0
+        screenShake = 0
+        levelTextTimer = 0
+        wheelSqueakTimer = 0
+      }
+
+      function handleAction() {
+        if (state === 'start') {
+          state = 'playing'
+          SOUNDS.start()
+          reset()
+        } else if (state === 'gameover') {
+          state = 'playing'
+          SOUNDS.start()
+          reset()
+        } else if (state === 'playing' && !hamster.jumping) {
+          hamster.vy = -8.5
+          hamster.jumping = true
+          SOUNDS.jump()
+          spawnParticles(wheelCenterX, groundY, 6, '#A67C52', 2.5, 16)
+        }
+      }
+
+      function spawnParticles(x, y, n, c, s, l) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * 6.28,
+            sp = s * (0.5 + Math.random())
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp - 1,
+            color: c || ['#FFC107', '#FFA000', '#FFF8E1', '#FF6B6B'][i % 4],
+            life: l || 30 + Math.random() * 20,
+            maxLife: l || 30 + Math.random() * 20,
+            size: 2 + Math.random() * 2,
+          })
+        }
+      }
+
+      function spawnObstacle() {
+        const type = Math.random() < 0.5 ? 'mud' : 'lemming'
+        const w = type === 'mud' ? 32 : 24
+        const h = type === 'mud' ? 12 : 22
+        const yAdj = type === 'mud' ? 0 : -4
+        obstacles.push({
+          x: VIRT_W + 20 + w,
+          y: groundY - h + yAdj,
+          w,
+          h,
+          type,
+          speed: baseSpeed * (0.8 + Math.random() * 0.4),
+          bouncePhase: type === 'lemming' ? Math.random() * 6.28 : 0,
+        })
+      }
+
+      function spawnSeed() {
+        seeds.push({
+          x: VIRT_W + 20,
+          y: groundY - 38 - Math.random() * 30,
+          w: 14,
+          h: 14,
+          type: Math.random() < 0.5 ? 'seed' : 'apple',
+          bobPhase: Math.random() * 6.28,
+          glow: 0,
+        })
+      }
+
+      function getLevelSpeed() {
+        return Math.min(7, 2 + level * 0.13)
+      }
+      function getLevelObstacles() {
+        return Math.min(8, 2 + Math.floor(level / 5))
+      }
+      function getSpawnRate() {
+        return Math.max(35, 130 - level * 2.5)
+      }
+      function getSeedRate() {
+        return Math.max(70, 200 - level * 3.5)
+      }
+
+      function update() {
+        if (state !== 'playing') return
+        gameTimer++
+        const spd = getLevelSpeed()
+        baseSpeed += (spd - baseSpeed) * 0.02
+
+        wheelSpin += 0.025 * baseSpeed
+        wheelAngle += 0.018 * baseSpeed
+        hamster.runFrame += 0.18 * baseSpeed
+        hamster.whiskerPhase += 0.06
+        hamster.earWiggle += 0.1
+        if (levelTextTimer > 0) levelTextTimer--
+        if (screenShake > 0) screenShake *= 0.9
+        if (screenShake < 0.5) screenShake = 0
+
+        if (gameTimer % Math.max(2, 10 - Math.floor(level / 4)) === 0 && !hamster.jumping) {
+          spawnParticles(wheelCenterX - 16 + Math.random() * 32, groundY, 1, '#C4956A', 1.5, 10)
+        }
+
+        if (gameTimer % 30 === 0 && state === 'playing') {
+          wheelSqueakTimer++
+          if (wheelSqueakTimer % 4 === 0) SOUNDS.wheel()
+        }
+
+        if (hamster.jumping) {
+          hamster.vy += 0.55
+          hamster.y += hamster.vy
+          if (hamster.y >= 0) {
+            hamster.y = 0
+            hamster.vy = 0
+            hamster.jumping = false
+            comboCount = 0
+          }
+        }
+
+        obstacleTimer++
+        if (obstacleTimer >= getSpawnRate() && obstacles.length < getLevelObstacles()) {
+          obstacleTimer = 0
+          spawnObstacle()
+        }
+
+        seedTimer++
+        if (seedTimer >= getSeedRate() && seeds.length < 3) {
+          seedTimer = 0
+          spawnSeed()
+        }
+
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const o = obstacles[i]
+          o.x -= o.speed
+          o.bouncePhase += 0.1
+          if (o.x + o.w < 0) {
+            obstacles.splice(i, 1)
+            continue
+          }
+          const by = o.type === 'lemming' ? Math.sin(o.bouncePhase) * 3 : 0
+          const hx = wheelCenterX - 17,
+            hy = groundY + hamster.y - 26,
+            hw = 34,
+            hh = 26
+          if (hx < o.x + o.w && hx + hw > o.x && hy < o.y + o.h + by && hy + hh > o.y) {
+            state = 'gameover'
+            screenShake = 8
+            SOUNDS.gameover()
+            spawnParticles(hx + hw / 2, hy + hh / 2, 25, '#FF6B6B', 5, 45)
+            if (score > best) {
+              best = score
+              localStorage.setItem('grizzy_hamster_best', String(best))
+            }
+            return
+          }
+        }
+
+        for (let i = seeds.length - 1; i >= 0; i--) {
+          const s = seeds[i]
+          s.x -= baseSpeed * 0.8
+          s.bobPhase += 0.08
+          if (s.x + s.w < 0) {
+            seeds.splice(i, 1)
+            continue
+          }
+          const bob = Math.sin(s.bobPhase) * 3
+          const hx = wheelCenterX - 17,
+            hy = groundY + hamster.y - 26,
+            hw = 34,
+            hh = 26
+          if (hx < s.x + s.w && hx + hw > s.x && hy < s.y + s.h + bob && hy + hh > s.y) {
+            score += 10
+            comboCount++
+            if (comboCount >= 3) {
+              score += 5
+              spawnParticles(s.x + s.w / 2, s.y + s.h / 2, 8, '#FFD700', 4, 20)
+            }
+            SOUNDS.seed()
+            spawnParticles(s.x + s.w / 2, s.y + s.h / 2 + bob, 12, '#FFC107', 3, 25)
+            seeds.splice(i, 1)
+          }
+        }
+
+        const newLevel = Math.min(40, 1 + Math.floor(score / 500))
+        if (newLevel > level) {
+          level = newLevel
+          levelTextTimer = 80
+          SOUNDS.levelup()
+          spawnParticles(wheelCenterX, wheelCenterY - 20, 25, '#FFD700', 5, 35)
+        }
+
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.life--
+          if (p.life <= 0 || p.x < -10 || p.x > VIRT_W + 10 || p.y > VIRT_H + 10)
+            particles.splice(i, 1)
+        }
+      }
+
+      function drawBg() {
+        const g = ctx.createLinearGradient(0, 0, 0, 290)
+        g.addColorStop(0, '#FFECB3')
+        g.addColorStop(0.5, '#FFF8E1')
+        g.addColorStop(1, '#FFF8E1')
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, VIRT_W, 280)
+        for (let i = 0; i < starField.length; i++) {
+          const s = starField[i]
+          ctx.fillStyle =
+            'rgba(255,255,200,' + (0.08 + Math.sin(Date.now() * 0.001 + s.phase) * 0.06) + ')'
+          ctx.fillRect(s.x, s.y, s.size, s.size)
+        }
+        ctx.strokeStyle = 'rgba(255,224,178,0.35)'
+        ctx.lineWidth = 1
+        for (let i = 0; i < 7; i++) {
+          for (let j = 0; j < 5; j++) {
+            ctx.strokeRect(18 + i * 70, 12 + j * 54, 44, 38)
+          }
+        }
+        ctx.fillStyle = '#EFEBE9'
+        ctx.fillRect(0, 278, VIRT_W, 5)
+        ctx.fillStyle = '#D7CCC8'
+        ctx.fillRect(0, 283, VIRT_W, 4)
+        const fg = ctx.createLinearGradient(0, 287, 0, VIRT_H)
+        fg.addColorStop(0, '#D2A679')
+        fg.addColorStop(0.4, '#C49A6C')
+        fg.addColorStop(1, '#A67C52')
+        ctx.fillStyle = fg
+        ctx.fillRect(0, 287, VIRT_W, VIRT_H - 287)
+        ctx.strokeStyle = 'rgba(139,90,43,0.2)'
+        ctx.lineWidth = 1
+        for (let i = 0; i < 11; i++) {
+          const y = 292 + i * 10
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.lineTo(VIRT_W, y)
+          ctx.stroke()
+        }
+        for (let i = 0; i < 7; i++) {
+          ctx.strokeRect(8 + i * 72, 290, 4, 105)
+        }
+        ctx.fillStyle = 'rgba(139,90,43,0.08)'
+        for (let i = 0; i < 6; i++) {
+          ctx.fillRect(12 + i * 72, 292, 2, 100)
+        }
+        const toys = ['●', '▲', '■', '★']
+        ctx.font = '10px sans-serif'
+        ctx.fillStyle = 'rgba(255,180,100,0.12)'
+        for (let i = 0; i < 3; i++) {
+          ctx.fillText(toys[i % 4], 30 + i * 160, 260)
+        }
+
+        ctx.fillStyle = 'rgba(200,180,160,0.15)'
+        ctx.beginPath()
+        ctx.rect(0, 345, VIRT_W, 10)
+        ctx.fill()
+      }
+
+      function drawWheel() {
+        const cx = wheelCenterX,
+          cy = wheelCenterY,
+          r = wheelRadius
+        ctx.save()
+
+        ctx.shadowColor = 'rgba(0,0,0,0.15)'
+        ctx.shadowBlur = 12
+        ctx.shadowOffsetY = 4
+
+        ctx.strokeStyle = '#666'
+        ctx.lineWidth = 7
+        ctx.beginPath()
+        ctx.arc(cx, cy, r, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = '#888'
+        ctx.lineWidth = 4
+        ctx.beginPath()
+        ctx.arc(cx, cy, r - 5, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.strokeStyle = '#AAA'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(cx, cy, r - 12, 0, Math.PI * 2)
+        ctx.stroke()
+
+        ctx.shadowColor = 'transparent'
+
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(wheelAngle)
+        for (let i = 0; i < 10; i++) {
+          const a = (i / 10) * Math.PI * 2
+          ctx.strokeStyle = '#777'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(7, 0)
+          ctx.lineTo(Math.cos(a) * (r - 12), Math.sin(a) * (r - 12))
+          ctx.stroke()
+          const na = ((i + 1) / 10) * Math.PI * 2
+          ctx.strokeStyle = '#999'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(Math.cos(a) * (r - 22), Math.sin(a) * (r - 22))
+          ctx.lineTo(Math.cos(na) * (r - 22), Math.sin(na) * (r - 22))
+          ctx.stroke()
+        }
+
+        if (level >= 5) {
+          ctx.strokeStyle = 'rgba(255,200,50,0.15)'
+          ctx.lineWidth = 1
+          for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * Math.PI * 2 + wheelAngle
+            ctx.beginPath()
+            ctx.moveTo(Math.cos(a) * (r - 4), Math.sin(a) * (r - 4))
+            ctx.lineTo(Math.cos(a) * (r + 2), Math.sin(a) * (r + 2))
+            ctx.stroke()
+          }
+        }
+
+        ctx.restore()
+
+        ctx.save()
+        ctx.translate(cx, cy)
+        ctx.rotate(-wheelAngle * 0.5)
+        ctx.strokeStyle = 'rgba(100,100,100,0.06)'
+        ctx.lineWidth = 30
+        ctx.beginPath()
+        ctx.arc(0, 0, r - 20, 0, Math.PI * 2)
+        ctx.stroke()
+        ctx.restore()
+
+        ctx.fillStyle = '#555'
+        ctx.shadowColor = 'rgba(0,0,0,0.3)'
+        ctx.shadowBlur = 4
+        ctx.beginPath()
+        ctx.arc(cx, cy, 10, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.shadowColor = 'transparent'
+        ctx.fillStyle = '#777'
+        ctx.beginPath()
+        ctx.arc(cx, cy, 7, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#AAA'
+        ctx.beginPath()
+        ctx.arc(cx, cy, 3, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = 'rgba(100,100,100,0.15)'
+        const a0 = -Math.PI * 0.35,
+          a1 = Math.PI * 0.35
+        ctx.beginPath()
+        ctx.arc(cx, cy, r - 16 + Math.sin(wheelAngle) * 2, a0, a1)
+        ctx.lineWidth = 2
+        ctx.strokeStyle = 'rgba(100,100,100,0.2)'
+        ctx.stroke()
+
+        ctx.fillStyle = 'rgba(180,180,180,0.08)'
+        for (let i = 0; i < 3; i++) {
+          const aa = wheelAngle + i * 2.1
+          ctx.beginPath()
+          ctx.arc(cx + Math.cos(aa) * 35, cy + Math.sin(aa) * 35, 8, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        ctx.restore()
+      }
+
+      function drawHamster() {
+        const cx = wheelCenterX,
+          cy = groundY + hamster.y
+        const ro = Math.sin(hamster.runFrame) * 3
+        ctx.save()
+
+        if (screenShake > 0.5) {
+          ctx.translate(
+            (Math.random() - 0.5) * screenShake * 2,
+            (Math.random() - 0.5) * screenShake * 2,
+          )
+        }
+
+        ctx.shadowColor = 'rgba(0,0,0,0.12)'
+        ctx.shadowBlur = 5
+        ctx.shadowOffsetY = 2
+
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - 13, 17, 15, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#D2A679'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - 9, 10, 9, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - 30, 15, 12, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.ellipse(cx - 9, cy - 26, 7, 6.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(cx + 9, cy - 26, 7, 6.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = 'rgba(255,140,140,0.25)'
+        ctx.beginPath()
+        ctx.ellipse(cx - 7, cy - 25, 4.5, 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(cx + 7, cy - 25, 4.5, 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx - 5, cy - 32, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 5, cy - 32, 4.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#111'
+        ctx.beginPath()
+        ctx.arc(cx - 4, cy - 31, 2.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 4, cy - 31, 2.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx - 3, cy - 33, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 5, cy - 33, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - 27, 2.2, 1.8, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = '#6B3F1A'
+        ctx.lineWidth = 1.2
+        const wf = Math.sin(hamster.whiskerPhase) * 2.5
+        ctx.beginPath()
+        ctx.moveTo(cx - 8, cy - 26)
+        ctx.lineTo(cx - 22, cy - 28 + wf)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx - 8, cy - 24)
+        ctx.lineTo(cx - 22, cy - 23 + wf)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx - 8, cy - 28)
+        ctx.lineTo(cx - 22, cy - 32 + wf)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx + 8, cy - 26)
+        ctx.lineTo(cx + 22, cy - 28 + wf)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx + 8, cy - 24)
+        ctx.lineTo(cx + 22, cy - 23 + wf)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx + 8, cy - 28)
+        ctx.lineTo(cx + 22, cy - 32 + wf)
+        ctx.stroke()
+
+        const ew = Math.sin(hamster.earWiggle) * 2
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(cx - 12 + ew, cy - 39, 6.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 12 - ew, cy - 39, 6.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#C4956A'
+        ctx.beginPath()
+        ctx.arc(cx - 12 + ew, cy - 39, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + 12 - ew, cy - 39, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#6B3F1A'
+        ctx.shadowColor = 'transparent'
+        const la = Math.sin(hamster.runFrame)
+        ctx.beginPath()
+        ctx.ellipse(cx - 7 + ro, cy - 1, 4.5, 3.5, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(cx - 7 - ro, cy - 1, 4.5, 3.5, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(cx + 7 - ro, cy - 1, 4.5, 3.5, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(cx + 7 + ro, cy - 1, 4.5, 3.5, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = '#6B3F1A'
+        ctx.lineWidth = 2.5
+        ctx.lineCap = 'round'
+        const aa = Math.sin(hamster.runFrame + 1)
+        ctx.beginPath()
+        ctx.moveTo(cx - 14, cy - 16)
+        ctx.lineTo(cx - 20 + aa * 3, cy - 8)
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.moveTo(cx + 14, cy - 16)
+        ctx.lineTo(cx + 20 - aa * 3, cy - 8)
+        ctx.stroke()
+
+        if (hamster.jumping) {
+          ctx.strokeStyle = '#6B3F1A'
+          ctx.lineWidth = 2.5
+          ctx.beginPath()
+          ctx.moveTo(cx - 14, cy - 18)
+          ctx.lineTo(cx - 24, cy - 26)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx + 14, cy - 18)
+          ctx.lineTo(cx + 24, cy - 26)
+          ctx.stroke()
+        }
+
+        ctx.fillStyle = 'rgba(100,50,20,0.08)'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy + 2, 20, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
+      }
+
+      function drawObstacle(o) {
+        ctx.save()
+        const by = o.type === 'lemming' ? Math.sin(o.bouncePhase) * 3 : 0
+        const y = o.y + by
+        ctx.shadowColor = 'rgba(0,0,0,0.1)'
+        ctx.shadowBlur = 4
+        ctx.shadowOffsetY = 2
+        if (o.type === 'mud') {
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#4E342E'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2 - 3, y + o.h / 2 - 1, o.w / 3.5, o.h / 2.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(93,64,55,0.4)'
+          ctx.beginPath()
+          ctx.arc(o.x + 4, y + 3, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(o.x + o.w - 6, y + 2, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(120,80,60,0.15)'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h, o.w / 2 + 3, 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h * 0.35, o.w / 2, o.h * 0.4, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8A94A8'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h * 0.12, o.w * 0.35, o.h * 0.28, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 - 3.5, y + o.h * 0.08, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 + 3.5, y + o.h * 0.08, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#111'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 - 2.5, y + o.h * 0.08, 1.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 + 2.5, y + o.h * 0.08, 1.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#B0BEC5'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2, y + o.h * 0.18, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 - 6, y + o.h * 0.02, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 + 6, y + o.h * 0.02, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#9AA4B8'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 - 6, y + o.h * 0.02, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2 + 6, y + o.h * 0.02, 1.8, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h * 0.5, o.w * 0.35, o.h * 0.3, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#6B7688'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2 - 4, y + o.h * 0.78, 3.5, 2.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2 + 4, y + o.h * 0.78, 3.5, 2.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(0,0,0,0.08)'
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, y + o.h * 0.82, o.w / 2 + 2, 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.restore()
+      }
+
+      function drawSeed(s) {
+        ctx.save()
+        const bob = Math.sin(s.bobPhase) * 3
+        const y = s.y + bob
+        ctx.shadowColor = 'rgba(255,193,7,0.5)'
+        ctx.shadowBlur = 10
+        if (s.type === 'seed') {
+          ctx.fillStyle = '#FFC107'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 7, y + 7, 7, 5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FFA000'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 7, y + 7, 4, 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255,255,255,0.35)'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 5, y + 5, 2, 1.3, 0, 0, Math.PI * 2)
+          ctx.fill()
+        } else {
+          ctx.fillStyle = '#E53935'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 7, y + 7, 7, 6, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#B71C1C'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 9, y + 6, 3, 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#FFCDD2'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 5, y + 9, 4, 2, 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255,255,255,0.3)'
+          ctx.beginPath()
+          ctx.ellipse(s.x + 4, y + 5, 2, 1.3, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.shadowBlur = 0
+        ctx.fillStyle = 'rgba(255,255,200,0.08)'
+        ctx.beginPath()
+        ctx.arc(s.x + 7, s.y + 12, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function drawParticles() {
+        for (const p of particles) {
+          const a = Math.max(0, p.life / p.maxLife)
+          ctx.save()
+          ctx.globalAlpha = a
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, Math.max(0.5, p.size * a), 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        }
+      }
+
+      function drawHUD() {
+        ctx.save()
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath()
+        ctx.roundRect(6, 6, 156, 36, 8)
+        ctx.fill()
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        ctx.fillText('🐹 ' + Math.floor(score), 14, 10)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '11px sans-serif'
+        ctx.fillText('🏆 ' + best, 14, 26)
+
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W - 92, 6, 86, 26, 8)
+        ctx.fill()
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = 'bold 12px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('Nivel ' + level + '/40', VIRT_W - 49, 12)
+
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath()
+        ctx.roundRect(6, 46, 156, 14, 7)
+        ctx.fill()
+        const spd = Math.min(1, (getLevelSpeed() - 2) / 5)
+        const sg = ctx.createLinearGradient(8, 0, 158, 0)
+        sg.addColorStop(0, '#66BB6A')
+        sg.addColorStop(0.5, '#FFC107')
+        sg.addColorStop(1, '#F44336')
+        ctx.fillStyle = sg
+        ctx.beginPath()
+        ctx.roundRect(8, 48, Math.max(2, 150 * spd), 10, 6)
+        ctx.fill()
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        ctx.font = '7px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('⚡', 8 + Math.max(2, 150 * spd) - 4, 53)
+
+        if (comboCount >= 3) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 11px sans-serif'
+          ctx.textAlign = 'left'
+          ctx.fillText('🔥 x' + comboCount, 14, 72)
+        }
+
+        if (levelTextTimer > 0) {
+          const aa = Math.min(1, levelTextTimer / 30)
+          ctx.save()
+          ctx.globalAlpha = aa
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 24px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.shadowColor = 'rgba(0,0,0,0.5)'
+          ctx.shadowBlur = 6
+          ctx.fillText('★ NIVEL ' + level + ' ★', VIRT_W / 2, 60)
+          ctx.restore()
+        }
+
+        if (level < 40) {
+          ctx.fillStyle = 'rgba(0,0,0,0.12)'
+          ctx.beginPath()
+          ctx.roundRect(VIRT_W - 92, 36, 86, 10, 5)
+          ctx.fill()
+          ctx.fillStyle = '#FFD700'
+          const prog = ((score % 500) / 500) * 82
+          ctx.beginPath()
+          ctx.roundRect(VIRT_W - 90, 38, Math.max(2, prog), 6, 4)
+          ctx.fill()
+        }
+
+        ctx.restore()
+      }
+
+      function drawMenu() {
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W / 2 - 175, VIRT_H / 2 - 115, 350, 230, 20)
+        ctx.fill()
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = 'bold 22px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('🐹 La Carrera del Hámster', VIRT_W / 2, VIRT_H / 2 - 78)
+        ctx.font = '12px sans-serif'
+        ctx.fillStyle = '#B0BEC5'
+        ctx.fillText('🐻 Grizzy & the Lemmings', VIRT_W / 2, VIRT_H / 2 - 48)
+        ctx.fillStyle = '#FFCC02'
+        ctx.font = '11px sans-serif'
+        ctx.fillText('ESPACIO / CLIC para saltar', VIRT_W / 2, VIRT_H / 2 - 22)
+        ctx.fillStyle = '#D2A679'
+        ctx.font = '11px sans-serif'
+        ctx.fillText('¡Esquiva barro y lemmings dentro de la rueda!', VIRT_W / 2, VIRT_H / 2 + 2)
+        ctx.fillStyle = '#FFC107'
+        ctx.font = '11px sans-serif'
+        ctx.fillText('Recoge semillas 🟡 y manzanas 🔴 (+10 pts)', VIRT_W / 2, VIRT_H / 2 + 24)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.font = 'bold 14px sans-serif'
+        const pp = 0.5 + Math.sin(Date.now() * 0.004) * 0.5
+        ctx.globalAlpha = pp
+        ctx.fillText('★ TOCA PARA EMPEZAR ★', VIRT_W / 2, VIRT_H / 2 + 64)
+        ctx.globalAlpha = 1
+        ctx.fillStyle = '#9E9E9E'
+        ctx.font = '9px sans-serif'
+        ctx.fillText('40 niveles · La velocidad aumenta', VIRT_W / 2, VIRT_H / 2 + 94)
+        if (best > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = '12px sans-serif'
+          ctx.fillText('🏆 Récord: ' + best, VIRT_W / 2, VIRT_H / 2 + 118)
+        }
+      }
+
+      function drawGO() {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = 'rgba(0,0,0,0.2)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W / 2 - 145, VIRT_H / 2 - 105, 290, 210, 18)
+        ctx.fill()
+        ctx.fillStyle = '#FF6B6B'
+        ctx.font = 'bold 27px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('GAME OVER', VIRT_W / 2, VIRT_H / 2 - 65)
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = '17px sans-serif'
+        ctx.fillText('🐹 ' + Math.floor(score) + ' puntos', VIRT_W / 2, VIRT_H / 2 - 24)
+        ctx.fillStyle = '#B0BEC5'
+        ctx.font = '12px sans-serif'
+        ctx.fillText('Nivel alcanzado: ' + level + '/40', VIRT_W / 2, VIRT_H / 2 + 4)
+        if (score >= best && score > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 14px sans-serif'
+          ctx.fillText('★ ¡NUEVO RÉCORD! ★', VIRT_W / 2, VIRT_H / 2 + 32)
+        }
+        ctx.fillStyle = '#8B5E3C'
+        ctx.font = 'bold 14px sans-serif'
+        const pp = 0.5 + Math.sin(Date.now() * 0.004) * 0.5
+        ctx.globalAlpha = pp
+        ctx.fillText('TOCA PARA REINTENTAR', VIRT_W / 2, VIRT_H / 2 + 72)
+        ctx.globalAlpha = 1
+        ctx.fillStyle = '#9E9E9E'
+        ctx.font = '9px sans-serif'
+        ctx.fillText('Mejor puntuación: ' + best, VIRT_W / 2, VIRT_H / 2 + 96)
+      }
+
+      function render() {
+        update()
+        ctx.clearRect(0, 0, VIRT_W, VIRT_H)
+        drawBg()
+        drawWheel()
+        obstacles.forEach(drawObstacle)
+        seeds.forEach(drawSeed)
+        drawHamster()
+        drawParticles()
+        if (state === 'playing') drawHUD()
+        if (state === 'start') drawMenu()
+        if (state === 'gameover') {
+          drawHUD()
+          drawGO()
+        }
+        requestAnimationFrame(render)
+      }
+
+      render()
+    </script>
+  </body>
+</html>

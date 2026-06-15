@@ -1,0 +1,22 @@
+Error: Cannot find module 'json:reports/full-run-report.json'
+Require stack:
+- /home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js
+- /home/teo/Projects/games/Saulche/node_modules/playwright/lib/program.js
+- /home/teo/Projects/games/Saulche/node_modules/@playwright/test/cli.js
+    at Function._resolveFilename (node:internal/modules/cjs/loader:1401:15)
+    at Function.resolve (node:internal/modules/helpers:145:19)
+    at resolveReporter (/home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js:204:18)
+    at /home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js:165:42
+    at Array.map (<anonymous>)
+    at resolveReporterOption (/home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js:165:30)
+    at overridesFromOptions (/home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js:128:15)
+    at runTests (/home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js:44:24)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async _Command.<anonymous> (/home/teo/Projects/games/Saulche/node_modules/playwright/lib/program.js:50:7) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    '/home/teo/Projects/games/Saulche/node_modules/playwright/lib/cli/testActions.js',
+    '/home/teo/Projects/games/Saulche/node_modules/playwright/lib/program.js',
+    '/home/teo/Projects/games/Saulche/node_modules/@playwright/test/cli.js'
+  ]
+}

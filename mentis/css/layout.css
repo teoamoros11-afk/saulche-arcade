@@ -1,0 +1,25 @@
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#game-canvas{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%)}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity var(--transition-slow),visibility var(--transition-slow);z-index:var(--z-base)}
+.screen.active{opacity:1;visibility:visible}
+.container{width:100%;max-width:520px;padding:20px;margin:0 auto}
+.row{display:flex;gap:12px}
+.row.center{justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.flex-center{display:flex;align-items:center;justify-content:center}
+.gap-sm{gap:6px}
+.gap-md{gap:12px}
+.gap-lg{gap:20px}
+.mt-sm{margin-top:8px}
+.mt-md{margin-top:16px}
+.mt-lg{margin-top:24px}
+.mb-sm{margin-bottom:8px}
+.mb-md{margin-bottom:16px}
+.text-center{text-align:center}
+.text-gold{color:var(--gold)}
+.text-muted{color:var(--text-muted)}
+.text-success{color:var(--success)}
+.text-error{color:var(--error)}
+.font-bold{font-weight:700}
+.font-mono{font-family:var(--font-mono)}

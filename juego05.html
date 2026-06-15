@@ -1,0 +1,803 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Recolecta Estrellas - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      body {
+        background: #0a0a1a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+      }
+      #wrapper {
+        position: relative;
+        width: min(100vw, calc(100vh * 600 / 400));
+        height: min(100vh, calc(100vw * 400 / 600));
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 3px solid #ffc107;
+        border-radius: 12px;
+        box-shadow: 0 0 40px rgba(255, 193, 7, 0.3);
+        background: #0d0d2b;
+        cursor: none;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <canvas id="game" width="600" height="400"></canvas>
+    </div>
+    <script>
+      const canvas = document.getElementById('game')
+      const ctx = canvas.getContext('2d')
+      const W = 600,
+        H = 400
+
+      let gameState = 'menu'
+      let score = 0
+      let best = parseInt(localStorage.getItem('grizzy_stars_best')) || 0
+      let timeLeft = 60
+      let grizzy = { x: 300, y: 200, w: 50, h: 50, dir: 1, vx: 0, vy: 0 }
+      let stars = []
+      let lemmings = []
+      let particles = []
+      let bgStars = []
+      let superStar = null
+      let superStarTimer = 15
+      let lemmingSpawnTimer = 0
+      let keys = {}
+      let lastTime = 0
+      let accumulator = 0
+      const STEP = 1 / 60
+      let tickWarning = false
+
+      const SOUNDS = {}
+      function initAudio() {
+        const freq = (f, dur) => {
+          const sr = 44100,
+            len = sr * dur
+          const buf = ctx.createBuffer(1, len, sr)
+          const d = buf.getChannelData(0)
+          for (let i = 0; i < len; i++) d[i] = Math.sin((2 * Math.PI * f * i) / sr) * (1 - i / len)
+          return buf
+        }
+        const noise = (dur) => {
+          const sr = 44100,
+            len = sr * dur
+          const buf = ctx.createBuffer(1, len, sr)
+          const d = buf.getChannelData(0)
+          for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len)
+          return buf
+        }
+        const chord = (freqs, dur) => {
+          const sr = 44100,
+            len = sr * dur
+          const buf = ctx.createBuffer(1, len, sr)
+          const d = buf.getChannelData(0)
+          for (let i = 0; i < len; i++) {
+            let s = 0
+            for (const f of freqs) s += Math.sin((2 * Math.PI * f * i) / sr)
+            d[i] = (s / freqs.length) * (1 - i / len)
+          }
+          return buf
+        }
+        const actx = new (window.AudioContext || window.webkitAudioContext)()
+        SOUNDS.star = () => {
+          const s = actx.createBufferSource()
+          s.buffer = freq(880, 0.15)
+          s.connect(actx.destination)
+          s.start()
+        }
+        SOUNDS.superstar = () => {
+          const s = actx.createBufferSource()
+          s.buffer = chord([523, 659, 784], 0.3)
+          s.connect(actx.destination)
+          s.start()
+        }
+        SOUNDS.lemming = () => {
+          const s = actx.createBufferSource()
+          s.buffer = noise(0.2)
+          s.connect(actx.destination)
+          s.start()
+        }
+        SOUNDS.gameover = () => {
+          ;[440, 349, 294, 220].forEach((f, i) => {
+            setTimeout(() => {
+              const s = actx.createBufferSource()
+              s.buffer = freq(f, 0.3)
+              s.connect(actx.destination)
+              s.start()
+            }, i * 200)
+          })
+        }
+        SOUNDS.tick = () => {
+          const s = actx.createBufferSource()
+          s.buffer = freq(1000, 0.05)
+          s.connect(actx.destination)
+          s.start()
+        }
+      }
+
+      function initBgStars() {
+        bgStars = []
+        for (let i = 0; i < 80; i++) {
+          bgStars.push({
+            x: Math.random() * W,
+            y: Math.random() * H * 0.6 + 10,
+            r: Math.random() * 1.5 + 0.5,
+            a: Math.random(),
+            s: Math.random() * 0.02 + 0.005,
+            phase: Math.random() * Math.PI * 2,
+          })
+        }
+      }
+
+      function spawnStar() {
+        stars.push({
+          x: 30 + Math.random() * (W - 60),
+          y: 30 + Math.random() * (H - 80),
+          r: 8 + Math.random() * 4,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          phase: Math.random() * Math.PI * 2,
+          life: 1,
+        })
+      }
+
+      function spawnSuperStar() {
+        superStar = {
+          x: 40 + Math.random() * (W - 80),
+          y: 40 + Math.random() * (H - 100),
+          r: 18,
+          phase: 0,
+          life: 1,
+          timer: 5,
+        }
+      }
+
+      function spawnLemming() {
+        lemmings.push({
+          x: Math.random() * W,
+          y: Math.random() * (H - 100),
+          w: 22,
+          h: 28,
+          vx: (Math.random() - 0.5) * 0.8,
+          vy: (Math.random() - 0.5) * 0.8,
+          phase: Math.random() * Math.PI * 2,
+          dir: Math.random() < 0.5 ? 1 : -1,
+        })
+      }
+
+      function spawnParticles(x, y, color, count) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2
+          const spd = Math.random() * 3 + 1
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * spd,
+            vy: Math.sin(a) * spd,
+            r: Math.random() * 3 + 1,
+            life: 1,
+            decay: 0.02 + Math.random() * 0.02,
+            color,
+          })
+        }
+      }
+
+      function drawMoon() {
+        ctx.save()
+        ctx.beginPath()
+        ctx.arc(520, 50, 35, 0, Math.PI * 2)
+        ctx.fillStyle = '#FFE4B5'
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(510, 42, 28, 0, Math.PI * 2)
+        ctx.fillStyle = '#0D0D2B'
+        ctx.fill()
+        ctx.restore()
+      }
+
+      function drawGrizzy() {
+        const g = grizzy
+        const x = g.x,
+          y = g.y
+        const dir = g.dir
+
+        ctx.save()
+        ctx.translate(x, y)
+        ctx.scale(dir, 1)
+
+        // body
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 24, 20, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // head
+        ctx.beginPath()
+        ctx.arc(0, -18, 16, 0, Math.PI * 2)
+        ctx.fill()
+
+        // ears
+        ctx.fillStyle = '#7A4E2D'
+        ctx.beginPath()
+        ctx.arc(-10, -32, 7, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(10, -32, 7, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(-10, -32, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(10, -32, 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // eyes
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(-5, -20, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -20, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'white'
+        ctx.beginPath()
+        ctx.arc(-4, -21, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(6, -21, 1.2, 0, Math.PI * 2)
+        ctx.fill()
+
+        // nose
+        ctx.fillStyle = '#2a1a0a'
+        ctx.beginPath()
+        ctx.ellipse(0, -13, 4, 3, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // mouth
+        ctx.strokeStyle = '#2a1a0a'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(0, -11, 3, 0, Math.PI)
+        ctx.stroke()
+
+        // scarf
+        const scarfWave = Math.sin(Date.now() / 150) * 3
+        ctx.fillStyle = '#CC0000'
+        ctx.beginPath()
+        ctx.ellipse(0, 6, 14, 5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#990000'
+        ctx.beginPath()
+        ctx.moveTo(-12, 6)
+        ctx.lineTo(-16, 14 + scarfWave)
+        ctx.lineTo(-8, 12 + scarfWave)
+        ctx.lineTo(-12, 8)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.moveTo(12, 6)
+        ctx.lineTo(16, 14 - scarfWave)
+        ctx.lineTo(8, 12 - scarfWave)
+        ctx.lineTo(12, 8)
+        ctx.fill()
+
+        ctx.restore()
+      }
+
+      function drawStar(s) {
+        const t = Date.now() / 300
+        const flicker = 0.7 + Math.sin(t + s.phase) * 0.3
+        const r = s.r * flicker
+
+        ctx.save()
+        ctx.translate(s.x, s.y)
+
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 3)
+        glow.addColorStop(0, `rgba(255, 193, 7, ${0.3 * flicker})`)
+        glow.addColorStop(1, 'rgba(255, 193, 7, 0)')
+        ctx.fillStyle = glow
+        ctx.beginPath()
+        ctx.arc(0, 0, r * 3, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.shadowColor = '#FFC107'
+        ctx.shadowBlur = 15 * flicker
+        ctx.fillStyle = '#FFC107'
+        ctx.beginPath()
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2
+          const px = Math.cos(a) * r
+          const py = Math.sin(a) * r
+          if (i === 0) ctx.moveTo(px, py)
+          else ctx.lineTo(px, py)
+          const a2 = a + Math.PI / 5
+          ctx.lineTo(Math.cos(a2) * r * 0.4, Math.sin(a2) * r * 0.4)
+        }
+        ctx.closePath()
+        ctx.fill()
+        ctx.shadowBlur = 0
+
+        ctx.restore()
+      }
+
+      function drawSuperStar() {
+        if (!superStar) return
+        const s = superStar
+        const t = Date.now() / 400
+        s.phase += 0.02
+        const pulse = 1 + Math.sin(t) * 0.1
+        const r = s.r * pulse
+
+        ctx.save()
+        ctx.translate(s.x, s.y)
+
+        // halo
+        const halo = ctx.createRadialGradient(0, 0, r * 0.5, 0, 0, r * 4)
+        halo.addColorStop(0, 'rgba(255, 215, 0, 0.4)')
+        halo.addColorStop(0.5, 'rgba(255, 215, 0, 0.15)')
+        halo.addColorStop(1, 'rgba(255, 215, 0, 0)')
+        ctx.fillStyle = halo
+        ctx.beginPath()
+        ctx.arc(0, 0, r * 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.shadowColor = '#FFD700'
+        ctx.shadowBlur = 30
+        ctx.fillStyle = '#FFD700'
+        ctx.beginPath()
+        for (let i = 0; i < 5; i++) {
+          const a = (i * 4 * Math.PI) / 5 - Math.PI / 2 + s.phase
+          const px = Math.cos(a) * r
+          const py = Math.sin(a) * r
+          if (i === 0) ctx.moveTo(px, py)
+          else ctx.lineTo(px, py)
+          const a2 = a + Math.PI / 5
+          ctx.lineTo(Math.cos(a2) * r * 0.4, Math.sin(a2) * r * 0.4)
+        }
+        ctx.closePath()
+        ctx.fill()
+        ctx.shadowBlur = 0
+
+        // sparkle ring
+        ctx.strokeStyle = `rgba(255, 215, 0, ${0.3 + Math.sin(t * 2) * 0.2})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(0, 0, r * 1.8, 0, Math.PI * 2)
+        ctx.stroke()
+
+        ctx.restore()
+      }
+
+      function drawLemming(l) {
+        ctx.save()
+        ctx.translate(l.x, l.y)
+        ctx.scale(l.dir, 1)
+
+        // body
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.roundRect(-11, -14, 22, 28, 4)
+        ctx.fill()
+
+        // head
+        ctx.beginPath()
+        ctx.arc(0, -16, 10, 0, Math.PI * 2)
+        ctx.fill()
+
+        // ears
+        ctx.fillStyle = '#6B7688'
+        ctx.beginPath()
+        ctx.arc(-7, -24, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(7, -24, 4, 0, Math.PI * 2)
+        ctx.fill()
+
+        // eyes (squinty)
+        ctx.fillStyle = '#1a1a1a'
+        ctx.fillRect(-6, -18, 4, 2)
+        ctx.fillRect(3, -18, 4, 2)
+
+        // teeth
+        ctx.fillStyle = '#f0f0f0'
+        ctx.fillRect(-2, -11, 2, 4)
+        ctx.fillRect(1, -11, 2, 4)
+
+        // fake star on head
+        const t = Date.now() / 200
+        const twinkle = 0.5 + Math.sin(t + l.phase) * 0.5
+        ctx.fillStyle = `rgba(255, 193, 7, ${twinkle * 0.5})`
+        ctx.font = '10px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('✦', 0, -32)
+
+        ctx.restore()
+      }
+
+      function drawMenu() {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.fillRect(0, 0, W, H)
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 42px "Segoe UI", sans-serif'
+        ctx.textAlign = 'center'
+        ctx.shadowColor = '#FFC107'
+        ctx.shadowBlur = 20
+        ctx.fillText('🐻 Recolecta Estrellas', 300, 140)
+        ctx.shadowBlur = 0
+
+        ctx.fillStyle = '#e0d5c0'
+        ctx.font = '18px "Segoe UI", sans-serif'
+        ctx.fillText('Grizzy & the Lemmings', 300, 175)
+
+        ctx.fillStyle = '#aaa'
+        ctx.font = '14px "Segoe UI", sans-serif'
+        ctx.fillText('Flechas / WASD para mover a Grizzy', 300, 220)
+        ctx.fillText('Recolecta estrellas doradas ✦ Evita a los Lemmings grises', 300, 242)
+
+        if (best > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 16px "Segoe UI", sans-serif'
+          ctx.fillText('⭐ Récord: ' + best + ' puntos', 300, 280)
+        }
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 22px "Segoe UI", sans-serif'
+        const blink = Math.sin(Date.now() / 400) > 0
+        if (blink) ctx.fillText('Presiona ESPACIO o ENTER para jugar', 300, 330)
+      }
+
+      function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'
+        ctx.fillRect(0, 0, W, H)
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 40px "Segoe UI", sans-serif'
+        ctx.textAlign = 'center'
+        ctx.shadowColor = '#FFC107'
+        ctx.shadowBlur = 15
+        ctx.fillText('🐻 ¡Juego Terminado!', 300, 130)
+        ctx.shadowBlur = 0
+
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 28px "Segoe UI", sans-serif'
+        ctx.fillText('Puntuación: ' + score, 300, 190)
+
+        if (score >= best) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 20px "Segoe UI", sans-serif'
+          ctx.fillText('🎉 ¡Nuevo Récord! 🎉', 300, 230)
+        } else {
+          ctx.fillStyle = '#aaa'
+          ctx.font = '18px "Segoe UI", sans-serif'
+          ctx.fillText('Récord: ' + best, 300, 230)
+        }
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 20px "Segoe UI", sans-serif'
+        const blink = Math.sin(Date.now() / 400) > 0
+        if (blink) ctx.fillText('ESPACIO o ENTER para volver a jugar', 300, 300)
+      }
+
+      function resetGame() {
+        score = 0
+        timeLeft = 60
+        superStarTimer = 15
+        lemmingSpawnTimer = 0
+        stars = []
+        lemmings = []
+        particles = []
+        superStar = null
+        tickWarning = false
+        grizzy.x = 300
+        grizzy.y = 200
+        grizzy.vx = 0
+        grizzy.vy = 0
+        grizzy.dir = 1
+        for (let i = 0; i < 5; i++) spawnStar()
+      }
+
+      function update(dt) {
+        if (gameState !== 'playing') return
+
+        timeLeft -= dt
+        if (timeLeft <= 0) {
+          timeLeft = 0
+          gameState = 'gameover'
+          if (score > best) {
+            best = score
+            localStorage.setItem('grizzy_stars_best', best)
+          }
+          SOUNDS.gameover()
+          return
+        }
+
+        if (timeLeft <= 10 && !tickWarning) {
+          tickWarning = true
+        }
+        if (timeLeft <= 10 && Math.floor(timeLeft) !== Math.floor(timeLeft + dt)) {
+          SOUNDS.tick()
+        }
+
+        // Grizzy movement
+        let mx = 0,
+          my = 0
+        if (keys['ArrowLeft'] || keys['KeyA']) mx = -1
+        if (keys['ArrowRight'] || keys['KeyD']) mx = 1
+        if (keys['ArrowUp'] || keys['KeyW']) my = -1
+        if (keys['ArrowDown'] || keys['KeyS']) my = 1
+        if (mx !== 0 && my !== 0) {
+          mx *= 0.707
+          my *= 0.707
+        }
+        const speed = 160
+        grizzy.vx += (mx * speed - grizzy.vx) * dt * 10
+        grizzy.vy += (my * speed - grizzy.vy) * dt * 10
+        if (mx > 0) grizzy.dir = 1
+        else if (mx < 0) grizzy.dir = -1
+        grizzy.x += grizzy.vx * dt
+        grizzy.y += grizzy.vy * dt
+        grizzy.x = Math.max(25, Math.min(W - 25, grizzy.x))
+        grizzy.y = Math.max(25, Math.min(H - 25, grizzy.y))
+
+        // collect stars
+        for (let i = stars.length - 1; i >= 0; i--) {
+          const s = stars[i]
+          s.x += s.vx
+          s.y += s.vy
+          if (s.x < 10 || s.x > W - 10) s.vx *= -1
+          if (s.y < 10 || s.y > H - 10) s.vy *= -1
+          const dx = grizzy.x - s.x,
+            dy = grizzy.y - s.y
+          if (Math.sqrt(dx * dx + dy * dy) < 30) {
+            score += 10
+            spawnParticles(s.x, s.y, '#FFC107', 12)
+            stars.splice(i, 1)
+            SOUNDS.star()
+            spawnStar()
+          }
+        }
+        if (stars.length < 3 && Math.random() < 0.01) spawnStar()
+
+        // super star
+        superStarTimer -= dt
+        if (superStarTimer <= 0 && !superStar) {
+          superStarTimer = 15
+          spawnSuperStar()
+        }
+        if (superStar) {
+          superStar.timer -= dt
+          if (superStar.timer <= 0) {
+            superStar = null
+          }
+          const dx = grizzy.x - superStar.x,
+            dy = grizzy.y - superStar.y
+          if (Math.sqrt(dx * dx + dy * dy) < 35) {
+            score += 50
+            spawnParticles(superStar.x, superStar.y, '#FFD700', 25)
+            superStar = null
+            SOUNDS.superstar()
+          }
+        }
+
+        // lemmings
+        lemmingSpawnTimer -= dt
+        if (lemmingSpawnTimer <= 0 && lemmings.length < 3) {
+          lemmingSpawnTimer = 4 + Math.random() * 3
+          spawnLemming()
+        }
+        for (let i = lemmings.length - 1; i >= 0; i--) {
+          const l = lemmings[i]
+          l.x += l.vx
+          l.y += l.vy
+          if (l.x < 10 || l.x > W - 10) l.vx *= -1
+          if (l.y < 10 || l.y > H - 50) l.vy *= -1
+          if (l.vx > 0) l.dir = 1
+          else if (l.vx < 0) l.dir = -1
+          const dx = grizzy.x - l.x,
+            dy = grizzy.y - l.y
+          if (Math.sqrt(dx * dx + dy * dy) < 28) {
+            timeLeft = Math.max(0, timeLeft - 5)
+            spawnParticles(l.x, l.y, '#7E8A9E', 10)
+            lemmings.splice(i, 1)
+            SOUNDS.lemming()
+          }
+        }
+
+        // particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.05
+          p.life -= p.decay
+          if (p.life <= 0) particles.splice(i, 1)
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+
+        // bg stars
+        const t = Date.now() / 1000
+        for (const s of bgStars) {
+          const a = 0.3 + Math.sin(t * s.s + s.phase) * 0.3
+          ctx.fillStyle = `rgba(255,255,255,${a})`
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        drawMoon()
+        if (gameState === 'menu') {
+          drawMenu()
+          return
+        }
+
+        // stars
+        for (const s of stars) drawStar(s)
+        if (superStar) drawSuperStar()
+        for (const l of lemmings) drawLemming(l)
+
+        // particles
+        for (const p of particles) {
+          ctx.globalAlpha = p.life
+          ctx.fillStyle = p.color
+          ctx.shadowColor = p.color
+          ctx.shadowBlur = 8
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = 1
+        ctx.shadowBlur = 0
+
+        drawGrizzy()
+
+        // HUD
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, W, 36)
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 18px "Segoe UI", sans-serif'
+        ctx.textAlign = 'left'
+        ctx.fillText('⭐ ' + score, 12, 26)
+
+        ctx.textAlign = 'center'
+        ctx.fillStyle = timeLeft <= 10 ? '#FF4444' : '#fff'
+        ctx.font = `bold ${timeLeft <= 10 ? 20 : 18}px "Segoe UI", sans-serif`
+        ctx.fillText('⏱ ' + Math.ceil(timeLeft) + 's', 300, 26)
+
+        ctx.textAlign = 'right'
+        ctx.fillStyle = '#aaa'
+        ctx.font = '14px "Segoe UI", sans-serif'
+        ctx.fillText('🏆 ' + best, W - 12, 26)
+
+        if (gameState === 'gameover') drawGameOver()
+      }
+
+      function gameLoop(timestamp) {
+        if (!lastTime) lastTime = timestamp
+        let dt = (timestamp - lastTime) / 1000
+        lastTime = timestamp
+        if (dt > 0.1) dt = 0.1
+        accumulator += dt
+        while (accumulator >= STEP) {
+          update(STEP)
+          accumulator -= STEP
+        }
+        draw()
+        requestAnimationFrame(gameLoop)
+      }
+
+      function handleKey(e) {
+        const code = e.code
+        if (gameState === 'menu' && (code === 'Space' || code === 'Enter')) {
+          e.preventDefault()
+          gameState = 'playing'
+          resetGame()
+          return
+        }
+        if (gameState === 'gameover' && (code === 'Space' || code === 'Enter')) {
+          e.preventDefault()
+          gameState = 'menu'
+          return
+        }
+        keys[code] = e.type === 'keydown'
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(code))
+          e.preventDefault()
+      }
+
+      document.addEventListener('keydown', handleKey)
+      document.addEventListener('keyup', handleKey)
+
+      // Touch support for mobile
+      let touchX = null,
+        touchY = null
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          if (gameState === 'menu' || gameState === 'gameover') {
+            handleKey({ code: 'Space', preventDefault: () => {} })
+            return
+          }
+          const rect = canvas.getBoundingClientRect()
+          const scaleX = W / rect.width,
+            scaleY = H / rect.height
+          const t = e.touches[0]
+          touchX = (t.clientX - rect.left) * scaleX
+          touchY = (t.clientY - rect.top) * scaleY
+        },
+        { passive: false },
+      )
+
+      canvas.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault()
+          if (gameState !== 'playing') return
+          const rect = canvas.getBoundingClientRect()
+          const scaleX = W / rect.width,
+            scaleY = H / rect.height
+          const t = e.touches[0]
+          touchX = (t.clientX - rect.left) * scaleX
+          touchY = (t.clientY - rect.top) * scaleY
+          const dx = touchX - grizzy.x
+          const dy = touchY - grizzy.y
+          const dist = Math.sqrt(dx * dx + dy * dy)
+          if (dist > 5) {
+            keys['ArrowRight'] = dx > 0
+            keys['ArrowLeft'] = dx < 0
+            keys['ArrowDown'] = dy > 0
+            keys['ArrowUp'] = dy < 0
+          }
+        },
+        { passive: false },
+      )
+
+      canvas.addEventListener(
+        'touchend',
+        (e) => {
+          e.preventDefault()
+          touchX = null
+          touchY = null
+          keys['ArrowUp'] = false
+          keys['ArrowDown'] = false
+          keys['ArrowLeft'] = false
+          keys['ArrowRight'] = false
+        },
+        { passive: false },
+      )
+
+      initBgStars()
+      initAudio()
+      resetGame()
+      requestAnimationFrame(gameLoop)
+    </script>
+  </body>
+</html>

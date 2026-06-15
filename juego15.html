@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🐻 Escape del Castillo</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a1a2e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Segoe UI', sans-serif;
+        overflow: hidden;
+      }
+      #wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        aspect-ratio: 5/4;
+        background: #2a1f0e;
+        border-radius: 16px;
+        box-shadow: 0 0 60px rgba(200, 100, 0, 0.3);
+        overflow: hidden;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        image-rendering: pixelated;
+        cursor: pointer;
+      }
+      @media (max-width: 600px) {
+        #wrapper {
+          border-radius: 0;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper"><canvas id="c"></canvas></div>
+    <script>
+      const C = document.getElementById('c'),
+        ctx = C.getContext('2d')
+      const VW = 500,
+        VH = 400
+      C.width = VW
+      C.height = VH
+
+      const S = { jump: null, coin: null, trap: null, goal: null, over: null }
+      function initAudio() {
+        const f = (freq, type, dur, vol = 0.15) => {
+          const a = new (window.AudioContext || webkitAudioContext)()
+          if (S._ctx) S._ctx.close()
+          S._ctx = a
+          const o = a.createOscillator(),
+            g = a.createGain()
+          o.type = type
+          o.frequency.value = freq
+          g.gain.value = vol
+          o.connect(g)
+          g.connect(a.destination)
+          o.start()
+          g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + dur)
+          o.stop(a.currentTime + dur)
+        }
+        S.jump = () => f(400, 'square', 0.12)
+        S.coin = () => f(880, 'sine', 0.15)
+        S.trap = () => f(150, 'sawtooth', 0.3)
+        S.goal = () => {
+          f(523, 'sine', 0.15)
+          setTimeout(() => f(659, 'sine', 0.15), 120)
+          setTimeout(() => f(784, 'sine', 0.2), 240)
+        }
+        S.over = () => {
+          f(300, 'sawtooth', 0.2)
+          setTimeout(() => f(200, 'sawtooth', 0.3), 200)
+        }
+      }
+
+      let game = {
+        state: 'menu',
+        level: 0,
+        lives: 3,
+        score: 0,
+        timer: 0,
+        lastTime: 0,
+        grizzy: null,
+        platforms: [],
+        spikes: [],
+        lemmings: [],
+        coins: [],
+        door: null,
+        keys: {},
+        particles: [],
+        shake: 0,
+        anim: 0,
+        noise: null,
+      }
+
+      const levels = []
+      const SEED = [
+        3, 7, 2, 9, 4, 1, 8, 6, 5, 0, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67,
+        71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139,
+      ]
+
+      function genLevels() {
+        for (let i = 0; i < 40; i++) {
+          const L = [],
+            s = ((SEED[i] * 7) % 41) + 5
+          let x = 40,
+            y = 300,
+            px = 40,
+            py = 300
+          for (let j = 0; j < s; j++) {
+            let w = 40 + ((SEED[(i + j * 3) % 40] * 10) % 80),
+              h = 14
+            if (j > 0) {
+              x += 40 + ((SEED[(i + j * 7) % 40] * 15) % 60)
+              y = 280 - ((SEED[(i + j * 5) % 40] * 20) % 120)
+            }
+            if (y < 60) y = 100
+            if (x > 440) x = 380
+            L.push({ x, y, w, h })
+            px = x
+            py = y
+          }
+          const doorX = Math.min(x + 60, 440)
+          const doorY = Math.max(y - 40, 40)
+          L.door = { x: doorX, y: doorY, w: 28, h: 36 }
+          L.spawn = { x: 40, y: 290 }
+
+          const spikes = []
+          for (let j = 0; j < 2 + Math.floor(i / 8); j++) {
+            const idx = 10 + ((SEED[(i + j * 11) % 40] * 7) % Math.max(1, L.length - 2))
+            const p = L[idx]
+            if (p) spikes.push({ x: p.x + p.w / 2 - 8, y: p.y - 10, w: 16, h: 10 })
+          }
+          L.spikes = spikes
+
+          const lemmings = []
+          for (let j = 0; j < 1 + Math.floor(i / 12); j++) {
+            const idx = (SEED[(i + j * 13) % 40] * 5) % Math.max(1, L.length - 1)
+            const p = L[idx]
+            if (p && idx > 0)
+              lemmings.push({
+                x: p.x,
+                y: p.y - 18,
+                w: 16,
+                h: 18,
+                vx: (SEED[(i + j * 17) % 40] % 2 ? 1 : -1) * 0.6,
+                minX: p.x - 20,
+                maxX: p.x + p.w + 20,
+              })
+          }
+          L.lemmings = lemmings
+
+          const coins = []
+          const coinCount = 1 + Math.floor(i / 5)
+          for (let j = 0; j < coinCount; j++) {
+            const idx = (SEED[(i + j * 19) % 40] * 3) % Math.max(1, L.length)
+            const p = L[idx]
+            if (p) coins.push({ x: p.x + p.w / 2 - 4, y: p.y - 24, w: 8, h: 8, collected: false })
+          }
+          L.coins = coins
+          levels.push(L)
+        }
+      }
+
+      function resetLevel() {
+        const lv = levels[game.level]
+        if (!lv) return
+        game.grizzy = {
+          x: lv.spawn.x,
+          y: lv.spawn.y,
+          w: 18,
+          h: 22,
+          vy: 0,
+          onGround: false,
+          jumped: false,
+        }
+        game.platforms = lv.map((p) => ({ ...p }))
+        game.door = { ...lv.door }
+        game.spikes = lv.spikes.map((s) => ({ ...s }))
+        game.lemmings = lv.lemmings.map((l) => ({
+          x: l.x,
+          y: l.y,
+          w: l.w,
+          h: l.h,
+          vx: l.vx,
+          minX: l.minX,
+          maxX: l.maxX,
+        }))
+        game.coins = lv.coins.map((c) => ({ ...c, collected: false }))
+        game.timer = 0
+        game.particles = []
+        game.shake = 0
+      }
+
+      function loadGame() {
+        try {
+          const d = JSON.parse(localStorage.getItem('grizzy_castle'))
+          if (d && d.level !== undefined) {
+            game.level = d.level
+            game.score = d.score || 0
+            game.lives = d.lives || 3
+          }
+        } catch (e) {}
+      }
+
+      function saveGame() {
+        try {
+          localStorage.setItem(
+            'grizzy_castle',
+            JSON.stringify({ level: game.level, score: game.score, lives: game.lives }),
+          )
+        } catch (e) {}
+      }
+
+      function spawnParticles(x, y, color, n = 8) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * Math.PI * 2,
+            v = 1 + Math.random() * 2
+          game.particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v - 1,
+            life: 1,
+            color,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+
+      function roundRect(c, x, y, w, h, r) {
+        c.beginPath()
+        c.moveTo(x + r, y)
+        c.lineTo(x + w - r, y)
+        c.quadraticCurveTo(x + w, y, x + w, y + r)
+        c.lineTo(x + w, y + h - r)
+        c.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+        c.lineTo(x + r, y + h)
+        c.quadraticCurveTo(x, y + h, x, y + h - r)
+        c.lineTo(x, y + r)
+        c.quadraticCurveTo(x, y, x + r, y)
+        c.closePath()
+      }
+
+      const FONT = 'bold 14px "Segoe UI",sans-serif'
+      const FONT_BIG = 'bold 28px "Segoe UI",sans-serif'
+
+      function drawText(t, x, y, c = '#fff', s = 14, align = 'center') {
+        ctx.font = `bold ${s}px "Segoe UI",sans-serif`
+        ctx.textAlign = align
+        ctx.textBaseline = 'middle'
+        ctx.fillStyle = c
+        ctx.fillText(t, x, y)
+      }
+
+      function drawMenu() {
+        const grd = ctx.createLinearGradient(0, 0, 0, VH)
+        grd.addColorStop(0, '#2a1f0e')
+        grd.addColorStop(1, '#1a0e05')
+        ctx.fillStyle = grd
+        ctx.fillRect(0, 0, VW, VH)
+        for (let i = 0; i < 8; i++) {
+          const x = (i * 73 + game.anim * 20) % VW,
+            y = 30 + Math.sin(i * 2.3 + game.anim) * 10
+          ctx.fillStyle = '#ffb300'
+          ctx.font = '16px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('🔥', x, y)
+        }
+        ctx.fillStyle = '#8B4513'
+        ctx.fillRect(VW / 2 - 120, 80, 240, 60)
+        ctx.fillStyle = '#A0522D'
+        ctx.fillRect(VW / 2 - 115, 85, 230, 50)
+        drawText('🐻 Escape del Castillo', VW / 2, 110, '#FFD700', 22)
+        drawText('¡Sal del castillo!', VW / 2, 175, '#ddd', 13)
+        drawText('← → MOVER | ↑/ESPACIO SALTAR', VW / 2, 210, '#aaa', 11)
+        G(30, 242, 18, 22)
+        drawText(
+          'NIVEL ' + (game.level + 1) + ' | PUNTOS: ' + game.score,
+          VW / 2,
+          280,
+          '#ffb300',
+          12,
+        )
+        const pad = 12
+        if (game.anim % 120 < 100) {
+          const bx = VW / 2 - 70,
+            by = 305,
+            bw = 140,
+            bh = 36
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          roundRect(ctx, bx, by, bw, bh, 8)
+          ctx.fill()
+          ctx.fillStyle = '#795548'
+          ctx.beginPath()
+          roundRect(ctx, bx + 2, by + 2, bw - 4, bh - 4, 7)
+          ctx.fill()
+          drawText('🎮  JUGAR', VW / 2, by + bh / 2, '#fff', 15)
+        }
+      }
+
+      function drawPlatform(p) {
+        const grd = ctx.createLinearGradient(p.x, p.y, p.x, p.y + p.h)
+        grd.addColorStop(0, '#777')
+        grd.addColorStop(0.5, '#666')
+        grd.addColorStop(1, '#555')
+        ctx.fillStyle = grd
+        ctx.fillRect(p.x, p.y, p.w, p.h)
+        ctx.strokeStyle = '#4a4a4a'
+        ctx.lineWidth = 1
+        ctx.strokeRect(p.x, p.y, p.w, p.h)
+        for (let i = 0; i < p.w; i += 8) {
+          ctx.fillStyle = '#5a5a5a'
+          ctx.fillRect(p.x + i + 2, p.y + 3, 4, 2)
+        }
+      }
+
+      function G(x, y, w, h) {
+        ctx.fillStyle = '#8B4513'
+        ctx.fillRect(x - 1, y - 1, w + 2, h + 2)
+        ctx.fillStyle = '#A0522D'
+        ctx.fillRect(x, y, w, h)
+        ctx.fillStyle = '#CD853F'
+        ctx.fillRect(x + 3, y + 3, w - 6, 4)
+        ctx.fillStyle = '#DEB887'
+        ctx.beginPath()
+        ctx.arc(x + w / 2 - 2, y - 2, 5, 0, Math.PI)
+        ctx.fill()
+        ctx.fillStyle = '#FFD700'
+        ctx.strokeStyle = '#B8860B'
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(x - 1, y + h / 2, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+        ctx.beginPath()
+        ctx.arc(x + w + 1, y + h / 2, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.stroke()
+      }
+
+      function drawGrizzy(g) {
+        const bob = Math.sin(game.anim * 0.02) * 2
+        ctx.save()
+        ctx.translate(g.x + 9, g.y + bob)
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, 11, 10, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8B4513'
+        ctx.beginPath()
+        ctx.ellipse(0, 2, 10, 8, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#4E342E'
+        ctx.beginPath()
+        ctx.arc(-5, -3, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(5, -3, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-4, -4, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(6, -4, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-4, -4, 0.7, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(6, -4, 0.7, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#5D4037'
+        ctx.beginPath()
+        ctx.ellipse(0, 3, 5, 3, 0, 0, Math.PI)
+        ctx.fill()
+        ctx.fillStyle = '#B8860B'
+        ctx.fillRect(-9, -7, 3, 5)
+        ctx.fillRect(6, -7, 3, 5)
+        ctx.fillStyle = '#DAA520'
+        ctx.fillRect(-9, -8, 3, 2)
+        ctx.fillRect(6, -8, 3, 2)
+        ctx.fillStyle = '#FFD700'
+        ctx.fillRect(-10, -3, 2, 8)
+        ctx.fillRect(8, -3, 2, 8)
+        ctx.restore()
+      }
+
+      function drawDoor(d) {
+        ctx.fillStyle = '#2E7D32'
+        ctx.fillRect(d.x, d.y + 16, d.w, d.h - 16)
+        ctx.fillStyle = '#388E3C'
+        ctx.beginPath()
+        ctx.moveTo(d.x - 4, d.y + 16)
+        ctx.lineTo(d.x + d.w / 2, d.y - 4)
+        ctx.lineTo(d.x + d.w + 4, d.y + 16)
+        ctx.closePath()
+        ctx.fill()
+        ctx.strokeStyle = '#1B5E20'
+        ctx.lineWidth = 2
+        ctx.strokeRect(d.x, d.y + 16, d.w, d.h - 16)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '14px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('🏰', d.x + d.w / 2, d.y + 24)
+      }
+
+      function drawSpike(s) {
+        ctx.fillStyle = '#E53935'
+        ctx.beginPath()
+        ctx.moveTo(s.x, s.y + s.h)
+        ctx.lineTo(s.x + s.w / 2, s.y)
+        ctx.lineTo(s.x + s.w, s.y + s.h)
+        ctx.closePath()
+        ctx.fill()
+        ctx.strokeStyle = '#B71C1C'
+        ctx.lineWidth = 1
+        ctx.stroke()
+        ctx.fillStyle = '#FF5252'
+        ctx.beginPath()
+        ctx.moveTo(s.x + 2, s.y + s.h - 2)
+        ctx.lineTo(s.x + s.w / 2, s.y + 4)
+        ctx.lineTo(s.x + s.w - 2, s.y + s.h - 2)
+        ctx.closePath()
+        ctx.fill()
+      }
+
+      function drawLemming(l) {
+        const dir = l.vx > 0 ? 1 : -1
+        ctx.fillStyle = '#78909C'
+        ctx.fillRect(l.x + 1, l.y + 2, l.w - 2, l.h - 2)
+        ctx.fillStyle = '#90A4AE'
+        ctx.beginPath()
+        ctx.arc(l.x + l.w / 2, l.y + 4, 6, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(l.x + l.w / 2 + dir * 2 - 1, l.y + 2, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(l.x + l.w / 2 + dir * 2 - 1, l.y + 2, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#546E7A'
+        ctx.beginPath()
+        ctx.ellipse(l.x + l.w / 2, l.y + 10, 4, 2, 0, 0, Math.PI)
+        ctx.fill()
+        ctx.fillStyle = '#607D8B'
+        ctx.fillRect(l.x + l.w / 2 + dir * 5 - 1, l.y - 2, 2, 10)
+        ctx.fillStyle = '#78909C'
+        const legOff = Math.sin(game.anim * 0.1) * 2
+        ctx.fillRect(l.x + 2, l.y + l.h - 4, 3, 4 + legOff)
+        ctx.fillRect(l.x + l.w - 5, l.y + l.h - 4, 3, 4 - legOff)
+        ctx.fillRect(l.x + 1, l.y + 6, 3, 4)
+        ctx.fillRect(l.x + l.w - 4, l.y + 6, 3, 4)
+      }
+
+      function drawCoin(c) {
+        if (c.collected) return
+        const bob = Math.sin(game.anim * 0.08) * 3
+        ctx.fillStyle = '#FFD700'
+        ctx.beginPath()
+        ctx.arc(c.x + c.w / 2, c.y + c.h / 2 + bob, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFA000'
+        ctx.beginPath()
+        ctx.arc(c.x + c.w / 2, c.y + c.h / 2 + bob, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '7px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('$', c.x + c.w / 2, c.y + c.h / 2 + bob + 1)
+      }
+
+      function drawHUD() {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, VW, 22)
+        drawText('🏰 N' + (game.level + 1) + '/40', 4, 12, '#fff', 11, 'left')
+        drawText('⏱ ' + game.timer.toFixed(1) + 's', 150, 12, '#ffb300', 11, 'left')
+        let hs = ''
+        for (let i = 0; i < game.lives; i++) hs += '❤️'
+        drawText(hs, VW - 4, 12, '#f44', 13, 'right')
+        drawText('⭐ ' + game.score, VW - 90, 12, '#FFD700', 11, 'right')
+      }
+
+      function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'
+        ctx.fillRect(0, 0, VW, VH)
+        ctx.fillStyle = '#8B0000'
+        ctx.beginPath()
+        roundRect(ctx, VW / 2 - 100, 80, 200, 240, 12)
+        ctx.fill()
+        ctx.fillStyle = '#C62828'
+        ctx.beginPath()
+        roundRect(ctx, VW / 2 - 96, 84, 192, 232, 10)
+        ctx.fill()
+        drawText('💀 GAME OVER', VW / 2, 125, '#fff', 22)
+        drawText('Puntos: ' + game.score, VW / 2, 170, '#ffb300', 14)
+        drawText('Nivel: ' + (game.level + 1), VW / 2, 195, '#ddd', 12)
+        if (game.anim % 120 < 100) {
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          roundRect(ctx, VW / 2 - 55, 220, 110, 30, 6)
+          ctx.fill()
+          ctx.fillStyle = '#795548'
+          ctx.beginPath()
+          roundRect(ctx, VW / 2 - 53, 222, 106, 26, 5)
+          ctx.fill()
+          drawText('🔄 REINTENTAR', VW / 2, 235, '#fff', 12)
+        }
+      }
+
+      function drawLevelComplete() {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.fillRect(0, 0, VW, VH)
+        ctx.fillStyle = '#1B5E20'
+        ctx.beginPath()
+        roundRect(ctx, VW / 2 - 100, 70, 200, 220, 12)
+        ctx.fill()
+        ctx.fillStyle = '#2E7D32'
+        ctx.beginPath()
+        roundRect(ctx, VW / 2 - 96, 74, 192, 212, 10)
+        ctx.fill()
+        drawText('🎉 NIVEL ' + (game.level + 1) + ' SUPERADO', VW / 2, 115, '#FFD700', 16)
+        const bonus = Math.max(0, Math.floor((20 - game.timer) * 10))
+        drawText('Tiempo: ' + game.timer.toFixed(1) + 's', VW / 2, 150, '#fff', 13)
+        drawText('Bonus: +' + bonus, VW / 2, 175, '#4CAF50', 13)
+        const coinsGot = levels[game.level].coins.filter((c) => c.collected).length
+        drawText(
+          'Monedas: ' + coinsGot + '/' + levels[game.level].coins.length,
+          VW / 2,
+          197,
+          '#FFD700',
+          12,
+        )
+        drawText('Total: ' + game.score, VW / 2, 222, '#ffb300', 15)
+        if (game.level >= 39) drawText('🏆 ¡CASTILLO ESCAPADO!', VW / 2, 255, '#FFD700', 16)
+        else if (game.anim % 120 < 100) {
+          ctx.fillStyle = '#1565C0'
+          ctx.beginPath()
+          roundRect(ctx, VW / 2 - 55, 250, 110, 30, 6)
+          ctx.fill()
+          ctx.fillStyle = '#1976D2'
+          ctx.beginPath()
+          roundRect(ctx, VW / 2 - 53, 252, 106, 26, 5)
+          ctx.fill()
+          drawText('▶ SIGUIENTE', VW / 2, 265, '#fff', 12)
+        }
+      }
+
+      function drawParticles() {
+        for (const p of game.particles) {
+          ctx.globalAlpha = p.life
+          ctx.fillStyle = p.color
+          ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+          ctx.globalAlpha = 1
+        }
+      }
+
+      function checkCollision(ax, ay, aw, ah, bx, by, bw, bh) {
+        return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by
+      }
+
+      function update() {
+        const g = game.grizzy
+        if (!g) return
+        const keys = game.keys
+        game.anim++
+
+        if (game.shake > 0) game.shake -= 0.5
+
+        g.vy += 0.45
+        if (keys['ArrowLeft'] || keys['KeyA']) {
+          g.x -= 2.5
+        }
+        if (keys['ArrowRight'] || keys['KeyD']) {
+          g.x += 2.5
+        }
+        if ((keys['ArrowUp'] || keys['Space'] || keys['KeyW']) && g.onGround && !g.jumped) {
+          g.vy = -7.5
+          g.onGround = false
+          g.jumped = true
+          S.jump()
+        }
+        if (!(keys['ArrowUp'] || keys['Space'] || keys['KeyW'])) g.jumped = false
+
+        let movedX = g.x
+        let collidedX = false
+        for (const p of game.platforms) {
+          if (checkCollision(movedX, g.y, g.w, g.h, p.x, p.y, p.w, p.h)) {
+            if (g.x + g.w / 2 < p.x + p.w / 2) {
+              movedX = p.x - g.w
+            } else {
+              movedX = p.x + p.w
+            }
+            collidedX = true
+          }
+        }
+        g.x = movedX
+
+        g.y += g.vy
+        g.onGround = false
+        for (const p of game.platforms) {
+          if (checkCollision(g.x, g.y, g.w, g.h, p.x, p.y, p.w, p.h)) {
+            if (g.vy > 0) {
+              g.y = p.y - g.h
+              g.vy = 0
+              g.onGround = true
+            } else if (g.vy < 0) {
+              g.y = p.y + p.h
+              g.vy = 0
+            }
+          }
+        }
+
+        if (g.y > VH + 50) {
+          hitTrap()
+          return
+        }
+
+        for (const s of game.spikes) {
+          if (checkCollision(g.x, g.y, g.w, g.h, s.x, s.y, s.w, s.h)) {
+            hitTrap()
+            return
+          }
+        }
+
+        for (const l of game.lemmings) {
+          l.x += l.vx
+          if (l.x < l.minX || l.x > l.maxX) l.vx *= -1
+          if (checkCollision(g.x, g.y, g.w, g.h, l.x, l.y, l.w, l.h)) {
+            hitTrap()
+            return
+          }
+        }
+
+        for (const c of game.coins) {
+          if (!c.collected && checkCollision(g.x, g.y, g.w, g.h, c.x, c.y, c.w, c.h)) {
+            c.collected = true
+            game.score += 50
+            spawnParticles(c.x + 4, c.y + 4, '#FFD700')
+            S.coin()
+          }
+        }
+
+        if (
+          game.door &&
+          checkCollision(g.x, g.y, g.w, g.h, game.door.x, game.door.y, game.door.w, game.door.h)
+        ) {
+          S.goal()
+          const bonus = Math.max(0, Math.floor((20 - game.timer) * 10))
+          const bonusCoins = levels[game.level].coins.filter((c) => c.collected).length * 50
+          game.score += bonus + bonusCoins
+          game.particles = []
+          for (let i = 0; i < 30; i++)
+            spawnParticles(game.door.x + 14, game.door.y + 18, '#4CAF50', 3)
+          game.state = 'levelComplete'
+          saveGame()
+          return
+        }
+
+        for (let i = game.particles.length - 1; i >= 0; i--) {
+          const p = game.particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.05
+          p.life -= 0.02
+          if (p.life <= 0) game.particles.splice(i, 1)
+        }
+
+        game.timer += 1 / 60
+      }
+
+      function hitTrap() {
+        S.trap()
+        if (game.grizzy) spawnParticles(game.grizzy.x + 9, game.grizzy.y + 11, '#E53935')
+        game.lives--
+        game.shake = 8
+        if (game.lives <= 0) {
+          game.state = 'gameOver'
+          S.over()
+          saveGame()
+        } else {
+          resetLevel()
+        }
+      }
+
+      function render() {
+        ctx.save()
+        if (game.shake > 0) {
+          ctx.translate(
+            (Math.random() - 0.5) * game.shake * 2,
+            (Math.random() - 0.5) * game.shake * 2,
+          )
+        }
+
+        const grd = ctx.createLinearGradient(0, 0, 0, VH)
+        grd.addColorStop(0, '#4a3a2a')
+        grd.addColorStop(1, '#2a1f0e')
+        ctx.fillStyle = grd
+        ctx.fillRect(0, 0, VW, VH)
+
+        for (let i = 0; i < 5; i++) {
+          const x = (i * 120 + game.anim) % VW,
+            y = 50 + Math.sin(i * 1.7 + game.anim * 0.01) * 5
+          ctx.fillStyle = '#ffb30020'
+          ctx.font = '24px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText('🔥', x, y)
+        }
+
+        ctx.fillStyle = '#3a3a3a'
+        for (let i = 0; i < VW; i += 16) {
+          for (let j = 0; j < VH; j += 16) {
+            if ((i / 16 + j / 16) % 2 === 0) ctx.fillRect(i, j, 16, 16)
+          }
+        }
+        ctx.fillStyle = '#4a4a4a40'
+        ctx.fillRect(0, 0, VW, VH)
+
+        for (const p of game.platforms) drawPlatform(p)
+        for (const s of game.spikes) drawSpike(s)
+        for (const l of game.lemmings) drawLemming(l)
+        for (const c of game.coins) drawCoin(c)
+        if (game.door) drawDoor(game.door)
+
+        if (game.grizzy) drawGrizzy(game.grizzy)
+        drawParticles()
+        drawHUD()
+
+        ctx.restore()
+      }
+
+      function gameLoop() {
+        if (game.state == 'playing') {
+          update()
+          render()
+        } else if (game.state == 'menu') {
+          renderMenu()
+        } else if (game.state == 'gameOver') {
+          render()
+          drawGameOver()
+        } else if (game.state == 'levelComplete') {
+          render()
+          drawLevelComplete()
+        }
+        requestAnimationFrame(gameLoop)
+      }
+
+      function renderMenu() {
+        game.anim++
+        drawMenu()
+      }
+
+      function startGame() {
+        initAudio()
+        loadGame()
+        genLevels()
+        if (game.level >= 40) game.level = 0
+        game.state = 'playing'
+        game.lives = 3
+        resetLevel()
+        saveGame()
+      }
+
+      function nextLevel() {
+        game.level++
+        if (game.level >= 40) {
+          game.state = 'menu'
+          saveGame()
+          return
+        }
+        game.lives = 3
+        game.state = 'playing'
+        resetLevel()
+        saveGame()
+      }
+
+      function restartGame() {
+        game.level = 0
+        game.lives = 3
+        game.score = 0
+        game.state = 'playing'
+        resetLevel()
+        saveGame()
+      }
+
+      document.addEventListener('keydown', (e) => {
+        game.keys[e.code] = true
+        if (e.code === 'Space' || e.code === 'ArrowUp') e.preventDefault()
+        if (e.code === 'Enter' || e.code === 'Space') {
+          if (game.state === 'menu') startGame()
+          else if (game.state === 'gameOver') restartGame()
+          else if (game.state === 'levelComplete') nextLevel()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        game.keys[e.code] = false
+      })
+
+      C.addEventListener('click', (e) => {
+        if (game.state === 'menu') {
+          startGame()
+          return
+        }
+        if (game.state === 'gameOver') {
+          const rect = C.getBoundingClientRect()
+          const x = ((e.clientX - rect.left) / rect.width) * VW
+          const y = ((e.clientY - rect.top) / rect.height) * VH
+          if (x >= VW / 2 - 55 && x <= VW / 2 + 55 && y >= 220 && y <= 250) {
+            restartGame()
+          }
+          return
+        }
+        if (game.state === 'levelComplete') {
+          if (game.level >= 39) {
+            game.state = 'menu'
+            return
+          }
+          const rect = C.getBoundingClientRect()
+          const x = ((e.clientX - rect.left) / rect.width) * VW
+          const y = ((e.clientY - rect.top) / rect.height) * VH
+          if (x >= VW / 2 - 55 && x <= VW / 2 + 55 && y >= 250 && y <= 280) {
+            nextLevel()
+          }
+          return
+        }
+      })
+
+      let ts = null
+      C.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        const t = e.touches[0]
+        ts = { x: t.clientX, y: t.clientY }
+        if (game.state === 'menu') startGame()
+        else if (game.state === 'gameOver') restartGame()
+        else if (game.state === 'levelComplete' && game.level < 39) nextLevel()
+      })
+      C.addEventListener('touchmove', (e) => {
+        e.preventDefault()
+        if (!ts || game.state !== 'playing') return
+        const t = e.touches[0],
+          dx = t.clientX - ts.x,
+          dy = t.clientY - ts.y
+        if (Math.abs(dx) > 10) {
+          game.keys['ArrowLeft'] = dx < 0
+          game.keys['ArrowRight'] = dx > 0
+        }
+        if (dy < -30) {
+          game.keys['ArrowUp'] = true
+          game.keys['Space'] = true
+        }
+        ts = { x: t.clientX, y: t.clientY }
+      })
+      C.addEventListener('touchend', (e) => {
+        e.preventDefault()
+        game.keys['ArrowLeft'] = false
+        game.keys['ArrowRight'] = false
+        game.keys['ArrowUp'] = false
+        game.keys['Space'] = false
+        ts = null
+      })
+
+      initAudio()
+      genLevels()
+      loadGame()
+      gameLoop()
+    </script>
+  </body>
+</html>

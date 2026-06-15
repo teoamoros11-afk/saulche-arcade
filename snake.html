@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no" />
+    <title>Grizzy Snake - El Panal</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #2d1b0e;
+      }
+      body {
+        background: radial-gradient(ellipse at center, #3d2b1e 0%, #2d1b0e 70%, #1a0f08 100%);
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        color: #fff8e1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      #container {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        padding: 6px;
+        gap: 5px;
+      }
+      #hudTop {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 10px;
+        border: 1px solid #ff9800;
+        font-size: clamp(10px, 1.8vw, 15px);
+      }
+      #hudTop span {
+        background: rgba(255, 152, 0, 0.12);
+        padding: 2px 8px;
+        border-radius: 6px;
+        white-space: nowrap;
+      }
+      #tierName {
+        color: #ffc107;
+        font-weight: bold;
+        background: rgba(255, 193, 7, 0.12);
+        padding: 2px 10px;
+        border-radius: 6px;
+        font-size: clamp(10px, 1.7vw, 14px);
+        white-space: nowrap;
+      }
+      #gameArea {
+        flex: 1;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 0;
+        position: relative;
+      }
+      canvas {
+        border: 3px solid #ff9800;
+        border-radius: 12px;
+        background: #1b3a2d;
+        box-shadow: 0 0 35px rgba(255, 152, 0, 0.18);
+        display: block;
+      }
+      #hudBottom {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-shrink: 0;
+        padding: 5px 10px;
+        background: rgba(0, 0, 0, 0.45);
+        border-radius: 10px;
+        border: 1px solid #ff9800;
+        gap: 6px;
+        flex-wrap: wrap;
+        font-size: clamp(9px, 1.4vw, 13px);
+      }
+      .btn {
+        padding: 5px 14px;
+        font-size: clamp(9px, 1.4vw, 13px);
+        border: none;
+        border-radius: 7px;
+        background: #8b5e3c;
+        color: #fff8e1;
+        cursor: pointer;
+        font-weight: bold;
+        transition: background 0.2s;
+        white-space: nowrap;
+      }
+      .btn:hover {
+        background: #a67c52;
+      }
+      .controls {
+        color: #ffc107;
+        font-size: clamp(7px, 1.2vw, 11px);
+        opacity: 0.8;
+        white-space: nowrap;
+      }
+      .back {
+        color: #ffc107;
+        text-decoration: none;
+        font-size: clamp(9px, 1.3vw, 12px);
+        padding: 2px 7px;
+        border-radius: 5px;
+        background: rgba(255, 193, 7, 0.1);
+        white-space: nowrap;
+      }
+      .back:hover {
+        background: rgba(255, 193, 7, 0.25);
+      }
+      #progressWrap {
+        flex: 1;
+        max-width: 180px;
+        min-width: 50px;
+        height: 7px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      #progressBar {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #ffc107, #ff9800);
+        border-radius: 10px;
+        transition: width 0.3s;
+      }
+      .hud-group {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="container">
+      <div id="hudTop">
+        <div class="hud-group">
+          <span>🍯 <span id="foodCount">0</span>/<span id="neededFood">5</span></span
+          ><span>🐻 <span id="length">3</span></span>
+        </div>
+        <span id="tierName">🟢 El Panal</span>
+        <span>Nivel <span id="level">1</span>/40</span>
+      </div>
+      <div id="gameArea"><canvas id="game"></canvas></div>
+      <div id="hudBottom">
+        <div class="hud-group">
+          <button class="btn" id="restartBtn">🔄 Reiniciar</button
+          ><a href="index.html" class="back">← Volver</a>
+        </div>
+        <div id="progressWrap"><div id="progressBar"></div></div>
+        <div class="controls">⬆⬇⬅➡ / WASD &nbsp;↵ Nivel sig.</div>
+      </div>
+    </div>
+    <script>
+      'use strict'
+      const SAVE_KEY = 'snake_grizzy'
+      let actx = null
+      function getAudio() {
+        if (!actx)
+          try {
+            actx = new (window.AudioContext || window.webkitAudioContext)()
+          } catch (e) {}
+        return actx
+      }
+      function sfx(f, d, t, v) {
+        try {
+          const a = getAudio()
+          if (!a) return
+          const o = a.createOscillator(),
+            g = a.createGain()
+          o.connect(g)
+          g.connect(a.destination)
+          o.frequency.value = f
+          o.type = t || 'sine'
+          g.gain.value = v || 0.1
+          o.start()
+          g.gain.exponentialRampToValueAtTime(0.001, a.currentTime + (d || 0.12))
+          o.stop(a.currentTime + (d || 0.12))
+        } catch (e) {}
+      }
+      function sfxEat() {
+        sfx(540, 0.1, 'sine', 0.12)
+        sfx(680, 0.08, 'sine', 0.08)
+      }
+      function sfxCrash() {
+        sfx(140, 0.22, 'sawtooth', 0.15)
+        sfx(80, 0.32, 'sawtooth', 0.1)
+      }
+      function sfxWin() {
+        sfx(523, 0.15, 'sine', 0.12)
+        setTimeout(() => sfx(659, 0.15, 'sine', 0.1), 150)
+        setTimeout(() => sfx(784, 0.2, 'sine', 0.1), 300)
+      }
+      function sfxSave() {
+        sfx(880, 0.08, 'sine', 0.08)
+      }
+
+      let particles = [],
+        flashTimer = 0,
+        saveTimer = 0,
+        eatAnimTimer = 0
+
+      function spawnParticles(x, y, color, cnt) {
+        for (let i = 0; i < (cnt || 10); i++)
+          particles.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 6,
+            vy: (Math.random() - 0.5) * 6 - 1,
+            life: 30 + Math.random() * 20,
+            maxLife: 50,
+            color: color,
+            r: 2 + Math.random() * 3,
+          })
+      }
+
+      function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.15
+          p.life--
+          if (p.life <= 0) particles.splice(i, 1)
+        }
+      }
+
+      function drawParticles(c) {
+        for (const p of particles) {
+          c.save()
+          c.globalAlpha = Math.max(0, p.life / p.maxLife)
+          c.fillStyle = p.color
+          c.shadowColor = p.color
+          c.shadowBlur = 6
+          c.beginPath()
+          c.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+          c.fill()
+          c.restore()
+        }
+      }
+
+      const canvas = document.getElementById('game'),
+        ctx = canvas.getContext('2d')
+      const COLS = 20,
+        ROWS = 20
+      let CELL
+
+      function resizeCanvas() {
+        const rect = document.getElementById('gameArea').getBoundingClientRect()
+        const size = Math.min(rect.width, rect.height)
+        CELL = Math.max(10, Math.floor(size / COLS))
+        canvas.width = CELL * COLS
+        canvas.height = CELL * ROWS
+        if (typeof food !== 'undefined' && food) draw()
+      }
+
+      let snake, food, dir, nextDir, level, foodEaten, needed, over, win, lemmings = []
+
+      const TIERS = [
+        { name: '\u{1F7E2} El Panal', range: [1, 10], speed: 180, color: '#4CAF50' },
+        { name: '\u{1F7E1} El Bosque', range: [11, 20], speed: 140, color: '#FFC107' },
+        { name: '\u{1F534} La Caba\u00F1a', range: [21, 30], speed: 100, color: '#FF5722' },
+        { name: '\u{1F7E3} La Cueva', range: [31, 40], speed: 65, color: '#9C27B0' },
+      ]
+
+      function getTier(lv) {
+        for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+        return TIERS[3]
+      }
+
+      function getFoodNeeded(lv) {
+        if (lv <= 10) return 5
+        if (lv <= 20) return 8
+        if (lv <= 30) return 10
+        return 12
+      }
+
+      function getLemmings(lv) {
+        const w = [],
+          layer = Math.floor((lv - 1) / 10)
+        if (layer === 0) return w
+        const spawnClear = [
+          { x: 5, y: 10 },
+          { x: 4, y: 10 },
+          { x: 3, y: 10 },
+          { x: 6, y: 10 },
+          { x: 5, y: 9 },
+          { x: 5, y: 11 },
+        ]
+        const clear = (x, y) => !spawnClear.some((s) => s.x === x && s.y === y)
+        if (layer === 1) {
+          const n = 4 + (lv % 10)
+          let att = 0
+          while (w.length < n && att < 150) {
+            const x = 2 + Math.floor(Math.random() * (COLS - 4)),
+              y = 2 + Math.floor(Math.random() * (ROWS - 4))
+            if (!w.some((l) => l.x === x && l.y === y) && clear(x, y)) w.push({ x, y })
+            att++
+          }
+        } else if (layer === 2) {
+          const n = 10 + (lv % 10)
+          let att = 0
+          while (w.length < Math.min(n, 35) && att < 250) {
+            const x = 1 + Math.floor(Math.random() * (COLS - 2)),
+              y = 1 + Math.floor(Math.random() * (ROWS - 2))
+            if (!w.some((l) => l.x === x && l.y === y) && clear(x, y)) w.push({ x, y })
+            att++
+          }
+        } else {
+          const n = 14 + (lv % 10) * 2
+          for (let y = 2; y < ROWS - 2; y += 2)
+            for (let x = 2; x < COLS - 2; x += 2)
+              if (w.length < n && clear(x, y) && Math.random() < 0.55) w.push({ x, y })
+        }
+        return w
+      }
+
+      function init() {
+        snake = [
+          { x: 5, y: 10 },
+          { x: 4, y: 10 },
+          { x: 3, y: 10 },
+        ]
+        dir = 'right'
+        nextDir = 'right'
+        over = false
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE_KEY)) || 1)
+        startLevel()
+        draw()
+      }
+
+      function startLevel() {
+        foodEaten = 0
+        win = false
+        needed = getFoodNeeded(level)
+        lemmings = getLemmings(level)
+        for (const l of lemmings)
+          for (const s of snake)
+            if (s.x === l.x && s.y === l.y) {
+              l.x = (l.x + 5) % COLS
+              l.y = (l.y + 5) % ROWS
+            }
+        spawnFood()
+        updateUI()
+      }
+
+      function spawnFood() {
+        do {
+          food = { x: Math.floor(Math.random() * COLS), y: Math.floor(Math.random() * ROWS) }
+        } while (
+          snake.some((s) => s.x === food.x && s.y === food.y) ||
+          lemmings.some((l) => l.x === food.x && l.y === food.y)
+        )
+      }
+
+      function updateUI() {
+        document.getElementById('foodCount').textContent = foodEaten
+        document.getElementById('neededFood').textContent = needed
+        document.getElementById('length').textContent = snake.length
+        document.getElementById('level').textContent = level
+        document.getElementById('tierName').textContent = getTier(level).name
+        document.getElementById('progressBar').style.width =
+          Math.min(100, (foodEaten / needed) * 100) + '%'
+      }
+
+      function drawRoundRect(c, x, y, w, h, r) {
+        c.beginPath()
+        c.moveTo(x + r, y)
+        c.lineTo(x + w - r, y)
+        c.quadraticCurveTo(x + w, y, x + w, y + r)
+        c.lineTo(x + w, y + h - r)
+        c.quadraticCurveTo(x + w, y + h, x + w - r, y + h)
+        c.lineTo(x + r, y + h)
+        c.quadraticCurveTo(x, y + h, x, y + h - r)
+        c.lineTo(x, y + r)
+        c.quadraticCurveTo(x, y, x + r, y)
+        c.closePath()
+      }
+      function drawCircle(c, x, y, r) {
+        c.beginPath()
+        c.arc(x, y, r, 0, Math.PI * 2)
+        c.fill()
+      }
+
+      function drawBearSegment(c, x, y, sz, isHead, eating) {
+        const pad = 1,
+          s = sz - pad * 2,
+          cx = x + sz / 2,
+          cy = y + sz / 2,
+          rad = s * 0.25
+        c.fillStyle = '#8B5E3C'
+        drawRoundRect(c, x + pad, y + pad, s, s, rad)
+        c.fill()
+        c.fillStyle = '#A67C52'
+        const ins = s * 0.15
+        drawRoundRect(c, x + pad + ins, y + pad + ins, s - ins * 2, s - ins * 2, rad * 0.6)
+        c.fill()
+        if (isHead) {
+          c.fillStyle = '#6B4226'
+          const es = s * 0.22
+          c.beginPath()
+          c.ellipse(cx - s * 0.25, y + pad + es * 0.6, es, es * 1.2, -0.3, 0, Math.PI * 2)
+          c.fill()
+          c.beginPath()
+          c.ellipse(cx + s * 0.25, y + pad + es * 0.6, es, es * 1.2, 0.3, 0, Math.PI * 2)
+          c.fill()
+          const ey = cy - s * 0.08,
+            esp = s * 0.2,
+            er = s * 0.12
+          c.fillStyle = '#FFF'
+          drawCircle(c, cx - esp, ey, er)
+          drawCircle(c, cx + esp, ey, er)
+          c.fillStyle = '#000'
+          drawCircle(c, cx - esp, ey, s * 0.06)
+          drawCircle(c, cx + esp, ey, s * 0.06)
+          c.fillStyle = '#3E2723'
+          c.beginPath()
+          c.ellipse(cx, cy + s * 0.1, s * 0.08, s * 0.06, 0, 0, Math.PI * 2)
+          c.fill()
+          c.strokeStyle = '#3E2723'
+          c.lineWidth = Math.max(1, s * 0.04)
+          if (eating && eatAnimTimer > 0) {
+            c.fillStyle = '#D32F2F'
+            c.beginPath()
+            c.ellipse(cx, cy + s * 0.25, s * 0.12, s * 0.08, 0, 0, Math.PI * 2)
+            c.fill()
+            c.fillStyle = '#FFF'
+            c.fillRect(cx - s * 0.06, cy + s * 0.2, s * 0.04, s * 0.06)
+            c.fillRect(cx + s * 0.02, cy + s * 0.2, s * 0.04, s * 0.06)
+          } else {
+            c.beginPath()
+            c.arc(cx, cy + s * 0.14, s * 0.1, 0.1, Math.PI - 0.1)
+            c.stroke()
+          }
+        }
+      }
+
+      function drawHoneyPot(c, x, y, sz) {
+        const cx = x + sz / 2,
+          cy = y + sz / 2,
+          s = sz * 0.82
+        c.save()
+        c.shadowColor = '#FFC107'
+        c.shadowBlur = 14
+        c.fillStyle = '#FFC107'
+        const jw = s * 0.6,
+          jh = s * 0.6,
+          jx = cx - jw / 2,
+          jy = cy - jh / 2 + s * 0.12
+        drawRoundRect(c, jx, jy, jw, jh, s * 0.1)
+        c.fill()
+        c.fillStyle = '#FFD54F'
+        c.fillRect(jx + s * 0.06, jy + s * 0.08, jw * 0.12, jh * 0.45)
+        c.fillStyle = '#FF8F00'
+        const lw = s * 0.45,
+          lh = s * 0.1,
+          lx = cx - lw / 2,
+          ly = jy - lh
+        drawRoundRect(c, lx, ly, lw, lh, s * 0.03)
+        c.fill()
+        c.fillStyle = '#FFF8E1'
+        const bw = s * 0.32,
+          bh = s * 0.22,
+          bx = cx - bw / 2,
+          by = cy - bh / 2 + s * 0.02
+        drawRoundRect(c, bx, by, bw, bh, s * 0.04)
+        c.fill()
+        c.fillStyle = '#8B5E3C'
+        c.font = 'bold ' + s * 0.22 + 'px sans-serif'
+        c.textAlign = 'center'
+        c.textBaseline = 'middle'
+        c.fillText('M', cx, by + bh / 2)
+        c.restore()
+      }
+
+      function drawLemming(c, x, y, sz, blink, big) {
+        const cx = x + sz / 2,
+          cy = y + sz / 2,
+          s = big ? sz * 0.92 : sz * 0.82
+        c.fillStyle = '#7E8A9E'
+        const bw = s * 0.7,
+          bh = s * 0.65
+        drawRoundRect(c, cx - bw / 2, cy - bh / 2, bw, bh, s * 0.18)
+        c.fill()
+        c.fillStyle = '#8A96AA'
+        c.beginPath()
+        c.arc(cx, cy - bh * 0.3, s * 0.28, Math.PI, 0)
+        c.fill()
+        if (!blink || Math.floor(Date.now() / 400) % 3 !== 0) {
+          c.fillStyle = '#000'
+          drawCircle(c, cx - s * 0.1, cy - bh * 0.33, s * 0.04)
+          drawCircle(c, cx + s * 0.1, cy - bh * 0.33, s * 0.04)
+        } else {
+          c.strokeStyle = '#000'
+          c.lineWidth = Math.max(1, s * 0.04)
+          c.beginPath()
+          c.moveTo(cx - s * 0.14, cy - bh * 0.33)
+          c.lineTo(cx - s * 0.04, cy - bh * 0.33)
+          c.stroke()
+          c.beginPath()
+          c.moveTo(cx + s * 0.04, cy - bh * 0.33)
+          c.lineTo(cx + s * 0.14, cy - bh * 0.33)
+          c.stroke()
+        }
+        c.fillStyle = '#FFF'
+        const tw = s * 0.05,
+          th = s * 0.12
+        c.fillRect(cx - tw - 1, cy - bh * 0.08, tw, th)
+        c.fillRect(cx + 1, cy - bh * 0.08, tw, th)
+        c.fillStyle = '#E8A0A0'
+        c.globalAlpha = 0.35
+        drawCircle(c, cx - s * 0.18, cy - bh * 0.13, s * 0.04)
+        drawCircle(c, cx + s * 0.18, cy - bh * 0.13, s * 0.04)
+        c.globalAlpha = 1
+      }
+
+      function draw() {
+        updateParticles()
+        const W = canvas.width,
+          H = canvas.height,
+          ti = getTier(level),
+          tiIdx = TIERS.indexOf(ti),
+          blink = tiIdx >= 3,
+          big = tiIdx >= 2
+        ctx.save()
+        ctx.fillStyle = '#1B3A2D'
+        ctx.fillRect(0, 0, W, H)
+        ctx.strokeStyle = 'rgba(255,255,255,0.035)'
+        ctx.lineWidth = 0.5
+        for (let i = 0; i <= COLS; i++) {
+          ctx.beginPath()
+          ctx.moveTo(i * CELL, 0)
+          ctx.lineTo(i * CELL, H)
+          ctx.stroke()
+        }
+        for (let i = 0; i <= ROWS; i++) {
+          ctx.beginPath()
+          ctx.moveTo(0, i * CELL)
+          ctx.lineTo(W, i * CELL)
+          ctx.stroke()
+        }
+        for (const l of lemmings) {
+          const off = (CELL - (big ? CELL * 0.95 : CELL * 0.85)) / 2
+          const sz = big ? CELL * 0.95 : CELL * 0.85
+          drawLemming(ctx, l.x * CELL + off, l.y * CELL + off, sz, blink, big)
+        }
+        drawHoneyPot(ctx, food.x * CELL, food.y * CELL, CELL)
+        for (let i = snake.length - 1; i >= 0; i--) {
+          const s = snake[i],
+            off = (CELL - CELL * 0.88) / 2
+          drawBearSegment(
+            ctx,
+            s.x * CELL + off,
+            s.y * CELL + off,
+            CELL * 0.88,
+            i === 0,
+            i === 0 && eatAnimTimer > 0,
+          )
+        }
+        drawParticles(ctx)
+        if (flashTimer > 0) {
+          flashTimer--
+          ctx.fillStyle = 'rgba(255,0,0,' + flashTimer / 15 + ')'
+          ctx.fillRect(0, 0, W, H)
+        }
+        if (saveTimer > 0) {
+          saveTimer--
+          ctx.save()
+          ctx.fillStyle = '#FFC107'
+          ctx.font = 'bold ' + Math.max(11, CELL * 0.65) + 'px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'top'
+          ctx.shadowColor = '#000'
+          ctx.shadowBlur = 8
+          ctx.fillText('\u{1F4BE} Guardado', W / 2, 6)
+          ctx.restore()
+        }
+        if (win) {
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'
+          ctx.fillRect(0, 0, W, H)
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          if (level >= 40) {
+            ctx.fillStyle = '#FFC107'
+            ctx.font = 'bold ' + Math.max(22, CELL * 1.3) + 'px sans-serif'
+            ctx.shadowColor = '#000'
+            ctx.shadowBlur = 12
+            ctx.fillText('\u{1F3C6} \u00A1GANASTE!', W / 2, H * 0.35)
+            ctx.shadowBlur = 0
+            ctx.fillStyle = '#FFF8E1'
+            ctx.font = Math.max(12, CELL * 0.6) + 'px sans-serif'
+            ctx.fillText('Completaste los 40 niveles', W / 2, H * 0.5)
+            ctx.fillStyle = '#FFC107'
+            ctx.font = Math.max(10, CELL * 0.5) + 'px sans-serif'
+            ctx.fillText('ENTER para reiniciar', W / 2, H * 0.62)
+          } else {
+            ctx.fillStyle = '#FFC107'
+            ctx.font = 'bold ' + Math.max(20, CELL * 1.1) + 'px sans-serif'
+            ctx.shadowColor = '#000'
+            ctx.shadowBlur = 12
+            ctx.fillText('\u{1F389} Nivel ' + level + ' Completado', W / 2, H * 0.35)
+            ctx.shadowBlur = 0
+            ctx.fillStyle = '#FFF8E1'
+            ctx.font = Math.max(11, CELL * 0.55) + 'px sans-serif'
+            ctx.fillText('ENTER para continuar', W / 2, H * 0.5)
+          }
+        }
+        if (over && !win) {
+          ctx.fillStyle = 'rgba(0,0,0,0.72)'
+          ctx.fillRect(0, 0, W, H)
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillStyle = '#FF5252'
+          ctx.font = 'bold ' + Math.max(24, CELL * 1.4) + 'px sans-serif'
+          ctx.shadowColor = '#000'
+          ctx.shadowBlur = 14
+          ctx.fillText('GAME OVER', W / 2, H * 0.38)
+          ctx.shadowBlur = 0
+          ctx.fillStyle = '#FFF8E1'
+          ctx.font = Math.max(11, CELL * 0.55) + 'px sans-serif'
+          ctx.fillText('ENTER o click para reiniciar', W / 2, H * 0.52)
+        }
+        if (eatAnimTimer > 0) eatAnimTimer--
+        ctx.restore()
+      }
+
+      function tick() {
+        updateParticles()
+        if (over || win) {
+          draw()
+          return
+        }
+        dir = nextDir
+        const head = { x: snake[0].x, y: snake[0].y }
+        if (dir === 'up') head.y--
+        else if (dir === 'down') head.y++
+        else if (dir === 'left') head.x--
+        else if (dir === 'right') head.x++
+        if (
+          head.x < 0 ||
+          head.x >= COLS ||
+          head.y < 0 ||
+          head.y >= ROWS ||
+          snake.some((s) => s.x === head.x && s.y === head.y) ||
+          lemmings.some((l) => l.x === head.x && l.y === head.y)
+        ) {
+          over = true
+          sfxCrash()
+          flashTimer = 15
+          if (lemmings.some((l) => l.x === head.x && l.y === head.y))
+            spawnParticles(head.x * CELL + CELL / 2, head.y * CELL + CELL / 2, '#7E8A9E', 15)
+          draw()
+          return
+        }
+        snake.unshift(head)
+        if (head.x === food.x && head.y === food.y) {
+          foodEaten++
+          sfxEat()
+          eatAnimTimer = 8
+          spawnParticles(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, '#FFC107', 14)
+          spawnParticles(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, '#FFF8E1', 6)
+          updateUI()
+          if (foodEaten >= needed) {
+            win = true
+            sfxWin()
+            if (level >= 40) {
+              over = true
+            } else {
+              const sv = parseInt(localStorage.getItem(SAVE_KEY)) || 0
+              if (level >= sv) {
+                localStorage.setItem(SAVE_KEY, level + 1)
+                saveTimer = 90
+                sfxSave()
+              }
+            }
+            draw()
+            return
+          }
+          spawnFood()
+          updateUI()
+        } else snake.pop()
+        draw()
+      }
+
+      document.addEventListener('keydown', (e) => {
+        const k = e.key
+        if (win && k === 'Enter') {
+          if (level < 40) {
+            level++
+            clearInterval(loop)
+            loop = setInterval(tick, getTier(level).speed)
+            startLevel()
+            resizeCanvas()
+          }
+          return
+        }
+        if (over && k === 'Enter') {
+          clearInterval(loop)
+          init()
+          loop = setInterval(tick, getTier(level).speed)
+          resizeCanvas()
+          return
+        }
+        if (over) return
+        let k2 = k.replace('Arrow', '').toLowerCase()
+        if (k2 === 'w') k2 = 'up'
+        else if (k2 === 's') k2 = 'down'
+        else if (k2 === 'a') k2 = 'left'
+        else if (k2 === 'd') k2 = 'right'
+        if (
+          (k2 === 'up' && dir !== 'down') ||
+          (k2 === 'down' && dir !== 'up') ||
+          (k2 === 'left' && dir !== 'right') ||
+          (k2 === 'right' && dir !== 'left')
+        ) {
+          nextDir = k2
+          e.preventDefault()
+        }
+      })
+
+      let touchSX = 0,
+        touchSY = 0,
+        touchEX = 0,
+        touchEY = 0
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          const t = e.touches[0]
+          touchSX = t.clientX
+          touchSY = t.clientY
+          touchEX = touchSX
+          touchEY = touchSY
+        },
+        { passive: true },
+      )
+      canvas.addEventListener(
+        'touchmove',
+        (e) => {
+          const t = e.touches[0]
+          touchEX = t.clientX
+          touchEY = t.clientY
+          e.preventDefault()
+        },
+        { passive: false },
+      )
+      canvas.addEventListener(
+        'touchend',
+        (e) => {
+          if (over || win) {
+            if (over && !win) {
+              clearInterval(loop)
+              init()
+              loop = setInterval(tick, getTier(level).speed)
+              resizeCanvas()
+            } else if (win && level < 40) {
+              level++
+              clearInterval(loop)
+              loop = setInterval(tick, getTier(level).speed)
+              startLevel()
+              resizeCanvas()
+            } else if (win && level >= 40) {
+              clearInterval(loop)
+              init()
+              loop = setInterval(tick, getTier(level).speed)
+              resizeCanvas()
+            }
+            return
+          }
+          const dx = touchEX - touchSX,
+            dy = touchEY - touchSY,
+            ax = Math.abs(dx),
+            ay = Math.abs(dy)
+          if (Math.max(ax, ay) < 8) return
+          if (ax > ay) {
+            if (dx > 0 && dir !== 'left') nextDir = 'right'
+            else if (dx < 0 && dir !== 'right') nextDir = 'left'
+          } else {
+            if (dy > 0 && dir !== 'up') nextDir = 'down'
+            else if (dy < 0 && dir !== 'down') nextDir = 'up'
+          }
+          e.preventDefault()
+        },
+        { passive: false },
+      )
+
+      document.getElementById('restartBtn').addEventListener('click', () => {
+        clearInterval(loop)
+        init()
+        loop = setInterval(tick, getTier(level).speed)
+        resizeCanvas()
+      })
+      window.addEventListener('resize', resizeCanvas)
+      window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 250))
+
+      let loop
+      resizeCanvas()
+      init()
+      loop = setInterval(tick, getTier(level).speed)
+    </script>
+  </body>
+</html>

@@ -1,0 +1,905 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Mini Bomberos - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', sans-serif;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        image-rendering: pixelated;
+        background: #2a2a3e;
+        cursor: none;
+      }
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: none;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+      #hud {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        display: flex;
+        gap: 30px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 8px 20px;
+        border-radius: 10px;
+        white-space: nowrap;
+      }
+      #hud span {
+        color: #ffd700;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        text-align: center;
+      }
+      .overlay h1 {
+        font-size: 48px;
+        color: #ff6b35;
+        text-shadow:
+          3px 3px 0 #c0392b,
+          0 0 20px rgba(255, 107, 53, 0.5);
+        margin-bottom: 10px;
+      }
+      .overlay h2 {
+        font-size: 28px;
+        color: #ffd700;
+        margin-bottom: 10px;
+      }
+      .overlay p {
+        font-size: 18px;
+        margin: 8px 0;
+        color: #ccc;
+        max-width: 500px;
+      }
+      .overlay .btn {
+        margin-top: 20px;
+        padding: 14px 50px;
+        font-size: 22px;
+        font-weight: bold;
+        background: #ff6b35;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 0 #c0392b;
+      }
+      .overlay .btn:hover {
+        background: #ff8c5a;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 #c0392b;
+      }
+      .overlay .btn:active {
+        transform: translateY(4px);
+        box-shadow: 0 0px 0 #c0392b;
+      }
+      #startScreen {
+        display: flex;
+      }
+      #gameOverScreen {
+        display: none;
+      }
+      .fire-icon {
+        font-size: 60px;
+        margin-bottom: 10px;
+        animation: flicker 0.5s infinite alternate;
+      }
+      @keyframes flicker {
+        0% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1.1);
+          opacity: 0.8;
+        }
+      }
+      .grizzy-icon {
+        width: 80px;
+        height: 80px;
+        background: #ff6b35;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 50px;
+        margin: 10px auto;
+        border: 4px solid #ffd700;
+      }
+      @media (max-width: 600px) {
+        .overlay h1 {
+          font-size: 32px;
+        }
+        .overlay h2 {
+          font-size: 22px;
+        }
+        .overlay p {
+          font-size: 14px;
+        }
+        .overlay .btn {
+          padding: 12px 35px;
+          font-size: 18px;
+        }
+        #hud {
+          font-size: 14px;
+          padding: 5px 12px;
+          gap: 15px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="ui">
+      <div id="hud">
+        <span>🔥</span> NIVEL <span id="lvl">1</span> | ⏱ <span id="timer">60</span>s | 🏆
+        <span id="score">0</span>
+      </div>
+      <div id="startScreen" class="overlay">
+        <div class="fire-icon">🔥</div>
+        <h1>MINI BOMBEROS</h1>
+        <p>Grizzy &amp; the Lemmings</p>
+        <div class="grizzy-icon">🐻</div>
+        <p>
+          ¡Ayuda a Grizzy a apagar los incendios!<br />Mueve el mouse para apuntar, haz clic para
+          disparar agua.<br />Cuidado con los lemmings bomberos torpes!
+        </p>
+        <p style="font-size: 14px; color: #888">Récord: <span id="hsDisplay">0</span></p>
+        <button class="btn" id="startBtn">🔥 ¡JUGAR!</button>
+      </div>
+      <div id="gameOverScreen" class="overlay">
+        <h2>🚒 GAME OVER</h2>
+        <p id="goReason">Se acabó el tiempo</p>
+        <p>Puntuación: <span id="goScore">0</span></p>
+        <p>Récord: <span id="goHigh">0</span></p>
+        <p>Nivel alcanzado: <span id="goLevel">1</span></p>
+        <button class="btn" id="restartBtn">🔥 REINTENTAR</button>
+      </div>
+    </div>
+    <script>
+      const C = document.getElementById('c'),
+        X = C.getContext('2d')
+      let W, H, S
+      function resize() {
+        W = window.innerWidth
+        H = window.innerHeight
+        S = Math.min(W / 600, H / 400)
+        C.width = W
+        C.height = H
+      }
+      resize()
+      window.addEventListener('resize', resize)
+
+      const VW = 600,
+        VH = 400
+      let scale
+
+      function vx(x) {
+        return x * scale
+      }
+      function vy(y) {
+        return y * scale
+      }
+
+      const STATE = { MENU: 0, PLAY: 1, GAMEOVER: 2 }
+      let state = STATE.MENU,
+        score = 0,
+        level = 1,
+        timer = 60,
+        timerAcc = 0
+      let fires = [],
+        waterParticles = [],
+        fireParticles = [],
+        lemmings = []
+      let mx = 300,
+        my = 200,
+        shooting = false,
+        shootTimer = 0,
+        canShoot = true
+      let goReason = '',
+        highScore = parseInt(localStorage.getItem('grizzy_firefighter') || '0')
+      let levelTimer = 0,
+        fireSpawnTimer = 0,
+        nextFireTime = 0
+
+      // Audio context
+      let actx
+      function initAudio() {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      function playTone(freq, dur, type = 'square', vol = 0.15) {
+        try {
+          if (!actx) return
+          const o = actx.createOscillator(),
+            g = actx.createGain()
+          o.type = type
+          o.frequency.value = freq
+          g.gain.value = vol
+          g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur)
+          o.connect(g)
+          g.connect(actx.destination)
+          o.start()
+          o.stop(actx.currentTime + dur)
+        } catch (e) {}
+      }
+      function playWater() {
+        playTone(800, 0.08, 'sawtooth', 0.08)
+        playTone(1200, 0.1, 'sine', 0.05)
+      }
+      function playFireOut() {
+        playTone(400, 0.15, 'sine', 0.12)
+        setTimeout(() => playTone(600, 0.2, 'sine', 0.1), 100)
+      }
+      function playLemming() {
+        playTone(250, 0.12, 'triangle', 0.1)
+        setTimeout(() => playTone(300, 0.1, 'triangle', 0.08), 80)
+      }
+      function playGameOver() {
+        playTone(300, 0.3, 'sawtooth', 0.1)
+        setTimeout(() => playTone(200, 0.4, 'sawtooth', 0.1), 200)
+        setTimeout(() => playTone(150, 0.5, 'sawtooth', 0.08), 400)
+      }
+
+      const BLD_W = 40,
+        BLD_GAP = 12,
+        WIN_W = 28,
+        WIN_H = 20,
+        WIN_GAP = 6
+      const BLD_COLS = 8,
+        BLD_ROWS = 3
+      const bldBaseX = 40,
+        bldBaseY = 40
+      const bldWidths = [50, 45, 55, 48, 52, 50, 46, 54]
+
+      function getBuildingX(col) {
+        let x = bldBaseX
+        for (let i = 0; i < col; i++) x += bldWidths[i] + BLD_GAP
+        return x
+      }
+
+      function getWindows(bldCol) {
+        const bx = getBuildingX(bldCol),
+          bw = bldWidths[bldCol]
+        const cols = Math.floor((bw - 8) / WIN_W),
+          rows = 4
+        const gapX = (bw - cols * WIN_W) / (cols + 1),
+          gapY = 6
+        const wins = []
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            wins.push({
+              x: bx + gapX + c * (WIN_W + gapX),
+              y: bldBaseY + gapY + r * (WIN_H + gapY),
+              w: WIN_W,
+              h: WIN_H,
+            })
+          }
+        }
+        return wins
+      }
+
+      function spawnFire() {
+        if (fires.length >= 3 + Math.floor(level / 5)) return
+        const bldCol = Math.floor(Math.random() * BLD_COLS)
+        const wins = getWindows(bldCol)
+        if (wins.length === 0) return
+        let attempts = 0
+        while (attempts < 20) {
+          const wi = Math.floor(Math.random() * wins.length)
+          const w = wins[wi]
+          const overlap = fires.some((f) => Math.abs(f.x - w.x) < 15 && Math.abs(f.y - w.y) < 15)
+          if (!overlap) {
+            const hp = 3 + Math.floor(Math.random() * 3) + Math.min(Math.floor(level / 5), 3)
+            fires.push({
+              x: w.x + w.w / 2,
+              y: w.y + w.h / 2,
+              hp: hp,
+              maxHp: hp,
+              size: 8 + Math.min(level / 10, 6),
+              anim: Math.random() * Math.PI * 2,
+              scale: 1,
+            })
+            break
+          }
+          attempts++
+        }
+      }
+
+      function spawnLemming() {
+        const side = Math.random() > 0.5 ? 1 : -1
+        const y = 80 + Math.random() * 250
+        lemmings.push({
+          x: side === -1 ? -30 : VW + 30,
+          y: y,
+          targetX: 100 + Math.random() * (VW - 200),
+          targetY: y,
+          speed: 20 + Math.random() * 30,
+          arrived: false,
+          timer: 0,
+          laughAnim: 0,
+          blocking: false,
+          blockTimer: 0,
+        })
+      }
+
+      class WaterParticle {
+        constructor(x, y, dx, dy) {
+          this.x = x
+          this.y = y
+          this.dx = dx
+          this.dy = dy
+          this.life = 1
+          this.speed = 8 + Math.random() * 4
+        }
+        update(dt) {
+          this.x += this.dx * this.speed * dt
+          this.y += this.dy * this.speed * dt
+          this.life -= dt * 2.5
+          this.dy += 60 * dt
+          this.speed *= 0.98
+        }
+        draw() {
+          const a = Math.max(0, this.life)
+          X.fillStyle = `rgba(77,208,225,${a * 0.8})`
+          X.beginPath()
+          X.arc(vx(this.x), vy(this.y), Math.max(1, a * 3 * scale), 0, Math.PI * 2)
+          X.fill()
+        }
+      }
+
+      class FireParticle {
+        constructor(x, y, color) {
+          this.x = x + (Math.random() - 0.5) * 6
+          this.y = y + (Math.random() - 0.5) * 6
+          this.vx = (Math.random() - 0.5) * 20
+          this.vy = -30 - Math.random() * 40
+          this.life = 1
+          this.color = color
+          this.size = 2 + Math.random() * 4
+        }
+        update(dt) {
+          this.x += this.vx * dt
+          this.y += this.vy * dt
+          this.vy += 60 * dt
+          this.life -= dt * 1.8
+        }
+        draw() {
+          const a = Math.max(0, this.life)
+          X.globalAlpha = a
+          X.fillStyle = this.color
+          X.beginPath()
+          X.arc(vx(this.x), vy(this.y), this.size * scale * a, 0, Math.PI * 2)
+          X.fill()
+          X.globalAlpha = 1
+        }
+      }
+
+      function drawBuildings() {
+        for (let i = 0; i < BLD_COLS; i++) {
+          const bx = getBuildingX(i),
+            bw = bldWidths[i]
+          X.fillStyle = '#555'
+          X.fillRect(vx(bx), vy(bldBaseY), vx(bw), vy(VH - bldBaseY - 10))
+          X.fillStyle = '#4a4a4a'
+          X.fillRect(vx(bx + 2), vy(bldBaseY + 2), vx(bw - 4), vy(VH - bldBaseY - 14))
+          const wins = getWindows(i)
+          for (const w of wins) {
+            X.fillStyle = '#1a1a3a'
+            X.fillRect(vx(w.x), vy(w.y), vx(w.w), vy(w.h))
+            X.strokeStyle = '#444'
+            X.lineWidth = 1
+            X.strokeRect(vx(w.x), vy(w.y), vx(w.w), vy(w.h))
+          }
+        }
+      }
+
+      function drawGrizzy() {
+        const gx = mx,
+          gy = my
+        // Body
+        X.fillStyle = '#FFD700'
+        X.beginPath()
+        X.arc(vx(gx), vy(gy + 10), 18 * scale, 0, Math.PI * 2)
+        X.fill()
+        // Head
+        X.fillStyle = '#8B5E3C'
+        X.beginPath()
+        X.arc(vx(gx), vy(gy - 5), 14 * scale, 0, Math.PI * 2)
+        X.fill()
+        // Helmet
+        X.fillStyle = '#C0392B'
+        X.beginPath()
+        X.arc(vx(gx), vy(gy - 12), 12 * scale, Math.PI, 0)
+        X.fill()
+        X.fillRect(vx(gx - 10), vy(gy - 12), 20 * scale, 4 * scale)
+        // Helmet badge
+        X.fillStyle = '#FFD700'
+        X.fillRect(vx(gx - 2), vy(gy - 17), 4 * scale, 6 * scale)
+        // Eyes
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(vx(gx - 4), vy(gy - 7), 3 * scale, 0, Math.PI * 2)
+        X.arc(vx(gx + 4), vy(gy - 7), 3 * scale, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#222'
+        X.beginPath()
+        X.arc(vx(gx - 4), vy(gy - 7), 1.5 * scale, 0, Math.PI * 2)
+        X.arc(vx(gx + 4), vy(gy - 7), 1.5 * scale, 0, Math.PI * 2)
+        X.fill()
+        // Hose
+        X.strokeStyle = '#4DD0E1'
+        X.lineWidth = 4 * scale
+        X.beginPath()
+        X.moveTo(vx(gx), vy(gy + 5))
+        const hx = mx + (mx < W / 2 ? -25 : 25)
+        X.lineTo(vx(hx), vy(gy + 15))
+        X.stroke()
+        // Nozzle
+        X.fillStyle = '#888'
+        X.fillRect(vx(hx - 3), vy(gy + 13), 6 * scale, 6 * scale)
+      }
+
+      function drawFires() {
+        for (const f of fires) {
+          f.anim += 0.05
+          f.scale = 1 + Math.sin(f.anim) * 0.1
+          const cx = vx(f.x),
+            cy = vy(f.y),
+            r = f.size * scale * f.scale
+          // Flame layers
+          const grad = X.createRadialGradient(cx, cy - 3 * scale, 0, cx, cy, r)
+          grad.addColorStop(0, '#FFFF00')
+          grad.addColorStop(0.3, '#FFA500')
+          grad.addColorStop(0.7, '#FF4500')
+          grad.addColorStop(1, '#8B0000')
+          X.fillStyle = grad
+          X.beginPath()
+          // Wobbly flame
+          for (let a = 0; a < Math.PI * 2; a += 0.2) {
+            const rr = r * (0.8 + 0.2 * Math.sin(a * 3 + f.anim * 2))
+            const px = cx + Math.cos(a) * rr
+            const py = cy + Math.sin(a) * rr
+            a === 0 ? X.moveTo(px, py) : X.lineTo(px, py)
+          }
+          X.closePath()
+          X.fill()
+          // Top highlight
+          X.fillStyle = 'rgba(255,255,200,0.4)'
+          X.beginPath()
+          X.arc(cx, cy - 2 * scale, r * 0.4, 0, Math.PI * 2)
+          X.fill()
+          // HP bar
+          const bw = 24 * scale
+          X.fillStyle = 'rgba(0,0,0,0.6)'
+          X.fillRect(cx - bw / 2, cy + r + 4, bw, 4 * scale)
+          X.fillStyle = '#2ecc71'
+          X.fillRect(cx - bw / 2, cy + r + 4, bw * (f.hp / f.maxHp), 4 * scale)
+        }
+      }
+
+      function drawLemmings() {
+        for (const l of lemmings) {
+          l.laughAnim += 0.03
+          const lx = vx(l.x),
+            ly = vy(l.y),
+            s = 10 * scale
+          // Body
+          X.fillStyle = '#7E8A9E'
+          X.fillRect(lx - 6 * scale, ly, 12 * scale, 14 * scale)
+          // Head
+          X.beginPath()
+          X.arc(lx, ly - 4 * scale, 7 * scale, 0, Math.PI * 2)
+          X.fill()
+          // Helmet
+          X.fillStyle = '#C0392B'
+          X.fillRect(lx - 8 * scale, ly - 10 * scale, 16 * scale, 4 * scale)
+          X.beginPath()
+          X.arc(lx, ly - 8 * scale, 8 * scale, Math.PI, 0)
+          X.fill()
+          // Eyes
+          X.fillStyle = '#222'
+          const eyeOff = Math.sin(l.laughAnim) * 1.5
+          X.fillRect(lx - 4 * scale + eyeOff, ly - 6 * scale, 2 * scale, 2 * scale)
+          X.fillRect(lx + 2 * scale + eyeOff, ly - 6 * scale, 2 * scale, 2 * scale)
+          // Mouth (laughing)
+          X.fillStyle = '#555'
+          X.beginPath()
+          X.arc(lx, ly - 1 * scale, 3 * scale, 0, Math.PI)
+          X.fill()
+          // Arms
+          X.fillStyle = '#7E8A9E'
+          if (l.arrived) {
+            X.fillRect(lx - 10 * scale, ly + 2 * scale, 4 * scale, 8 * scale)
+            X.fillRect(lx + 6 * scale, ly + 2 * scale, 4 * scale, 8 * scale)
+          }
+        }
+      }
+
+      function drawWaterStream() {
+        if (!shooting) return
+        const gx = mx,
+          gy = my
+        for (let i = 0; i < 12; i++) {
+          const t = i / 12
+          const px = gx + (mx - gx) * t + (Math.random() - 0.5) * 8
+          const py = gy + (my - gy) * t + 10 + (Math.random() - 0.5) * 8
+          const a = 1 - t * 0.5
+          X.fillStyle = `rgba(77,208,225,${a * 0.6})`
+          X.beginPath()
+          X.arc(vx(px), vy(py), (3 - t * 1.5) * scale, 0, Math.PI * 2)
+          X.fill()
+        }
+      }
+
+      function spawnWaterParticles() {
+        for (let i = 0; i < 5; i++) {
+          const dx = (mx - W / 2) / 100 + Math.random() * 0.3
+          const dy = (my - H / 2 + 100) / 80 + Math.random() * 0.3
+          waterParticles.push(new WaterParticle(mx, my + 10, dx, dy))
+        }
+      }
+
+      function spawnFireExplosion(fire) {
+        for (let i = 0; i < 15; i++) {
+          const colors = ['#FF4500', '#FFA500', '#FFFF00', '#FF6347']
+          fireParticles.push(
+            new FireParticle(fire.x, fire.y, colors[Math.floor(Math.random() * colors.length)]),
+          )
+        }
+      }
+
+      function checkCollisions() {
+        for (let fi = fires.length - 1; fi >= 0; fi--) {
+          const f = fires[fi]
+          for (let pi = waterParticles.length - 1; pi >= 0; pi--) {
+            const p = waterParticles[pi]
+            const dx = f.x - p.x,
+              dy = f.y - p.y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist < f.size + 5) {
+              // Check lemming blocking
+              let blocked = false
+              for (const l of lemmings) {
+                if (!l.arrived) continue
+                const ldx = f.x - l.x,
+                  ldy = f.y - l.y
+                if (Math.sqrt(ldx * ldx + ldy * ldy) < 20) {
+                  blocked = true
+                  break
+                }
+              }
+              if (!blocked) {
+                f.hp--
+                waterParticles.splice(pi, 1)
+                if (f.hp <= 0) {
+                  const bonus = Math.max(1, Math.ceil(60 / timer) * 10)
+                  score += 20 + bonus
+                  spawnFireExplosion(f)
+                  playFireOut()
+                  fires.splice(fi, 1)
+                  break
+                }
+              } else {
+                waterParticles.splice(pi, 1)
+              }
+            }
+          }
+        }
+      }
+
+      function update(dt) {
+        if (state !== STATE.PLAY) return
+        timerAcc += dt
+        if (timerAcc >= 1) {
+          timerAcc -= 1
+          timer--
+          if (timer <= 0) {
+            endGame('⏱ ¡Se acabó el tiempo!')
+            return
+          }
+        }
+
+        // Fire spawn
+        fireSpawnTimer += dt
+        const spawnInterval = Math.max(0.8, 3 - level * 0.05)
+        if (fireSpawnTimer >= spawnInterval) {
+          fireSpawnTimer = 0
+          if (fires.length < 4 + Math.floor(level / 4)) spawnFire()
+        }
+
+        // Lemming spawn
+        if (Math.random() < 0.3 * dt && lemmings.length < 2 + Math.floor(level / 8)) spawnLemming()
+
+        // Lemming movement
+        for (let i = lemmings.length - 1; i >= 0; i--) {
+          const l = lemmings[i]
+          if (!l.arrived) {
+            const dx = l.targetX - l.x,
+              dy = l.targetY - l.y
+            const dist = Math.sqrt(dx * dx + dy * dy)
+            if (dist < 5) {
+              l.arrived = true
+              l.timer = 4 + Math.random() * 3
+            } else {
+              l.x += (dx / dist) * l.speed * dt
+              l.y += (dy / dist) * l.speed * dt
+            }
+          } else {
+            l.timer -= dt
+            if (l.timer <= 0) {
+              lemmings.splice(i, 1)
+            }
+          }
+        }
+
+        // Shooting
+        if (shooting && canShoot) {
+          shootTimer += dt
+          if (shootTimer >= 0.08) {
+            shootTimer = 0
+            spawnWaterParticles()
+            playWater()
+          }
+        }
+
+        // Update particles
+        for (let i = waterParticles.length - 1; i >= 0; i--) {
+          waterParticles[i].update(dt)
+          if (
+            waterParticles[i].life <= 0 ||
+            waterParticles[i].y > VH ||
+            waterParticles[i].x < 0 ||
+            waterParticles[i].x > VW
+          ) {
+            waterParticles.splice(i, 1)
+          }
+        }
+        for (let i = fireParticles.length - 1; i >= 0; i--) {
+          fireParticles[i].update(dt)
+          if (fireParticles[i].life <= 0) fireParticles.splice(i, 1)
+        }
+
+        checkCollisions()
+
+        // Check level complete
+        if (timer > 0 && fires.length === 0 && fireSpawnTimer > 0.3) {
+          const nextIn = spawnInterval - fireSpawnTimer
+          if (nextIn > 1.5 && lemmings.length === 0) {
+            // Level up!
+            level++
+            if (level > 40) {
+              endGame('🔥 ¡Ganaste! ¡Eres el mejor bombero!')
+              return
+            }
+            timer = 60
+            timerAcc = 0
+            fires = []
+            waterParticles = []
+            fireParticles = []
+            lemmings = []
+            fireSpawnTimer = 0
+            document.getElementById('lvl').textContent = level
+            document.getElementById('timer').textContent = timer
+          }
+        }
+
+        // Update HUD
+        document.getElementById('timer').textContent = Math.max(0, Math.ceil(timer))
+        document.getElementById('score').textContent = score
+      }
+
+      function draw() {
+        scale = S
+        X.clearRect(0, 0, W, H)
+        X.save()
+        X.translate((W - 600 * scale) / 2, (H - 400 * scale) / 2)
+
+        // Sky gradient
+        const skyGrad = X.createLinearGradient(0, 0, 0, vy(VH))
+        skyGrad.addColorStop(0, '#1a1a3e')
+        skyGrad.addColorStop(0.6, '#2a2a5e')
+        skyGrad.addColorStop(1, '#3a3a5e')
+        X.fillStyle = skyGrad
+        X.fillRect(0, 0, vx(VW), vy(VH))
+
+        // Stars
+        X.fillStyle = '#fff'
+        for (let i = 0; i < 30; i++) {
+          const sx = (i * 137.5 + 50) % VW,
+            sy = (i * 97.3 + 20) % (VH * 0.4)
+          const sa = 0.3 + 0.7 * Math.sin(Date.now() / 1000 + i * 2)
+          X.globalAlpha = sa
+          X.fillRect(vx(sx), vy(sy), 2 * scale, 2 * scale)
+        }
+        X.globalAlpha = 1
+
+        drawBuildings()
+        drawFires()
+        drawLemmings()
+        drawLemmings()
+        drawWaterStream()
+        drawGrizzy()
+
+        for (const p of waterParticles) p.draw()
+        for (const p of fireParticles) p.draw()
+
+        X.restore()
+      }
+
+      function gameLoop(timestamp) {
+        if (!gameLoop.lastTime) gameLoop.lastTime = timestamp
+        const dt = Math.min((timestamp - gameLoop.lastTime) / 1000, 0.05)
+        gameLoop.lastTime = timestamp
+        update(dt)
+        draw()
+        requestAnimationFrame(gameLoop)
+      }
+
+      function endGame(reason) {
+        state = STATE.GAMEOVER
+        goReason = reason
+        document.getElementById('goReason').textContent = reason
+        document.getElementById('goScore').textContent = score
+        document.getElementById('goLevel').textContent = level
+        if (score > highScore) {
+          highScore = score
+          localStorage.setItem('grizzy_firefighter', highScore.toString())
+        }
+        document.getElementById('goHigh').textContent = highScore
+        document.getElementById('ui').style.display = 'block'
+        document.getElementById('startScreen').style.display = 'none'
+        document.getElementById('gameOverScreen').style.display = 'flex'
+        playGameOver()
+      }
+
+      function startGame() {
+        initAudio()
+        state = STATE.PLAY
+        score = 0
+        level = 1
+        timer = 60
+        timerAcc = 0
+        fires = []
+        waterParticles = []
+        fireParticles = []
+        lemmings = []
+        fireSpawnTimer = 0
+        shooting = false
+        canShoot = true
+        document.getElementById('lvl').textContent = 1
+        document.getElementById('timer').textContent = 60
+        document.getElementById('score').textContent = 0
+        document.getElementById('ui').style.display = 'block'
+        document.getElementById('startScreen').style.display = 'none'
+        document.getElementById('gameOverScreen').style.display = 'none'
+      }
+
+      // Input
+      C.addEventListener('mousemove', (e) => {
+        const rect = C.getBoundingClientRect()
+        mx = (e.clientX - rect.left) / scale
+        my = (e.clientY - rect.top) / scale
+      })
+      C.addEventListener('mousedown', (e) => {
+        if (state !== STATE.PLAY) return
+        e.preventDefault()
+        shooting = true
+        shootTimer = 0
+      })
+      C.addEventListener('mouseup', () => {
+        shooting = false
+      })
+      C.addEventListener('mouseleave', () => {
+        shooting = false
+      })
+      C.addEventListener('touchstart', (e) => {
+        if (state !== STATE.PLAY) return
+        e.preventDefault()
+        const t = e.touches[0]
+        const rect = C.getBoundingClientRect()
+        mx = (t.clientX - rect.left) / scale
+        my = (t.clientY - rect.top) / scale
+        shooting = true
+        shootTimer = 0
+      })
+      C.addEventListener('touchmove', (e) => {
+        e.preventDefault()
+        const t = e.touches[0]
+        const rect = C.getBoundingClientRect()
+        mx = (t.clientX - rect.left) / scale
+        my = (t.clientY - rect.top) / scale
+      })
+      C.addEventListener('touchend', (e) => {
+        e.preventDefault()
+        shooting = false
+      })
+      C.addEventListener('touchcancel', (e) => {
+        shooting = false
+      })
+
+      document.getElementById('startBtn').addEventListener('click', () => {
+        initAudio()
+        startGame()
+      })
+      document.getElementById('restartBtn').addEventListener('click', () => {
+        initAudio()
+        startGame()
+      })
+
+      // Keyboard
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          if (state === STATE.MENU) {
+            initAudio()
+            startGame()
+          } else if (state === STATE.GAMEOVER) {
+            initAudio()
+            startGame()
+          }
+        }
+        if (e.key === ' ' && state === STATE.PLAY) {
+          shooting = true
+          shootTimer = 0
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        if (e.key === ' ' && state === STATE.PLAY) shooting = false
+      })
+
+      // Initialize
+      document.getElementById('hsDisplay').textContent = highScore
+      gameLoop()
+    </script>
+  </body>
+</html>

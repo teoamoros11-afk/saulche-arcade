@@ -1,0 +1,4 @@
+{"timestamp":1781373892599,"sessionId":"2026-06-13T18-04-44-246Z","eventType":"rule","gameId":"tictactoe","rule":"board_valid","passed":false}
+{"timestamp":1781373892601,"sessionId":"2026-06-13T18-04-44-246Z","eventType":"rule","gameId":"tictactoe","rule":"current_player_valid","passed":false}
+{"timestamp":1781373892603,"sessionId":"2026-06-13T18-04-44-246Z","eventType":"rule","gameId":"tictactoe","rule":"score_non_negative","passed":false}
+{"timestamp":1781373894186,"sessionId":"2026-06-13T18-04-44-246Z","eventType":"invariant-violation","gameId":"tictactoe","invariant":"board_cells_valid","description":"Board cells must be X, O, or null"}

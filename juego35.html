@@ -1,0 +1,1121 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Mini Científicos - Grizzy & the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        background: #fff8e1;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 10;
+      }
+      #ui-overlay > * {
+        pointer-events: auto;
+      }
+      #start-screen,
+      #level-complete,
+      #game-over,
+      #win-screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 248, 225, 0.95);
+        z-index: 20;
+        transition: opacity 0.4s;
+      }
+      .hidden {
+        display: none !important;
+        opacity: 0 !important;
+      }
+      #start-screen h1 {
+        font-size: clamp(2rem, 7vw, 5rem);
+        color: #5d4037;
+        text-shadow: 3px 3px 0 #8b5e3c;
+        margin-bottom: 5px;
+        text-align: center;
+      }
+      #start-screen .subtitle {
+        font-size: clamp(1rem, 3vw, 2rem);
+        color: #8b5e3c;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #start-screen .subtitle span {
+        font-size: clamp(1.5rem, 4vw, 3rem);
+      }
+      .btn {
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        padding: 14px 50px;
+        border: none;
+        border-radius: 50px;
+        background: #8b5e3c;
+        color: #fff8e1;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 6px 0 #5d4037;
+        transition: all 0.1s;
+        margin: 8px;
+        letter-spacing: 1px;
+      }
+      .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 0 #5d4037;
+      }
+      .btn:active {
+        transform: translateY(4px);
+        box-shadow: 0 2px 0 #5d4037;
+      }
+      .btn-small {
+        font-size: clamp(0.8rem, 1.8vw, 1.2rem);
+        padding: 8px 24px;
+      }
+      .btn-blue {
+        background: #3e6b8c;
+        box-shadow: 0 6px 0 #1e3b5c;
+      }
+      .btn-green {
+        background: #4caf50;
+        box-shadow: 0 6px 0 #2e7d32;
+      }
+      .btn-red {
+        background: #c62828;
+        box-shadow: 0 6px 0 #8e0000;
+      }
+      #score-display {
+        position: absolute;
+        top: 12px;
+        right: 16px;
+        font-size: clamp(1rem, 2.5vw, 1.8rem);
+        font-weight: bold;
+        color: #5d4037;
+        background: rgba(255, 248, 225, 0.85);
+        padding: 6px 18px;
+        border-radius: 20px;
+        border: 2px solid #8b5e3c;
+        z-index: 15;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+      #level-display {
+        position: absolute;
+        top: 12px;
+        left: 16px;
+        font-size: clamp(0.9rem, 2vw, 1.4rem);
+        font-weight: bold;
+        color: #5d4037;
+        background: rgba(255, 248, 225, 0.85);
+        padding: 6px 18px;
+        border-radius: 20px;
+        border: 2px solid #8b5e3c;
+        z-index: 15;
+        pointer-events: none;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+      }
+      #feedback {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: clamp(2rem, 5vw, 4rem);
+        font-weight: bold;
+        z-index: 16;
+        pointer-events: none;
+        transition: all 0.3s;
+        opacity: 0;
+      }
+      #feedback.show {
+        opacity: 1;
+      }
+      .hint {
+        font-size: clamp(0.8rem, 1.8vw, 1.2rem);
+        color: #5d4037;
+        margin-top: 15px;
+        text-align: center;
+        opacity: 0.8;
+      }
+      .level-done {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 15;
+      }
+      .level-done .btn {
+        animation: pulse 1s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+      #volume-btn {
+        position: absolute;
+        bottom: 16px;
+        right: 16px;
+        z-index: 15;
+        background: rgba(255, 248, 225, 0.85);
+        border: 2px solid #8b5e3c;
+        border-radius: 50%;
+        width: 44px;
+        height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 22px;
+        cursor: pointer;
+        color: #5d4037;
+      }
+      #level-complete h2,
+      #game-over h2,
+      #win-screen h2 {
+        font-size: clamp(1.8rem, 5vw, 3.5rem);
+        color: #5d4037;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+      #level-complete p,
+      #game-over p,
+      #win-screen p {
+        font-size: clamp(1rem, 2.5vw, 1.8rem);
+        color: #8b5e3c;
+        margin-bottom: 18px;
+        text-align: center;
+      }
+      .stars {
+        font-size: clamp(2rem, 6vw, 4rem);
+        margin: 10px 0;
+        letter-spacing: 8px;
+      }
+      @media (max-width: 600px) {
+        .btn {
+          padding: 10px 30px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="ui-overlay">
+      <div id="score-display">🏆 0</div>
+      <div id="level-display">🔬 Nivel 1/40</div>
+      <div id="feedback"></div>
+      <button id="volume-btn" onclick="toggleSound()">🔊</button>
+      <div id="start-screen">
+        <h1>🧪 Mini Científicos</h1>
+        <div class="subtitle"><span>🐻</span> Grizzy & the Lemmings <span>🐭</span></div>
+        <p
+          style="
+            color: #5d4037;
+            max-width: 400px;
+            text-align: center;
+            font-size: clamp(0.9rem, 1.8vw, 1.2rem);
+            margin-bottom: 10px;
+            padding: 0 16px;
+          "
+        >
+          ¡Mezcla los colores correctos! Cada nivel tiene una receta. Haz clic en los frascos para
+          seleccionarlos.
+        </p>
+        <button class="btn" onclick="startGame()">🎮 JUGAR</button>
+        <div class="hint">🐻 Grizzy hace experimentos · 🐭 Los Lemmings lo complican</div>
+      </div>
+      <div id="level-complete" class="hidden">
+        <h2>🎉 ¡Nivel Completado!</h2>
+        <div class="stars">⭐</div>
+        <p id="lc-score">Puntos: 0</p>
+        <button class="btn btn-green" onclick="nextLevel()">➡️ Siguiente Nivel</button>
+      </div>
+      <div id="game-over" class="hidden">
+        <h2>😵 ¡Game Over!</h2>
+        <p id="go-score">Puntuación final: 0</p>
+        <button class="btn btn-red" onclick="resetGame()">🔄 Reintentar</button>
+      </div>
+      <div id="win-screen" class="hidden">
+        <h2>🏆 ¡Eres un Genio!</h2>
+        <p>¡Completaste los 40 niveles!</p>
+        <p id="win-score">Puntuación final: 0</p>
+        <button class="btn btn-blue" onclick="resetGame()">🔄 Jugar de nuevo</button>
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById('game')
+      const ctx = canvas.getContext('2d')
+      let W, H, scale
+      let gameRunning = false,
+        level = 1,
+        score = 0,
+        muted = false
+      let jars = [],
+        selectedJars = [],
+        recipe = null
+      let lemmings = [],
+        lemmingTimer = 0,
+        lemmingCooldown = 0
+      let particles = [],
+        popupTexts = []
+      let animating = false,
+        animTimer = 0,
+        animType = ''
+      let shakeTimer = 0,
+        shakeX = 0,
+        shakeY = 0
+      let comboCount = 0
+      const levelRecipes = []
+
+      const COLORS = {
+        rojo: '#D32F2F',
+        azul: '#1976D2',
+        amarillo: '#FDD835',
+        verde: '#388E3C',
+        naranja: '#F57C00',
+        morado: '#7B1FA2',
+        rosa: '#E91E63',
+        celeste: '#29B6F6',
+        crema: '#FFE0B2',
+        marron: '#5D4037',
+        gris: '#7E8A9E',
+        blanco: '#F5F5F5',
+      }
+      const COLOR_NAMES = [
+        'rojo',
+        'azul',
+        'amarillo',
+        'verde',
+        'naranja',
+        'morado',
+        'rosa',
+        'celeste',
+        'crema',
+        'marron',
+      ]
+      const MIX_RECIPES = {
+        'rojo+azul': 'morado',
+        'azul+rojo': 'morado',
+        'rojo+amarillo': 'naranja',
+        'amarillo+rojo': 'naranja',
+        'azul+amarillo': 'verde',
+        'amarillo+azul': 'verde',
+        'rojo+blanco': 'rosa',
+        'blanco+rojo': 'rosa',
+        'azul+blanco': 'celeste',
+        'blanco+azul': 'celeste',
+        'amarillo+blanco': 'crema',
+        'blanco+amarillo': 'crema',
+        'rojo+verde': 'marron',
+        'verde+rojo': 'marron',
+        'azul+verde': 'celeste',
+        'verde+azul': 'celeste',
+        'amarrillo+verde': 'verde',
+        'verde+amarillo': 'verde',
+        'rojo+rosa': 'rojo',
+        'rosa+rojo': 'rojo',
+        'azul+morado': 'morado',
+        'morado+azul': 'morado',
+        'blanco+negro': 'gris',
+        'negro+blanco': 'gris',
+      }
+
+      function buildLevels() {
+        for (let i = 0; i < 40; i++) {
+          const c1 = COLOR_NAMES[i % 10]
+          const c2 = COLOR_NAMES[(i + 3 + Math.floor(i / 5)) % 10]
+          const key = c1 + '+' + c2
+          const result = MIX_RECIPES[key]
+          if (result) {
+            levelRecipes.push({
+              color1: c1,
+              color2: c2,
+              result: result,
+              distractors: 4 + Math.min(i, 6),
+            })
+          } else {
+            const alt1 = COLOR_NAMES[i % 5]
+            const alt2 = COLOR_NAMES[((i + 2) % 5) + 5]
+            const k2 = alt1 + '+' + alt2
+            const r2 = MIX_RECIPES[k2] || 'morado'
+            levelRecipes.push({
+              color1: alt1,
+              color2: alt2,
+              result: r2,
+              distractors: 4 + Math.min(i, 6),
+            })
+          }
+        }
+      }
+      buildLevels()
+
+      function resize() {
+        W = window.innerWidth
+        H = window.innerHeight
+        canvas.width = W
+        canvas.height = H
+        scale = Math.min(W / 1200, H / 800)
+        initLevel()
+      }
+      window.addEventListener('resize', resize)
+
+      function sound(freq, type, dur, vol) {
+        if (muted) return
+        try {
+          const ac = new (window.AudioContext || window.webkitAudioContext)()
+          const osc = ac.createOscillator()
+          const gain = ac.createGain()
+          osc.connect(gain)
+          gain.connect(ac.destination)
+          osc.type = type || 'sine'
+          osc.frequency.setValueAtTime(freq, ac.currentTime)
+          gain.gain.setValueAtTime(vol || 0.15, ac.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + (dur || 0.2))
+          osc.start(ac.currentTime)
+          osc.stop(ac.currentTime + (dur || 0.2))
+        } catch (e) {}
+      }
+      function playMix() {
+        sound(400, 'triangle', 0.3, 0.15)
+        setTimeout(() => sound(500, 'triangle', 0.2, 0.12), 100)
+      }
+      function playCorrect() {
+        sound(523, 'sine', 0.15, 0.12)
+        setTimeout(() => sound(659, 'sine', 0.15, 0.12), 120)
+        setTimeout(() => sound(784, 'sine', 0.2, 0.12), 240)
+      }
+      function playWrong() {
+        sound(200, 'sawtooth', 0.3, 0.1)
+        setTimeout(() => sound(150, 'sawtooth', 0.3, 0.08), 150)
+      }
+      function playLemming() {
+        sound(800, 'square', 0.1, 0.08)
+        setTimeout(() => sound(600, 'square', 0.1, 0.08), 80)
+        setTimeout(() => sound(700, 'square', 0.1, 0.06), 160)
+      }
+      function playLevelUp() {
+        sound(523, 'sine', 0.1, 0.1)
+        setTimeout(() => sound(659, 'sine', 0.1, 0.1), 100)
+        setTimeout(() => sound(784, 'sine', 0.1, 0.1), 200)
+        setTimeout(() => sound(1047, 'sine', 0.3, 0.12), 300)
+      }
+      function toggleSound() {
+        muted = !muted
+        document.getElementById('volume-btn').textContent = muted ? '🔇' : '🔊'
+      }
+
+      class Jar {
+        constructor(x, y, colorName, radius) {
+          this.x = x
+          this.y = y
+          this.r = radius || 50
+          this.colorName = colorName
+          this.targetX = x
+          this.targetY = y
+          this.selected = false
+          this.bob = Math.random() * Math.PI * 2
+          this.scale = 1
+          this.targetScale = 1
+          this.glow = 0
+        }
+        update(dt) {
+          this.x += (this.targetX - this.x) * 0.06
+          this.y += (this.targetY - this.y) * 0.06
+          this.bob += dt * 2
+          this.scale += (this.targetScale - this.scale) * 0.1
+          this.glow = Math.max(0, this.glow - 0.02)
+        }
+        draw(ctx) {
+          const c = COLORS[this.colorName] || '#888'
+          const x = this.x,
+            y = this.y + Math.sin(this.bob) * 3,
+            r = this.r * this.scale
+          ctx.save()
+          ctx.translate(x, y)
+          if (this.selected) {
+            ctx.shadowColor = '#FFD700'
+            ctx.shadowBlur = 25 * scale
+            this.glow = 1
+          }
+          if (this.glow > 0.01) {
+            ctx.shadowColor = '#FFD700'
+            ctx.shadowBlur = 30 * scale * this.glow
+          }
+          const grd = ctx.createRadialGradient(-r * 0.2, -r * 0.3, r * 0.05, 0, 0, r)
+          grd.addColorStop(0, 'rgba(255,255,255,0.5)')
+          grd.addColorStop(0.4, c)
+          grd.addColorStop(1, c)
+          ctx.beginPath()
+          const neck = r * 0.25,
+            bodyH = r * 1.3
+          ctx.moveTo(-r * 0.35, -bodyH * 0.9)
+          ctx.lineTo(-r * 0.35, bodyH * 0.6)
+          ctx.lineTo(-r, bodyH * 0.6)
+          ctx.lineTo(-r, bodyH * 0.9)
+          ctx.lineTo(r, bodyH * 0.9)
+          ctx.lineTo(r, bodyH * 0.6)
+          ctx.lineTo(r * 0.35, bodyH * 0.6)
+          ctx.lineTo(r * 0.35, -bodyH * 0.9)
+          ctx.closePath()
+          ctx.fillStyle = grd
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.3)'
+          ctx.lineWidth = 2 * scale
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.ellipse(0, -bodyH * 0.9, r * 0.35, neck * 0.6, 0, 0, Math.PI * 2)
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'
+          ctx.fill()
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)'
+          ctx.lineWidth = 1
+          ctx.stroke()
+          if (this.selected) {
+            ctx.strokeStyle = '#FFD700'
+            ctx.lineWidth = 3 * scale
+            ctx.beginPath()
+            ctx.arc(0, bodyH * 0.15, r * 1.15, 0, Math.PI * 2)
+            ctx.stroke()
+          }
+          ctx.fillStyle = 'rgba(255,248,225,0.7)'
+          ctx.font = `bold ${Math.round(14 * scale)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.fillText(this.colorName.toUpperCase(), 0, bodyH * 1.3 + 20 * scale)
+          ctx.restore()
+        }
+        contains(px, py) {
+          const dx = px - this.x,
+            dy = py - this.y - 5
+          return Math.sqrt(dx * dx + dy * dy) < this.r * this.scale * 1.2
+        }
+      }
+
+      class Lemming {
+        constructor(x, y) {
+          this.x = x
+          this.y = y
+          this.targetX = x
+          this.targetY = y
+          this.phase = 0
+          this.carry = null
+          this.state = 'walk'
+          this.speed = 0.02 + Math.random() * 0.02
+          this.flip = Math.random() > 0.5 ? 1 : -1
+          this.bob = Math.random() * 6
+        }
+        update(dt, jars) {
+          this.phase += dt * this.speed
+          if (this.state === 'walk') {
+            this.targetX += Math.sin(this.phase) * 0.5
+            this.targetY += Math.cos(this.phase * 0.7) * 0.3
+            this.x += (this.targetX - this.x) * 0.03
+            this.y += (this.targetY - this.y) * 0.03
+            if (Math.random() < 0.005 && jars.length) {
+              const j = jars[Math.floor(Math.random() * jars.length)]
+              this.carry = j
+              this.state = 'carry'
+              this.targetX = j.x + (Math.random() - 0.5) * 200
+              this.targetY = j.y + (Math.random() - 0.5) * 150
+            }
+          } else if (this.state === 'carry' && this.carry) {
+            this.x += (this.targetX - this.x) * 0.03
+            this.y += (this.targetY - this.y) * 0.03
+            this.carry.targetX = this.x + (Math.random() - 0.5) * 40
+            this.carry.targetY = this.y + (Math.random() - 0.5) * 40
+            if (Math.abs(this.x - this.targetX) < 10 && Math.abs(this.y - this.targetY) < 10) {
+              this.state = 'walk'
+              this.targetX = this.x + (Math.random() - 0.5) * 300
+              this.targetY = this.y + (Math.random() - 0.5) * 200
+              this.carry = null
+            }
+          }
+          this.bob += dt * 4
+        }
+        draw(ctx) {
+          const x = this.x,
+            y = this.y + Math.sin(this.bob) * 2
+          ctx.save()
+          ctx.translate(x, y)
+          ctx.scale(this.flip, 1)
+          const s = 20 * scale
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(0, -s * 0.3, s * 0.6, s * 0.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#9AA6B8'
+          ctx.beginPath()
+          ctx.ellipse(0, -s * 0.7, s * 0.45, s * 0.4, 0, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#333'
+          ctx.beginPath()
+          ctx.arc(-s * 0.15, -s * 0.8, s * 0.08, 0, Math.PI * 2)
+          ctx.arc(s * 0.15, -s * 0.8, s * 0.08, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#444'
+          ctx.lineWidth = 1.5 * scale
+          ctx.beginPath()
+          ctx.arc(s * 0.22, -s * 0.82, s * 0.04, 0, Math.PI)
+          ctx.stroke()
+          ctx.fillStyle = '#555'
+          ctx.fillRect(-s * 0.3, -s * 0.95, s * 0.6, s * 0.08)
+          ctx.fillRect(-s * 0.2, -s * 1.05, s * 0.4, s * 0.12)
+          ctx.fillStyle = '#90A4AE'
+          ctx.fillRect(-s * 0.15, -s * 0.5, s * 0.3, s * 0.7)
+          ctx.fillRect(-s * 0.35, -s * 0.4, s * 0.7, s * 0.1)
+          ctx.fillRect(-s * 0.35, -s * 0.1, s * 0.7, s * 0.1)
+          ctx.fillStyle = '#666'
+          ctx.fillRect(-s * 0.18, -s * 0.1, s * 0.08, s * 0.4)
+          ctx.fillRect(s * 0.1, -s * 0.1, s * 0.08, s * 0.4)
+          if (this.carry) {
+            ctx.fillStyle = 'rgba(200,200,200,0.4)'
+            ctx.beginPath()
+            ctx.arc(0, s * 0.3, s * 0.25, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+      }
+
+      class Particle {
+        constructor(x, y, color, type) {
+          this.x = x
+          this.y = y
+          const angle = Math.random() * Math.PI * 2
+          const speed = 1 + Math.random() * 3
+          this.vx = Math.cos(angle) * speed
+          this.vy = Math.sin(angle) * speed - 1
+          this.color = color
+          this.type = type || 'bubble'
+          this.life = 1
+          this.decay = 0.01 + Math.random() * 0.02
+          this.size = 3 + Math.random() * 8
+          this.gravity = 0.02
+        }
+        update() {
+          this.x += this.vx
+          this.y += this.vy
+          this.vy += this.gravity
+          this.vx *= 0.98
+          this.life -= this.decay
+          this.size *= 1.001
+        }
+        draw(ctx) {
+          if (this.life <= 0) return
+          const a = this.life
+          if (this.type === 'bubble') {
+            ctx.beginPath()
+            ctx.arc(this.x, this.y, this.size * a, 0, Math.PI * 2)
+            ctx.fillStyle = `rgba(255,255,255,${a * 0.3})`
+            ctx.fill()
+            ctx.strokeStyle = `rgba(${hexToRgb(this.color)},${a * 0.5})`
+            ctx.lineWidth = 1.5
+            ctx.stroke()
+          } else if (this.type === 'spark') {
+            ctx.beginPath()
+            ctx.arc(this.x, this.y, this.size * 0.4 * a, 0, Math.PI * 2)
+            ctx.fillStyle = `rgba(255,255,200,${a})`
+            ctx.fill()
+          } else if (this.type === 'smoke') {
+            ctx.beginPath()
+            ctx.arc(this.x, this.y, this.size * 1.5 * a, 0, Math.PI * 2)
+            ctx.fillStyle = `rgba(200,200,200,${a * 0.15})`
+            ctx.fill()
+          }
+        }
+      }
+
+      class PopupText {
+        constructor(x, y, text, color, size) {
+          this.x = x
+          this.y = y
+          this.text = text
+          this.color = color
+          this.size = size || 36
+          this.life = 1
+          this.vy = -1.5
+        }
+        update() {
+          this.y += this.vy
+          this.life -= 0.015
+        }
+        draw(ctx) {
+          if (this.life <= 0) return
+          ctx.save()
+          ctx.globalAlpha = this.life
+          ctx.fillStyle = this.color
+          ctx.font = `bold ${Math.round(this.size * scale)}px sans-serif`
+          ctx.textAlign = 'center'
+          ctx.strokeStyle = 'rgba(0,0,0,0.3)'
+          ctx.lineWidth = 4 * scale
+          ctx.strokeText(this.text, this.x, this.y)
+          ctx.fillText(this.text, this.x, this.y)
+          ctx.restore()
+        }
+      }
+
+      function hexToRgb(hex) {
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        return `${r},${g},${b}`
+      }
+
+      function setupLevel() {
+        if (level > 40) {
+          showWin()
+          return
+        }
+        recipe = levelRecipes[level - 1]
+        if (!recipe) {
+          level = 1
+          recipe = levelRecipes[0]
+        }
+        selectedJars = []
+        const cx = W / 2,
+          cy = H / 2 + 30 * scale
+        const numJars = recipe.distractors + 2
+        const colors = [recipe.color1, recipe.color2]
+        const pool = COLOR_NAMES.filter((c) => c !== recipe.color1 && c !== recipe.color2)
+        for (let i = 0; i < numJars - 2; i++)
+          colors.push(pool[Math.floor(Math.random() * pool.length)])
+        for (let i = colors.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1))
+          ;[colors[i], colors[j]] = [colors[j], colors[i]]
+        }
+        const angleStep = (Math.PI * 2) / colors.length
+        const radius = Math.min(W, H) * 0.28
+        jars = []
+        colors.forEach((c, i) => {
+          const a = angleStep * i - Math.PI / 2
+          const jx = cx + Math.cos(a) * radius
+          const jy = cy + Math.sin(a) * radius
+          jars.push(new Jar(jx, jy, c, Math.min(65, 55 + scale * 8) * scale))
+        })
+        lemmings = []
+        const numLemmings = Math.min(2 + Math.floor(level / 8), 5)
+        for (let i = 0; i < numLemmings; i++) {
+          lemmings.push(
+            new Lemming(
+              W / 2 + (Math.random() - 0.5) * W * 0.6,
+              H / 2 + (Math.random() - 0.5) * H * 0.4,
+            ),
+          )
+        }
+        lemmingTimer = 0
+        lemmingCooldown = 120 + Math.random() * 180
+        particles = []
+        popupTexts = []
+        document.getElementById('level-display').textContent = `🔬 Nivel ${level}/40`
+        updateScore()
+      }
+      function initLevel() {
+        if (gameRunning && jars.length) setupLevel()
+      }
+
+      function updateScore() {
+        document.getElementById('score-display').textContent = `🏆 ${score}`
+      }
+
+      function startGame() {
+        document.getElementById('start-screen').classList.add('hidden')
+        gameRunning = true
+        level = 1
+        score = 0
+        comboCount = 0
+        resize()
+        setupLevel()
+      }
+      function nextLevel() {
+        document.getElementById('level-complete').classList.add('hidden')
+        level++
+        setupLevel()
+      }
+      function resetGame() {
+        document.getElementById('game-over').classList.add('hidden')
+        document.getElementById('win-screen').classList.add('hidden')
+        document.getElementById('level-complete').classList.add('hidden')
+        document.getElementById('start-screen').classList.remove('hidden')
+        gameRunning = false
+        level = 1
+        score = 0
+        comboCount = 0
+      }
+      function showLevelComplete() {
+        playLevelUp()
+        document.getElementById('lc-score').textContent = `Puntos: ${score}`
+        document.getElementById('level-complete').classList.remove('hidden')
+      }
+      function showGameOver() {
+        document.getElementById('go-score').textContent =
+          `Puntuación final: ${score} · Nivel: ${level}`
+        document.getElementById('game-over').classList.remove('hidden')
+      }
+      function showWin() {
+        playLevelUp()
+        document.getElementById('win-score').textContent = `Puntuación final: ${score}`
+        document.getElementById('win-screen').classList.remove('hidden')
+      }
+
+      function checkMix() {
+        if (animating || selectedJars.length < 2) return
+        const j1 = selectedJars[0],
+          j2 = selectedJars[1]
+        const key = j1.colorName + '+' + j2.colorName
+        const result = MIX_RECIPES[key]
+        if (result && result === recipe.result) {
+          playCorrect()
+          comboCount++
+          const bonus = Math.min(comboCount * 5, 25)
+          const pts = 20 + bonus
+          score += pts
+          updateScore()
+          animateReaction(j1, j2, result, true)
+          popupTexts.push(new PopupText(W / 2, H / 2 - 80 * scale, `+${pts} pts`, `#4CAF50`, 48))
+          if (comboCount >= 3)
+            popupTexts.push(
+              new PopupText(W / 2, H / 2 - 130 * scale, `🔥 ¡Combo x${comboCount}!`, `#FF6F00`, 40),
+            )
+        } else {
+          playWrong()
+          comboCount = 0
+          score = Math.max(0, score - 5)
+          updateScore()
+          animateReaction(j1, j2, null, false)
+          popupTexts.push(
+            new PopupText(W / 2 + 50 * scale, H / 2 - 80 * scale, `-5 pts`, `#C62828`, 40),
+          )
+          if (score <= 0) {
+            showGameOver()
+            return
+          }
+        }
+        selectedJars = []
+        jars.forEach((j) => {
+          j.selected = false
+          j.targetScale = 1
+        })
+      }
+
+      function animateReaction(j1, j2, result, success) {
+        animating = true
+        animTimer = 0
+        animType = success ? 'success' : 'fail'
+        const cx = (j1.x + j2.x) / 2,
+          cy = (j1.y + j2.y) / 2
+        if (success) {
+          const col = COLORS[result] || '#888'
+          for (let i = 0; i < 40; i++) {
+            particles.push(
+              new Particle(
+                cx + (Math.random() - 0.5) * 40,
+                cy + (Math.random() - 0.5) * 40,
+                col,
+                'bubble',
+              ),
+            )
+            if (i % 3 === 0) particles.push(new Particle(cx, cy, '#FFD700', 'spark'))
+            if (i % 5 === 0) particles.push(new Particle(cx, cy, '#ccc', 'smoke'))
+          }
+          setTimeout(() => {
+            animating = false
+            showLevelComplete()
+          }, 1000)
+        } else {
+          for (let i = 0; (i = 15); i++) {
+            particles.push(new Particle(cx, cy, '#888', 'smoke'))
+          }
+          shakeTimer = 15
+          setTimeout(() => {
+            animating = false
+          }, 500)
+        }
+      }
+
+      canvas.addEventListener('click', (e) => {
+        if (!gameRunning || animating) return
+        const rect = canvas.getBoundingClientRect()
+        const mx = ((e.clientX - rect.left) * canvas.width) / rect.width
+        const my = ((e.clientY - rect.top) * canvas.height) / rect.height
+        for (const j of jars) {
+          if (j.contains(mx, my)) {
+            if (j.selected) {
+              j.selected = false
+              selectedJars = selectedJars.filter((s) => s !== j)
+              j.targetScale = 1
+            } else if (selectedJars.length < 2) {
+              j.selected = true
+              selectedJars.push(j)
+              j.targetScale = 1.15
+              playMix()
+              if (selectedJars.length === 2) checkMix()
+            }
+            break
+          }
+        }
+      })
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          const t = e.touches[0]
+          const click = new MouseEvent('click', { clientX: t.clientX, clientY: t.clientY })
+          canvas.dispatchEvent(click)
+        },
+        { passive: false },
+      )
+
+      function drawTable() {
+        const ty = H - 80 * scale
+        const grd = ctx.createLinearGradient(0, ty, 0, H)
+        grd.addColorStop(0, '#A0724A')
+        grd.addColorStop(1, '#8B5E3C')
+        ctx.fillStyle = grd
+        ctx.fillRect(0, ty, W, H - ty)
+        ctx.fillStyle = '#7A4E2E'
+        ctx.fillRect(0, ty, W, 3 * scale)
+      }
+      function drawChalkboard() {
+        const bw = 260 * scale,
+          bh = 180 * scale,
+          bx = 20 * scale,
+          by = 30 * scale
+        ctx.fillStyle = '#2E5A4C'
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = 10
+        ctx.fillRect(bx, by, bw, bh)
+        ctx.shadowBlur = 0
+        ctx.strokeStyle = '#8B5E3C'
+        ctx.lineWidth = 4 * scale
+        ctx.strokeRect(bx, by, bw, bh)
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'
+        ctx.font = `${Math.round(12 * scale)}px sans-serif`
+        ctx.textAlign = 'left'
+        const formulas = [
+          'H₂ + O₂ → H₂O',
+          'E = mc²',
+          'ROJO+AZUL=???',
+          'π ≈ 3.1416',
+          'F = ma',
+          'CO₂ + H₂O →',
+        ]
+        formulas.forEach((f, i) => {
+          ctx.fillText(f, bx + 14 * scale, by + 22 * scale + i * 22 * scale)
+        })
+      }
+      function drawGrizzy() {
+        const gx = W - 120 * scale,
+          gy = H - 220 * scale
+        const s = 65 * scale
+        ctx.save()
+        ctx.translate(gx, gy)
+        ctx.shadowColor = 'rgba(0,0,0,0.15)'
+        ctx.shadowBlur = 12
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, s * 0.3, s * 0.8, s * 0.85, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A0724A'
+        ctx.beginPath()
+        ctx.ellipse(0, -s * 0.1, s * 0.65, s * 0.7, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6D4C2F'
+        ctx.beginPath()
+        ctx.arc(-s * 0.25, -s * 0.2, s * 0.12, 0, Math.PI * 2)
+        ctx.arc(s * 0.25, -s * 0.2, s * 0.12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-s * 0.2, -s * 0.25, s * 0.06, 0, Math.PI * 2)
+        ctx.arc(s * 0.2, -s * 0.25, s * 0.06, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#111'
+        ctx.beginPath()
+        ctx.arc(s * 0.05, -s * 0.15, s * 0.04, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#333'
+        ctx.lineWidth = 2 * scale
+        ctx.beginPath()
+        ctx.arc(s * 0.1, -s * 0.4, s * 0.08, 0, Math.PI)
+        ctx.stroke()
+        ctx.fillStyle = '#F5F5F5'
+        ctx.beginPath()
+        ctx.ellipse(0, -s * 0.05, s * 0.7, s * 0.78, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#ddd'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+        ctx.fillStyle = '#444'
+        ctx.font = `${Math.round(16 * scale)}px sans-serif`
+        ctx.textAlign = 'center'
+        ctx.fillText('🧪 GRIZZY', 0, s * 0.9 + 20 * scale)
+        ctx.restore()
+        ctx.shadowBlur = 0
+      }
+
+      function update(dt) {
+        if (!gameRunning) return
+        jars.forEach((j) => j.update(dt))
+        lemmingTimer += dt
+        if (lemmingTimer >= lemmingCooldown && lemmings.length) {
+          lemmingTimer = 0
+          lemmingCooldown = 120 + Math.random() * 200
+          if (Math.random() < 0.3) {
+            playLemming()
+          }
+        }
+        lemmings.forEach((l) => l.update(dt, jars))
+        particles.forEach((p) => p.update())
+        particles = particles.filter((p) => p.life > 0)
+        popupTexts.forEach((p) => p.update())
+        popupTexts = popupTexts.filter((p) => p.life > 0)
+        if (shakeTimer > 0) shakeTimer--
+        if (shakeTimer > 0) {
+          shakeX = (Math.random() - 0.5) * 6
+          shakeY = (Math.random() - 0.5) * 6
+        } else {
+          shakeX = 0
+          shakeY = 0
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+        ctx.save()
+        ctx.translate(shakeX, shakeY)
+        const grdBg = ctx.createLinearGradient(0, 0, 0, H)
+        grdBg.addColorStop(0, '#FFF8E1')
+        grdBg.addColorStop(0.7, '#FFEEC2')
+        grdBg.addColorStop(1, '#FFE0B2')
+        ctx.fillStyle = grdBg
+        ctx.fillRect(0, 0, W, H)
+        drawTable()
+        drawChalkboard()
+        if (gameRunning) {
+          lemmings.forEach((l) => l.draw(ctx))
+          jars.forEach((j) => j.draw(ctx))
+          particles.forEach((p) => p.draw(ctx))
+          popupTexts.forEach((p) => p.draw(ctx))
+          drawGrizzy()
+          if (recipe) {
+            ctx.fillStyle = '#5D4037'
+            ctx.font = `bold ${Math.round(20 * scale)}px sans-serif`
+            ctx.textAlign = 'center'
+            const r1 = COLORS[recipe.color1] || '#888'
+            const r2 = COLORS[recipe.color2] || '#888'
+            const rr = COLORS[recipe.result] || '#888'
+            ctx.fillText('📋 RECETA:', W / 2, 50 * scale)
+            const boxY = 70 * scale
+            const boxS = 45 * scale
+            const gap = 20 * scale
+            const startX = W / 2 - boxS * 1.5 - gap
+            ctx.fillStyle = r1
+            ctx.fillRect(startX, boxY, boxS, boxS)
+            ctx.fillStyle = '#5D4037'
+            ctx.font = `bold ${Math.round(12 * scale)}px sans-serif`
+            ctx.fillText(recipe.color1.toUpperCase(), startX + boxS / 2, boxY + boxS + 18 * scale)
+            ctx.fillStyle = '#5D4037'
+            ctx.font = `bold ${Math.round(24 * scale)}px sans-serif`
+            ctx.fillText('+', startX + boxS + gap / 2 - 8 * scale, boxY + boxS * 0.7)
+            ctx.fillStyle = r2
+            ctx.fillRect(startX + boxS + gap, boxY, boxS, boxS)
+            ctx.fillStyle = '#5D4037'
+            ctx.font = `bold ${Math.round(12 * scale)}px sans-serif`
+            ctx.fillText(
+              recipe.color2.toUpperCase(),
+              startX + boxS + gap + boxS / 2,
+              boxY + boxS + 18 * scale,
+            )
+            ctx.font = `bold ${Math.round(24 * scale)}px sans-serif`
+            ctx.fillText('=', startX + boxS * 2 + gap * 2 - 8 * scale, boxY + boxS * 0.7)
+            ctx.fillStyle = rr
+            ctx.shadowColor = rr
+            ctx.shadowBlur = 15
+            ctx.fillRect(startX + boxS * 2 + gap * 2, boxY, boxS, boxS)
+            ctx.shadowBlur = 0
+            ctx.fillStyle = '#5D4037'
+            ctx.font = `bold ${Math.round(12 * scale)}px sans-serif`
+            ctx.fillText('???', startX + boxS * 2 + gap * 2 + boxS / 2, boxY + boxS + 18 * scale)
+          }
+          ctx.fillStyle = 'rgba(0,0,0,0.05)'
+          for (let i = 0; i < 30; i++) {
+            const cx = 30 + Math.random() * (W - 60)
+            const cy = 30 + Math.random() * (H / 3)
+            const sz = 2 + Math.random() * 4
+            ctx.beginPath()
+            ctx.arc(cx, cy, sz, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        }
+        ctx.restore()
+      }
+
+      let lastTime = 0
+      function loop(time) {
+        const dt = Math.min((time - lastTime) / 1000, 0.05)
+        lastTime = time
+        update(dt)
+        draw()
+        requestAnimationFrame(loop)
+      }
+
+      function save() {
+        try {
+          localStorage.setItem('grizzy_scientist', JSON.stringify({ level, score, comboCount }))
+        } catch (e) {}
+      }
+      function load() {
+        try {
+          const d = JSON.parse(localStorage.getItem('grizzy_scientist'))
+          if (d && d.level && d.score !== undefined) {
+            level = d.level
+            score = d.score
+            comboCount = d.comboCount || 0
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('beforeunload', save)
+      setInterval(save, 5000)
+
+      resize()
+      loop(0)
+    </script>
+  </body>
+</html>

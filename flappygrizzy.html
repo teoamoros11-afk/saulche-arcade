@@ -1,0 +1,550 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Flappy Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+      body {
+        background: #2d1b0e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-family: 'Segoe UI', 'Comic Sans MS', sans-serif;
+        color: #fff8e1;
+      }
+      #wrap {
+        position: relative;
+        width: min(100vw, calc(100vh * 0.75));
+        height: min(100vh, calc(100vw / 0.75));
+        overflow: hidden;
+      }
+      canvas {
+        width: 100% !important;
+        height: 100% !important;
+        display: block;
+        border: 2px solid #ff9800;
+        border-radius: 8px;
+      }
+      #hud {
+        position: absolute;
+        top: 4px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 12px;
+        font-size: clamp(12px, 1.5vmin, 18px);
+        z-index: 10;
+        pointer-events: none;
+      }
+      #hud span {
+        background: rgba(45, 27, 14, 0.85);
+        padding: 3px 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        backdrop-filter: blur(4px);
+        white-space: nowrap;
+      }
+      #t {
+        color: #ffc107;
+        font-size: clamp(10px, 1.2vmin, 14px);
+        background: rgba(255, 193, 7, 0.12);
+        padding: 2px 8px;
+        border-radius: 6px;
+      }
+      #btns {
+        position: absolute;
+        bottom: 4px;
+        right: 8px;
+        z-index: 10;
+        display: flex;
+        gap: 6px;
+      }
+      .btn {
+        padding: 4px 14px;
+        font-size: clamp(10px, 1.2vmin, 13px);
+        border: none;
+        border-radius: 8px;
+        background: rgba(139, 94, 60, 0.8);
+        color: #fff8e1;
+        cursor: pointer;
+        font-weight: bold;
+        border: 1px solid rgba(255, 152, 0, 0.3);
+        backdrop-filter: blur(4px);
+        text-decoration: none;
+        display: inline-block;
+      }
+      .btn:hover {
+        background: rgba(255, 152, 0, 0.6);
+      }
+      #msg {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        z-index: 20;
+        pointer-events: none;
+      }
+      #msg h2 {
+        font-size: clamp(1.5rem, 4vmin, 3rem);
+        color: #ffc107;
+        text-shadow: 0 3px 10px rgba(0, 0, 0, 0.5);
+      }
+      #msg p {
+        font-size: clamp(0.8rem, 2vmin, 1.2rem);
+        color: #fff8e1;
+        margin-top: 8px;
+        opacity: 0.8;
+      }
+    </style>
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="c"></canvas>
+      <div id="hud">
+        <span>🏆 <span id="sc">0</span></span>
+        <span>🏅 <span id="best">0</span></span>
+        <span>Nv <span id="lvl">1</span>/40</span>
+        <span id="t">🟢 El Bosque</span>
+      </div>
+      <div id="msg">
+        <h2 id="msgTitle">🐻 Flappy Grizzy</h2>
+        <p id="msgSub">Toca / Presiona ESPACIO para volar</p>
+      </div>
+      <div id="btns">
+        <button class="btn" id="rb">🔄</button>
+        <a href="index.html" class="btn">←</a>
+      </div>
+    </div>
+    <script>
+      const canvas = document.getElementById('c'),
+        ctx = canvas.getContext('2d')
+      let W, H, SCALE
+      let bird, pipes, score, best, level, gameOver, started, loop
+      const G = 0.45,
+        FLAP = -7.5
+      const SAVE = 'flappy_grizzy'
+
+      const TIERS = [
+        { name: '🟢 El Bosque', range: [1, 10], gap: 160, spd: 2.5, freq: 100 },
+        { name: '🟡 La Cabaña', range: [11, 20], gap: 140, spd: 3.2, freq: 90 },
+        { name: '🔴 La Montaña', range: [21, 30], gap: 120, spd: 4, freq: 80 },
+        { name: '🟣 El Volcán', range: [31, 40], gap: 100, spd: 5, freq: 70 },
+      ]
+
+      function getTier(lv) {
+        for (const t of TIERS) if (lv >= t.range[0] && lv <= t.range[1]) return t
+        return TIERS[3]
+      }
+
+      function resize() {
+        const wrap = document.getElementById('wrap')
+        const r = 0.75
+        W = 400
+        H = 533
+        let w = window.innerWidth,
+          h = window.innerHeight
+        if (w / h > r) {
+          w = h * r
+        } else {
+          h = w / r
+        }
+        wrap.style.width = w + 'px'
+        wrap.style.height = h + 'px'
+        SCALE = w / W
+        canvas.width = W
+        canvas.height = H
+      }
+
+      // sfx from shared module
+
+      let pfx = []
+      function part(x, y, c, n) {
+        n = n || 5
+        for (let i = 0; i < n; i++)
+          pfx.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4 - 2,
+            life: 15,
+            c: c || '#FFC107',
+            r: 1 + Math.random() * 3,
+          })
+      }
+      function drP(ctx) {
+        for (let i = pfx.length - 1; i >= 0; i--) {
+          const p = pfx[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.15
+          p.life--
+          if (p.life <= 0) pfx.splice(i, 1)
+          else {
+            ctx.save()
+            ctx.globalAlpha = p.life / 15
+            ctx.fillStyle = p.c
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.restore()
+          }
+        }
+      }
+
+      function init() {
+        resize()
+        level = Math.min(40, parseInt(localStorage.getItem(SAVE)) || 1)
+        best = parseInt(localStorage.getItem(SAVE + '_best')) || 0
+        resetGame()
+        document.getElementById('msgTitle').textContent = '🐻 Flappy Grizzy'
+        document.getElementById('msgSub').textContent = 'Toca / Presiona ESPACIO para volar'
+        document.getElementById('msg').style.display = 'block'
+        if (loop) clearInterval(loop)
+        loop = setInterval(tick, 1000 / 60)
+      }
+
+      function resetGame() {
+        bird = { x: 60, y: H / 2, w: 28, h: 26, vy: 0, rot: 0, flap: 0 }
+        pipes = []
+        score = 0
+        gameOver = false
+        started = false
+        pfx = []
+        updateUI()
+      }
+
+      function updateUI() {
+        document.getElementById('sc').textContent = score
+        document.getElementById('best').textContent = best
+        document.getElementById('lvl').textContent = level
+        document.getElementById('t').textContent = getTier(level).name
+      }
+
+      function drawGrizzy(x, y, w, h, rot, flap) {
+        ctx.save()
+        ctx.translate(x + w / 2, y + h / 2)
+        ctx.rotate(rot)
+        // Body
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(0, 0, w / 2.2, h / 2.3, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.ellipse(0, 2, w / 3.5, h / 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Wings (flapping)
+        const wingY = flap ? 5 : -3
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.ellipse(-w * 0.45, wingY, w * 0.2, h * 0.15, flap ? 0.5 : -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(w * 0.45, wingY, w * 0.2, h * 0.15, flap ? -0.5 : 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        // Ears
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.arc(-w * 0.22, -h * 0.35, w * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(w * 0.22, -h * 0.35, w * 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        // Eyes
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-w * 0.15, -h * 0.08, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(w * 0.15, -h * 0.08, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-w * 0.13, -h * 0.06, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(w * 0.17, -h * 0.06, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Nose
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(0, h * 0.08, w * 0.06, w * 0.04, 0, 0, Math.PI * 2)
+        ctx.fill()
+        // Beak (Grizzy has a small bird-like beak for flappy)
+        ctx.fillStyle = '#FF9800'
+        ctx.beginPath()
+        ctx.moveTo(w * 0.3, h * 0.05)
+        ctx.lineTo(w * 0.5, h * 0.1)
+        ctx.lineTo(w * 0.3, h * 0.18)
+        ctx.fill()
+        // Hat
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(-w * 0.25, -h * 0.5, w * 0.5, h * 0.06)
+        ctx.fillStyle = '#E53935'
+        ctx.fillRect(-w * 0.15, -h * 0.58, w * 0.3, h * 0.08)
+        ctx.restore()
+      }
+
+      function drawLemming(x, y, w, h) {
+        ctx.fillStyle = '#7E8A9E'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2, w / 2.2, h / 2.2, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#B0BEC5'
+        ctx.beginPath()
+        ctx.ellipse(x + w / 2, y + h / 2 + 1, w / 3.5, h / 3.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.fillRect(x + w * 0.3, y + h * 0.3, 3, 3)
+        ctx.fillRect(x + w * 0.6, y + h * 0.3, 3, 3)
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(x + w * 0.31, y + h * 0.28, 1.5, 1.5)
+        ctx.fillRect(x + w * 0.61, y + h * 0.28, 1.5, 1.5)
+        ctx.fillStyle = '#FFB74D'
+        ctx.beginPath()
+        ctx.arc(x + w / 2, y + h * 0.5, w * 0.035, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.fillRect(x + w * 0.42, y + h * 0.55, 3, 4)
+        ctx.fillRect(x + w * 0.55, y + h * 0.55, 3, 4)
+      }
+
+      function addPipe() {
+        const t = getTier(level)
+        const gap = t.gap
+        const minH = 40,
+          maxH = H - gap - 40
+        const hBot = minH + Math.random() * (maxH - minH)
+        const topY = 0,
+          botY = hBot + gap
+        pipes.push({ x: W, w: 38, hTop: hBot, hBot: H - botY, gap: gap, passed: false })
+      }
+
+      function update() {
+        if (gameOver || !started) {
+          draw()
+          return
+        }
+        const t = getTier(level)
+        bird.vy += G
+        bird.y += bird.vy
+        bird.rot = Math.max(-0.5, Math.min(1.2, bird.vy * 0.06))
+        bird.flap = bird.vy < -3 ? 1 : 0
+        if (bird.y < 0) {
+          bird.y = 0
+          bird.vy = 0
+        }
+        if (bird.y + bird.h > H - 15) {
+          hit()
+          return
+        }
+        // Pipes
+        if (pipes.length === 0 || pipes[pipes.length - 1].x < W - t.freq) addPipe()
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          const p = pipes[i]
+          p.x -= t.spd
+          if (!p.passed && p.x + p.w < bird.x) {
+            p.passed = true
+            score++
+            if (score % 5 === 0) {
+              part(bird.x, bird.y, '#FFC107', 15)
+              sfx(660)
+            }
+            sfx(523)
+            updateUI()
+            if (score > 0 && score % 10 === 0 && level < 40) {
+              level++
+              localStorage.setItem(SAVE, level)
+              sfx(880)
+              document.getElementById('lvl').textContent = level
+              document.getElementById('t').textContent = getTier(level).name
+            }
+          }
+          if (p.x + p.w < 0) {
+            pipes.splice(i, 1)
+            continue
+          }
+          // Collision
+          if (bird.x < p.x + p.w && bird.x + bird.w > p.x) {
+            if (bird.y < hTop(p) || bird.y + bird.h > hBot(p)) {
+              hit()
+              return
+            }
+          }
+        }
+        if (score > best) {
+          best = score
+          localStorage.setItem(SAVE + '_best', best)
+          updateUI()
+        }
+        draw()
+      }
+
+      function hTop(p) {
+        return p.hTop
+      }
+      function hBot(p) {
+        return H - p.hBot
+      }
+
+      function hit() {
+        if (gameOver) return
+        gameOver = true
+        sfx(200)
+        sfx(150)
+        part(bird.x + bird.w / 2, bird.y + bird.h / 2, '#E53935', 20)
+        part(bird.x + bird.w / 2, bird.y + bird.h / 2, '#FFC107', 10)
+        document.getElementById('msgTitle').textContent = '💀 ¡GAME OVER!'
+        document.getElementById('msgSub').textContent =
+          'Puntuación: ' + score + '  ·  Toca para reintentar'
+        document.getElementById('msg').style.display = 'block'
+      }
+
+      function draw() {
+        ctx.save()
+        ctx.scale(SCALE, SCALE)
+        // Sky gradient
+        const sky = ctx.createLinearGradient(0, 0, 0, H)
+        sky.addColorStop(0, '#4FC3F7')
+        sky.addColorStop(0.5, '#81D4FA')
+        sky.addColorStop(0.7, '#1B3A2D')
+        sky.addColorStop(1, '#2D1B0E')
+        ctx.fillStyle = sky
+        ctx.fillRect(0, 0, W, H)
+        // Clouds
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        for (let i = 0; i < 4; i++) {
+          ctx.beginPath()
+          ctx.ellipse(80 + i * 120, 30 + Math.sin(i) * 10, 40, 15, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        // Ground
+        ctx.fillStyle = '#3E2723'
+        ctx.fillRect(0, H - 15, W, 15)
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(0, H - 18, W, 3)
+        // Grass tufts
+        ctx.fillStyle = '#388E3C'
+        for (let i = 0; i < W; i += 25) ctx.fillRect(i, H - 22, 2, 7)
+        // Pipes (tree trunks with lemmings)
+        for (const p of pipes) {
+          // Top pipe
+          ctx.fillStyle = '#5D4037'
+          ctx.fillRect(p.x, 0, p.w, p.hTop)
+          ctx.fillStyle = '#795548'
+          ctx.fillRect(p.x - 4, p.hTop - 15, p.w + 8, 15)
+          ctx.fillStyle = 'rgba(139,94,60,0.3)'
+          for (let rx = p.x + 5; rx < p.x + p.w - 5; rx += 10) ctx.fillRect(rx, 0, 3, p.hTop - 15)
+          // Bottom pipe
+          ctx.fillStyle = '#5D4037'
+          ctx.fillRect(p.x, H - p.hBot, p.w, p.hBot)
+          ctx.fillStyle = '#795548'
+          ctx.fillRect(p.x - 4, H - p.hBot, p.w + 8, 15)
+          ctx.fillStyle = 'rgba(139,94,60,0.3)'
+          for (let rx = p.x + 5; rx < p.x + p.w - 5; rx += 10)
+            ctx.fillRect(rx, H - p.hBot + 15, 3, p.hBot - 15)
+          // Lemming on top pipe
+          if (p.hTop > 40) drawLemming(p.x + 3, p.hTop - 22, 32, 22)
+          // Lemming on bottom pipe
+          if (p.hBot > 40) drawLemming(p.x + 3, H - p.hBot - 25, 32, 22)
+        }
+        // Grizzy
+        drawGrizzy(bird.x, bird.y, bird.w, bird.h, bird.rot, bird.flap)
+        drP(ctx)
+        // Score in center
+        if (started && !gameOver) {
+          ctx.fillStyle = 'rgba(0,0,0,0.3)'
+          ctx.beginPath()
+          ctx.roundRect(W / 2 - 20, 10, 40, 30, 8)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.font = 'bold 22px sans-serif'
+          ctx.textAlign = 'center'
+          ctx.fillText(score, W / 2, 32)
+        }
+        ctx.restore()
+      }
+
+      function startGame() {
+        if (!started && !gameOver) {
+          started = true
+          bird.vy = FLAP
+          document.getElementById('msg').style.display = 'none'
+        } else if (gameOver) {
+          resetGame()
+          document.getElementById('msg').style.display = 'none'
+          started = true
+          bird.vy = FLAP
+        }
+      }
+
+      function flap() {
+        if (gameOver) {
+          resetGame()
+          started = true
+          bird.vy = FLAP
+          document.getElementById('msg').style.display = 'none'
+          return
+        }
+        if (!started) {
+          startGame()
+          return
+        }
+        bird.vy = FLAP
+        bird.flap = 1
+        sfx(300)
+        part(bird.x + 10, bird.y + 5, 'rgba(255,255,255,0.5)', 3)
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          flap()
+        }
+        if (e.key === 'Enter' && gameOver) {
+          resetGame()
+          started = true
+          bird.vy = FLAP
+          document.getElementById('msg').style.display = 'none'
+        }
+      })
+      document.addEventListener('click', flap)
+      document.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        flap()
+      })
+      document.getElementById('rb').addEventListener('click', () => {
+        resetGame()
+        started = false
+        document.getElementById('msg').style.display = 'block'
+        document.getElementById('msgTitle').textContent = '🐻 Flappy Grizzy'
+        document.getElementById('msgSub').textContent = 'Toca / Presiona ESPACIO para volar'
+      })
+      window.addEventListener('resize', resize)
+
+      function tick() {
+        update()
+      }
+      init()
+    </script>
+  </body>
+</html>

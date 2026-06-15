@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>El Caracol Veloz - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+      }
+      body {
+        background: #1a1a2e;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        font-family: 'Segoe UI', Tahoma, sans-serif;
+        overflow: hidden;
+      }
+      #wrapper {
+        position: relative;
+        width: 95vw;
+        max-width: 800px;
+        aspect-ratio: 500 / 300;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        border: 3px solid #5d4037;
+        border-radius: 12px;
+        box-shadow: 0 0 40px rgba(46, 125, 50, 0.5);
+        cursor: pointer;
+        image-rendering: pixelated;
+      }
+      @media (max-width: 520px) {
+        #wrapper {
+          width: 100vw;
+          border-radius: 0;
+        }
+        canvas {
+          border-radius: 0;
+          border-width: 0;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <canvas id="game" width="500" height="300"></canvas>
+    </div>
+    <script>
+      const canvas = document.getElementById('game')
+      const ctx = canvas.getContext('2d')
+      const W = 500,
+        H = 300
+
+      // Audio (Web Audio API - sintetizado)
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      let audioCtx = null
+
+      function initAudio() {
+        if (!audioCtx) audioCtx = new AudioCtx()
+      }
+
+      function playTone(freq, duration, type, vol) {
+        try {
+          initAudio()
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          const osc = audioCtx.createOscillator()
+          const gain = audioCtx.createGain()
+          osc.type = type || 'square'
+          osc.frequency.value = freq
+          gain.gain.setValueAtTime(vol || 0.15, audioCtx.currentTime)
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration)
+          osc.connect(gain)
+          gain.connect(audioCtx.destination)
+          osc.start()
+          osc.stop(audioCtx.currentTime + duration)
+        } catch (e) {
+          /* silencio */
+        }
+      }
+
+      function sfxJump() {
+        playTone(400, 0.12, 'square', 0.1)
+        playTone(600, 0.1, 'square', 0.08)
+      }
+      function sfxHoney() {
+        playTone(880, 0.08, 'sine', 0.12)
+        setTimeout(() => playTone(1100, 0.12, 'sine', 0.1), 80)
+      }
+      function sfxHit() {
+        playTone(150, 0.25, 'sawtooth', 0.12)
+        playTone(80, 0.3, 'sawtooth', 0.1)
+      }
+      function sfxGameOver() {
+        playTone(400, 0.15, 'square', 0.1)
+        setTimeout(() => playTone(300, 0.15, 'square', 0.1), 150)
+        setTimeout(() => playTone(200, 0.25, 'square', 0.1), 300)
+      }
+      function sfxLevelUp() {
+        playTone(523, 0.1, 'sine', 0.1)
+        setTimeout(() => playTone(659, 0.1, 'sine', 0.1), 100)
+        setTimeout(() => playTone(784, 0.15, 'sine', 0.1), 200)
+      }
+
+      // Estado
+      const state = { menu: 0, playing: 1, over: 2 }
+      let screen = state.menu
+      let score = 0,
+        best = 0,
+        level = 1,
+        speed = 1.5
+      let frame = 0,
+        shakeTimer = 0,
+        flashTimer = 0
+      let obstacles = [],
+        honeys = [],
+        flowers = []
+      let particles = []
+
+      // Grizzy
+      const grizzy = {
+        x: 80,
+        y: 0,
+        w: 32,
+        h: 28,
+        vy: 0,
+        grounded: true,
+        jumpPower: -5.5,
+        gravity: 0.28,
+        get left() {
+          return this.x
+        },
+        get right() {
+          return this.x + this.w
+        },
+        get top() {
+          return this.y
+        },
+        get bottom() {
+          return this.y + this.h
+        },
+      }
+
+      // Gestión de flores decorativas
+      function spawnFlowers() {
+        flowers = []
+        for (let i = 0; i < 14; i++) {
+          flowers.push({
+            x: Math.random() * W,
+            y: 240 + Math.random() * 40,
+            size: 4 + Math.random() * 4,
+            color: ['#FF6B6B', '#FFD93D', '#FF8E53', '#C084FC', '#F472B6'][
+              Math.floor(Math.random() * 5)
+            ],
+            phase: Math.random() * Math.PI * 2,
+          })
+        }
+      }
+
+      function resetGame() {
+        grizzy.y = 200
+        grizzy.vy = 0
+        grizzy.grounded = false
+        score = 0
+        level = 1
+        speed = 1.5
+        obstacles = []
+        honeys = []
+        particles = []
+        shakeTimer = 0
+        flashTimer = 0
+        spawnFlowers()
+      }
+
+      // Spawn
+      let obstacleTimer = 0
+      let honeyTimer = 0
+
+      function spawnObstacle() {
+        const r = Math.random()
+        let type, w, h, label, color
+        if (r < 0.4) {
+          type = 'leaf'
+          w = 22
+          h = 20
+          label = '🍂'
+          color = '#4CAF50'
+        } else if (r < 0.7) {
+          type = 'stone'
+          w = 24
+          h = 22
+          label = '🪨'
+          color = '#888'
+        } else {
+          type = 'drop'
+          w = 18
+          h = 22
+          label = '💧'
+          color = '#4DD0E1'
+        }
+        obstacles.push({
+          x: W + 10,
+          y: 215 - h,
+          w,
+          h,
+          type,
+          label,
+          color,
+          passed: false,
+          face: type === 'leaf' ? '😠' : type === 'stone' ? '😐' : '😮',
+        })
+      }
+
+      function spawnHoney() {
+        honeys.push({
+          x: W + 10,
+          y: 170 + Math.random() * 50,
+          w: 18,
+          h: 20,
+          collected: false,
+        })
+      }
+
+      // Partículas
+      function emitParticles(x, y, color, n, spread) {
+        for (let i = 0; i < n; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const vel = 0.5 + Math.random() * (spread || 2)
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * vel,
+            vy: Math.sin(angle) * vel - 1,
+            life: 30 + Math.random() * 30,
+            maxLife: 60,
+            color: color || '#FFD700',
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+
+      // Dibujado
+      function drawBackground() {
+        // Cielo
+        const grad = ctx.createLinearGradient(0, 0, 0, 200)
+        grad.addColorStop(0, '#87CEEB')
+        grad.addColorStop(1, '#B5E8F7')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, W, 200)
+
+        // Nubes
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'
+        const cx = (frame * 0.2) % 600
+        for (let i = 0; i < 4; i++) {
+          const nx = ((i * 180 - cx + 600) % 600) - 50
+          const ny = 20 + i * 12
+          ctx.beginPath()
+          ctx.ellipse(nx, ny, 35, 14, 0, 0, Math.PI * 2)
+          ctx.ellipse(nx + 20, ny - 5, 25, 12, 0, 0, Math.PI * 2)
+          ctx.ellipse(nx + 40, ny, 30, 13, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        // Suelo - tierra
+        ctx.fillStyle = '#5D4037'
+        ctx.fillRect(0, 230, W, 70)
+        // Hierba arriba
+        ctx.fillStyle = '#2E7D32'
+        ctx.fillRect(0, 225, W, 12)
+        // Textura césped
+        ctx.fillStyle = '#388E3C'
+        for (let i = 0; i < W; i += 8) {
+          const gh = 3 + Math.sin(i * 0.3 + frame * 0.02) * 2
+          ctx.fillRect(i, 225 - gh, 3, gh + 3)
+        }
+
+        // Flores
+        for (const f of flowers) {
+          const sway = Math.sin(frame * 0.03 + f.phase) * 2
+          ctx.fillStyle = '#388E3C'
+          ctx.strokeStyle = '#2E7D32'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(f.x + sway, 230)
+          ctx.quadraticCurveTo(f.x + sway - 2, 210, f.x + sway, 200)
+          ctx.stroke()
+          // pétalos
+          ctx.fillStyle = f.color
+          for (let a = 0; a < 5; a++) {
+            const angle = (a * Math.PI * 2) / 5 + Math.sin(frame * 0.02 + f.phase) * 0.1
+            const px = f.x + sway + Math.cos(angle) * f.size
+            const py = 200 + Math.sin(angle) * f.size
+            ctx.beginPath()
+            ctx.ellipse(px, py, f.size * 0.6, f.size * 0.4, angle, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.fillStyle = '#FFEB3B'
+          ctx.beginPath()
+          ctx.arc(f.x + sway, 200, f.size * 0.35, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      function drawGrizzy() {
+        const g = grizzy
+        const cx = g.x + g.w / 2
+        const cy = g.y + g.h / 2
+        const bounce = g.grounded ? Math.sin(frame * 0.08) * 1 : 0
+        const by = g.y + bounce
+
+        // Sombra
+        ctx.fillStyle = 'rgba(0,0,0,0.15)'
+        ctx.beginPath()
+        ctx.ellipse(cx, g.y + g.h + 2, 18, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Concha (caparazón) - detrás
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx + 6, by + 12, 14, 16, 0.1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = '#6D4C2A'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+
+        // Espiral en la concha
+        ctx.strokeStyle = '#5D3A1A'
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        const scx = cx + 6,
+          scy = by + 12
+        for (let t = 0; t < Math.PI * 3; t += 0.15) {
+          const rad = 2 + t * 0.8
+          const ex = scx + Math.cos(t) * rad * 0.5
+          const ey = scy + Math.sin(t) * rad * 0.4
+          if (t === 0) ctx.moveTo(ex, ey)
+          else ctx.lineTo(ex, ey)
+        }
+        ctx.stroke()
+
+        // Cuerpo (oso marrón)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx - 3, by + 16, 12, 10, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Pancita
+        ctx.fillStyle = '#C49A6C'
+        ctx.beginPath()
+        ctx.ellipse(cx - 4, by + 18, 7, 6, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Cabeza
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx - 8, by + 8, 10, 9, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Orejas
+        ctx.fillStyle = '#7A4E2D'
+        ctx.beginPath()
+        ctx.arc(cx - 15, by + 2, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 2, by, 4, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#C49A6C'
+        ctx.beginPath()
+        ctx.arc(cx - 15, by + 2, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 2, by, 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Antenas
+        ctx.strokeStyle = '#5D3A1A'
+        ctx.lineWidth = 1.5
+        ;[0, 1].forEach((i) => {
+          const ax = cx - 13 + i * 8
+          const ay = by + 1
+          ctx.beginPath()
+          ctx.moveTo(ax, ay)
+          ctx.quadraticCurveTo(ax - 3 + i * 6, ay - 12, ax - 1 + i * 4, ay - 16)
+          ctx.stroke()
+          ctx.fillStyle = '#FF8F00'
+          ctx.beginPath()
+          ctx.arc(ax - 1 + i * 4, ay - 16, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+        })
+
+        // Ojos
+        ctx.fillStyle = 'white'
+        ctx.beginPath()
+        ctx.arc(cx - 12, by + 7, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 5, by + 6, 3.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#333'
+        ctx.beginPath()
+        ctx.arc(cx - 11, by + 7, 2, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 4, by + 6, 2, 0, Math.PI * 2)
+        ctx.fill()
+        // Brillo
+        ctx.fillStyle = 'white'
+        ctx.beginPath()
+        ctx.arc(cx - 12, by + 5.5, 1, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 5, by + 4.5, 1, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Nariz
+        ctx.fillStyle = '#333'
+        ctx.beginPath()
+        ctx.ellipse(cx - 9, by + 10, 2, 1.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Sonrisa
+        ctx.strokeStyle = '#5D3A1A'
+        ctx.lineWidth = 1.2
+        ctx.beginPath()
+        ctx.arc(cx - 9, by + 11, 3.5, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+
+        // Carrillos
+        ctx.fillStyle = 'rgba(255,150,150,0.3)'
+        ctx.beginPath()
+        ctx.arc(cx - 15, by + 10, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx - 3, by + 9, 3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Ojos cerrados al saltar
+        if (!g.grounded) {
+          ctx.strokeStyle = '#333'
+          ctx.lineWidth = 1.8
+          ctx.beginPath()
+          ctx.moveTo(cx - 14, by + 7)
+          ctx.lineTo(cx - 9, by + 7)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx - 7, by + 6)
+          ctx.lineTo(cx - 2, by + 6)
+          ctx.stroke()
+        }
+      }
+
+      function drawObstacle(o) {
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.2)'
+        ctx.shadowBlur = 4
+
+        switch (o.type) {
+          case 'leaf':
+            ctx.fillStyle = o.color
+            ctx.beginPath()
+            ctx.ellipse(o.x + o.w / 2, o.y + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#388E3C'
+            ctx.lineWidth = 1.5
+            ctx.stroke()
+            // Vena central
+            ctx.strokeStyle = '#388E3C'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(o.x + o.w / 2, o.y + 3)
+            ctx.lineTo(o.x + o.w / 2, o.y + o.h - 3)
+            ctx.stroke()
+            break
+          case 'stone':
+            ctx.fillStyle = o.color
+            ctx.beginPath()
+            ctx.ellipse(o.x + o.w / 2, o.y + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#666'
+            ctx.lineWidth = 1.5
+            ctx.stroke()
+            // Grietas
+            ctx.strokeStyle = '#666'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.moveTo(o.x + 4, o.y + 8)
+            ctx.lineTo(o.x + 10, o.y + 14)
+            ctx.lineTo(o.x + 18, o.y + 6)
+            ctx.stroke()
+            break
+          case 'drop':
+            ctx.fillStyle = o.color
+            const dx = o.x + o.w / 2,
+              dy = o.y + o.h / 2
+            ctx.beginPath()
+            ctx.moveTo(dx, o.y + 2)
+            ctx.quadraticCurveTo(o.x + o.w + 2, dy + 4, dx, o.y + o.h - 2)
+            ctx.quadraticCurveTo(o.x - 2, dy + 4, dx, o.y + 2)
+            ctx.fill()
+            ctx.strokeStyle = '#26C6DA'
+            ctx.lineWidth = 1
+            ctx.stroke()
+            // Brillo
+            ctx.fillStyle = 'rgba(255,255,255,0.4)'
+            ctx.beginPath()
+            ctx.arc(dx - 3, dy - 3, 3, 0, Math.PI * 2)
+            ctx.fill()
+            break
+        }
+
+        // Carita
+        ctx.shadowBlur = 0
+        ctx.font = '11px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText(o.face, o.x + o.w / 2, o.y + o.h / 2 + 4)
+
+        ctx.restore()
+      }
+
+      function drawHoney(h) {
+        ctx.save()
+        ctx.shadowColor = 'rgba(255,193,7,0.4)'
+        ctx.shadowBlur = 10
+
+        // Tarro
+        ctx.fillStyle = '#FFC107'
+        const hx = h.x,
+          hy = h.y
+        ctx.fillRect(hx, hy, h.w, h.h)
+        ctx.strokeStyle = '#F57F17'
+        ctx.lineWidth = 1.5
+        ctx.strokeRect(hx, hy, h.w, h.h)
+
+        // Tapa
+        ctx.fillStyle = '#F57F17'
+        ctx.fillRect(hx - 1, hy - 4, h.w + 2, 5)
+
+        // Brillo
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'
+        ctx.fillRect(hx + 3, hy + 4, 4, 8)
+
+        // Etiqueta "MIEL"
+        ctx.fillStyle = '#F57F17'
+        ctx.font = 'bold 6px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.fillText('MIEL', hx + h.w / 2, hy + h.h - 3)
+
+        // Destello
+        const glow = 0.5 + Math.sin(frame * 0.1) * 0.3
+        ctx.fillStyle = `rgba(255,255,200,${glow * 0.3})`
+        ctx.beginPath()
+        ctx.arc(hx + h.w / 2, hy + h.h / 2, h.w * 0.8, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.restore()
+      }
+
+      function drawParticles() {
+        for (const p of particles) {
+          const alpha = p.life / p.maxLife
+          ctx.globalAlpha = alpha
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function drawUI() {
+        // HUD
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, W, 28)
+
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.textAlign = 'left'
+        ctx.fillText(`🏆 ${score}`, 10, 20)
+
+        ctx.textAlign = 'center'
+        ctx.fillText(`NIVEL ${level}/40`, W / 2, 20)
+
+        ctx.textAlign = 'right'
+        ctx.fillStyle = '#FFD700'
+        ctx.fillText(`⭐ ${best}`, W - 10, 20)
+
+        // Barra de nivel
+        const barW = 100,
+          barX = W / 2 - barW / 2
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'
+        ctx.fillRect(barX, 28, barW, 4)
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(barX, 28, barW * (level / 40), 4)
+      }
+
+      function drawStartScreen() {
+        ctx.fillStyle = '#2E7D32'
+        ctx.fillRect(0, 0, W, H)
+
+        // Decoración
+        drawBackground()
+
+        // Círculo brillante
+        const grad = ctx.createRadialGradient(W / 2, H / 2, 10, W / 2, H / 2, 180)
+        grad.addColorStop(0, 'rgba(255,255,200,0.1)')
+        grad.addColorStop(1, 'rgba(255,255,200,0)')
+        ctx.fillStyle = grad
+        ctx.beginPath()
+        ctx.arc(W / 2, H / 2, 180, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'
+        ctx.fillRect(0, 0, W, H)
+
+        // Título
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 32px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'
+        ctx.shadowBlur = 8
+        ctx.fillText('🐌 CARACOL VELOZ', W / 2, 70)
+        ctx.shadowBlur = 0
+
+        ctx.fillStyle = '#fff'
+        ctx.font = '16px sans-serif'
+        ctx.fillText('Grizzy & the Lemmings', W / 2, 97)
+
+        // Instrucciones
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'
+        ctx.font = '12px sans-serif'
+        const instructions = [
+          'ESPACIO / CLIC / ↑ para saltar',
+          'Esquiva hojas, piedras y gotas',
+          '¡Atrapa la miel dorada!',
+        ]
+        instructions.forEach((t, i) => {
+          ctx.fillText(t, W / 2, 130 + i * 18)
+        })
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 14px sans-serif'
+        ctx.fillText('Presiona ESPACIO o haz clic', W / 2, 200)
+
+        if (best > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = '13px sans-serif'
+          ctx.fillText(`Mejor puntuación: ${best}`, W / 2, 235)
+        }
+
+        // Animación caracol
+        grizzy.x = 80
+        grizzy.y = 210
+        grizzy.grounded = true
+        drawGrizzy()
+      }
+
+      function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'
+        ctx.fillRect(0, 0, W, H)
+
+        ctx.fillStyle = '#FF5252'
+        ctx.font = 'bold 36px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'
+        ctx.shadowBlur = 10
+        ctx.fillText('GAME OVER', W / 2, 90)
+        ctx.shadowBlur = 0
+
+        ctx.fillStyle = '#fff'
+        ctx.font = 'bold 20px sans-serif'
+        ctx.fillText(`Puntuación: ${score}`, W / 2, 140)
+
+        if (score >= best && score > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 16px sans-serif'
+          ctx.fillText('¡NUEVO RÉCORD!', W / 2, 168)
+        }
+
+        ctx.fillStyle = '#aaa'
+        ctx.font = '13px sans-serif'
+        ctx.fillText(`Mejor: ${best}`, W / 2, 195)
+
+        ctx.fillStyle = '#4CAF50'
+        ctx.font = '14px sans-serif'
+        ctx.fillText('Presiona ESPACIO o clic para continuar', W / 2, 240)
+
+        ctx.fillStyle = '#FFC107'
+        ctx.font = 'bold 12px sans-serif'
+        ctx.fillText(`Nivel alcanzado: ${level}/40`, W / 2, 265)
+      }
+
+      // Colisiones
+      function rectCollide(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+      }
+
+      // Lógica principal
+      function update() {
+        if (screen === state.playing) {
+          frame++
+
+          // Gravedad
+          grizzy.vy += grizzy.gravity
+          grizzy.y += grizzy.vy
+
+          // Suelo
+          if (grizzy.y + grizzy.h >= 228) {
+            grizzy.y = 228 - grizzy.h
+            grizzy.vy = 0
+            grizzy.grounded = true
+          } else {
+            grizzy.grounded = false
+          }
+
+          // Score por distancia
+          if (frame % 4 === 0) {
+            score++
+            // Subir nivel
+            const newLevel = Math.min(40, Math.floor(score / 200) + 1)
+            if (newLevel > level) {
+              level = newLevel
+              speed = 1.5 + level * 0.2
+              sfxLevelUp()
+            }
+          }
+
+          // Spawn obstáculos
+          obstacleTimer--
+          if (obstacleTimer <= 0) {
+            spawnObstacle()
+            const baseInterval = Math.max(30, 80 - level * 1.2)
+            obstacleTimer = baseInterval + Math.floor(Math.random() * 30)
+          }
+
+          // Spawn miel
+          honeyTimer--
+          if (honeyTimer <= 0 && honeys.length < 2) {
+            spawnHoney()
+            honeyTimer = 200 + Math.floor(Math.random() * 200)
+          }
+
+          // Mover obstáculos
+          for (let i = obstacles.length - 1; i >= 0; i--) {
+            const o = obstacles[i]
+            o.x -= speed
+            if (o.x + o.w < 0) {
+              obstacles.splice(i, 1)
+              continue
+            }
+            // Colisión
+            if (rectCollide(grizzy, o)) {
+              sfxHit()
+              emitParticles(grizzy.x + grizzy.w / 2, grizzy.y + grizzy.h / 2, '#FF5252', 20, 3)
+              shakeTimer = 15
+              flashTimer = 10
+              screen = state.over
+              sfxGameOver()
+              if (score > best) {
+                best = score
+                try {
+                  localStorage.setItem('grizzy_snail_best', best)
+                } catch (e) {}
+              }
+              return
+            }
+          }
+
+          // Mover miel
+          for (let i = honeys.length - 1; i >= 0; i--) {
+            const h = honeys[i]
+            h.x -= speed
+            if (h.x + h.w < 0) {
+              honeys.splice(i, 1)
+              continue
+            }
+            if (!h.collected && rectCollide(grizzy, h)) {
+              h.collected = true
+              score += 20
+              sfxHoney()
+              emitParticles(h.x + h.w / 2, h.y + h.h / 2, '#FFD700', 15, 2)
+              honeys.splice(i, 1)
+            }
+          }
+
+          // Partículas
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.05
+            p.life--
+            if (p.life <= 0) {
+              particles.splice(i, 1)
+            }
+          }
+
+          if (shakeTimer > 0) shakeTimer--
+          if (flashTimer > 0) flashTimer--
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+
+        if (screen === state.menu) {
+          drawStartScreen()
+          return
+        }
+
+        // Shake
+        ctx.save()
+        if (shakeTimer > 0) {
+          const intensity = shakeTimer * 0.6
+          ctx.translate((Math.random() - 0.5) * intensity, (Math.random() - 0.5) * intensity)
+        }
+
+        drawBackground()
+
+        // Obstáculos
+        for (const o of obstacles) drawObstacle(o)
+
+        // Miel
+        for (const h of honeys) drawHoney(h)
+
+        // Grizzy
+        drawGrizzy()
+
+        // Partículas
+        drawParticles()
+
+        // UI
+        drawUI()
+
+        // Flash rojo
+        if (flashTimer > 0) {
+          ctx.fillStyle = `rgba(255,0,0,${flashTimer * 0.03})`
+          ctx.fillRect(0, 0, W, H)
+        }
+
+        if (screen === state.over) {
+          drawGameOver()
+        }
+
+        ctx.restore()
+      }
+
+      function gameLoop() {
+        update()
+        draw()
+        requestAnimationFrame(gameLoop)
+      }
+
+      // Input
+      function handleInput() {
+        if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume()
+        if (screen === state.menu) {
+          initAudio()
+          resetGame()
+          screen = state.playing
+          obstacleTimer = 60
+          honeyTimer = 120
+          sfxJump()
+          return
+        }
+        if (screen === state.over) {
+          screen = state.menu
+          return
+        }
+        if (screen === state.playing && grizzy.grounded) {
+          grizzy.vy = grizzy.jumpPower
+          grizzy.grounded = false
+          sfxJump()
+        }
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          handleInput()
+        }
+      })
+      canvas.addEventListener('click', handleInput)
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        handleInput()
+      })
+
+      // Cargar mejor puntuación
+      try {
+        best = parseInt(localStorage.getItem('grizzy_snail_best')) || 0
+      } catch (e) {
+        best = 0
+      }
+
+      // Iniciar
+      spawnFlowers()
+      grizzy.y = 210
+      grizzy.grounded = true
+      gameLoop()
+
+      // Redimensionar wrapper
+      function resize() {
+        const wrapper = document.getElementById('wrapper')
+        const maxW = window.innerWidth * 0.95
+        const maxH = window.innerHeight * 0.95
+        const ratio = 500 / 300
+        let w = maxW
+        let h = w / ratio
+        if (h > maxH) {
+          h = maxH
+          w = h * ratio
+        }
+        wrapper.style.width = w + 'px'
+        wrapper.style.height = h + 'px'
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      console.log('🐌 El Caracol Veloz - Grizzy & the Lemmings')
+      console.log('Controles: ESPACIO / CLIC / ↑ para saltar')
+    </script>
+  </body>
+</html>

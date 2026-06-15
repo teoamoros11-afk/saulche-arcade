@@ -1,0 +1,780 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Corre, Perrito, Corre</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: none;
+      }
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      canvas {
+        display: block;
+        background: #87ceeb;
+        image-rendering: pixelated;
+        cursor: pointer;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="g"></canvas>
+    <script>
+      const C = document.getElementById('g'),
+        X = C.getContext('2d')
+      const W = 600,
+        H = 300,
+        VW = 600,
+        VH = 300
+
+      function resize() {
+        const r = innerWidth / innerHeight,
+          rv = VW / VH
+        let w, h
+        if (r > rv) {
+          h = innerHeight
+          w = h * rv
+        } else {
+          w = innerWidth
+          h = w / rv
+        }
+        C.style.width = w + 'px'
+        C.style.height = h + 'px'
+        C.width = VW
+        C.height = VH
+      }
+      resize()
+      addEventListener('resize', resize)
+
+      // Audio
+      const AC = new (window.AudioContext || window.webkitAudioContext)()
+      function playTone(f, d, t = 0, vol = 0.15) {
+        if (AC.state === 'suspended') AC.resume()
+        const o = AC.createOscillator(),
+          g = AC.createGain()
+        o.type = t
+        o.frequency.value = f
+        g.gain.value = vol
+        g.gain.exponentialRampToValueAtTime(0.001, AC.currentTime + d)
+        o.connect(g)
+        g.connect(AC.destination)
+        o.start(AC.currentTime)
+        o.stop(AC.currentTime + d)
+      }
+
+      // State
+      const S = { menu: 0, play: 1, over: 2 }
+      let state = S.menu,
+        best = parseInt(localStorage.getItem('grizzy_runner_best')) || 0
+      let score = 0,
+        coins = 0,
+        speed = 3,
+        gameTime = 0,
+        jump = false,
+        jumping = false,
+        groundY = 250
+      let grizzy,
+        obstacles = [],
+        coinList = [],
+        particles = [],
+        clouds = [],
+        trees = [],
+        frame = 0
+      let jumpVel = 0,
+        jumpHeld = false,
+        canJump = true
+      let lastObstacle = 0,
+        lastCoin = 0
+      let shakeX = 0,
+        shakeY = 0,
+        shakeT = 0
+      let flash = 0
+
+      // Init
+      function init() {
+        grizzy = { x: 80, y: groundY - 30, w: 30, h: 32, vy: 0, legPhase: 0, armSpread: 0 }
+        obstacles = []
+        coinList = []
+        particles = []
+        score = 0
+        coins = 0
+        speed = 3
+        gameTime = 0
+        jump = false
+        jumping = false
+        jumpVel = 0
+        canJump = true
+        lastObstacle = 0
+        lastCoin = 0
+        shakeX = 0
+        shakeY = 0
+        shakeT = 0
+        flash = 0
+        frame = 0
+        initDecor()
+      }
+      function initDecor() {
+        clouds = []
+        for (let i = 0; i < 5; i++)
+          clouds.push({
+            x: Math.random() * W,
+            y: 20 + Math.random() * 60,
+            w: 60 + Math.random() * 50,
+            h: 25,
+            r: 0,
+          })
+        trees = []
+        for (let i = 0; i < 6; i++)
+          trees.push({ x: 100 + i * 120 + Math.random() * 60, y: groundY - 10 })
+      }
+
+      let decorSpeed = 0
+      function updateDecor() {
+        decorSpeed = speed * 0.3
+        for (let c of clouds) {
+          c.x -= decorSpeed
+          if (c.x + c.w < 0) {
+            c.x = W + 10
+            c.y = 20 + Math.random() * 60
+            c.w = 60 + Math.random() * 50
+          }
+        }
+        for (let t of trees) {
+          t.x -= decorSpeed * speed
+          if (t.x < -40) {
+            t.x = W + 10
+          }
+        }
+      }
+
+      // Spawn
+      function spawnObstacle() {
+        if (gameTime - lastObstacle < Math.max(40, 120 - speed * 8)) return
+        lastObstacle = gameTime
+        const h = 22 + Math.random() * 8
+        obstacles.push({ x: W + 10, y: groundY - h, w: 20, h: r(16, 22), redEye: false })
+      }
+      function r(a, b) {
+        return Math.floor(Math.random() * (b - a + 1)) + a
+      }
+      function spawnCoin() {
+        if (gameTime - lastCoin < Math.max(20, 60 - speed * 3)) return
+        lastCoin = gameTime
+        coinList.push({ x: W + 10, y: groundY - 20 - Math.random() * 80, w: 12, h: 12, angle: 0 })
+      }
+
+      // Particles
+      function emitParticles(x, y, count, color, speedMul = 1) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2,
+            v = 0.5 + Math.random() * 2 * speedMul
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v - 0.5,
+            life: 30 + Math.random() * 30,
+            maxLife: 60,
+            color,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+      function emitDeathParticles() {
+        for (let i = 0; i < 40; i++) {
+          const a = Math.random() * Math.PI * 2,
+            v = 1 + Math.random() * 4
+          const c = ['#8B5E3C', '#6B3F1A', '#FFC107', '#7E8A9E', '#4CAF50'][
+            Math.floor(Math.random() * 5)
+          ]
+          particles.push({
+            x: grizzy.x + 15,
+            y: grizzy.y + 15,
+            vx: Math.cos(a) * v,
+            vy: Math.sin(a) * v - 1,
+            life: 40 + Math.random() * 40,
+            maxLife: 80,
+            color: c,
+            size: 2 + Math.random() * 4,
+          })
+        }
+      }
+
+      // Draw
+      function drawCloud(c) {
+        X.fillStyle = 'rgba(255,255,255,.7)'
+        X.beginPath()
+        X.arc(c.x, c.y, c.w * 0.3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(c.x + c.w * 0.3, c.y - 5, c.w * 0.3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(c.x + c.w * 0.5, c.y, c.w * 0.25, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(c.x + c.w * 0.25, c.y + 3, c.w * 0.25, 0, Math.PI * 2)
+        X.fill()
+      }
+
+      function drawTree(t) {
+        const tx = t.x,
+          ty = t.y
+        X.fillStyle = '#5D4037'
+        X.fillRect(tx - 3, ty - 20, 6, 20)
+        X.fillStyle = '#388E3C'
+        X.beginPath()
+        X.arc(tx, ty - 28, 14, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#2E7D32'
+        X.beginPath()
+        X.arc(tx - 8, ty - 22, 10, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(tx + 8, ty - 22, 10, 0, Math.PI * 2)
+        X.fill()
+      }
+
+      function drawGround() {
+        X.fillStyle = '#4CAF50'
+        X.fillRect(0, groundY, W, H - groundY)
+        X.fillStyle = '#388E3C'
+        for (let i = 0; i < W; i += 20) X.fillRect((i + frame * 2) % W, groundY + 5, 10, 2)
+        for (let i = 0; i < W; i += 40) X.fillRect((i - frame * 3) % W, groundY + 15, 15, 2)
+        X.fillStyle = '#2E7D32'
+        X.fillRect(0, groundY - 2, W, 4)
+        X.fillStyle = '#1B5E20'
+        for (let i = 0; i < W; i += r(30, 80)) X.fillRect((i + frame * 1) % W, groundY + 18, 3, 8)
+      }
+
+      function drawGrizzy() {
+        const g = grizzy
+        X.save()
+        X.translate(g.x + 15, g.y + 16)
+        const body = 8,
+          s = 1
+        // legs
+        X.fillStyle = '#6B3F1A'
+        const legOff = jump ? 5 : Math.sin(g.legPhase) * 6
+        X.fillRect(-8, 8 + legOff * s, 6, 14)
+        X.fillRect(2, 8 - legOff * s, 6, 14)
+        // body
+        X.fillStyle = '#8B5E3C'
+        X.fillRect(-10, -6, 20, 16)
+        // belly
+        X.fillStyle = '#C49A6C'
+        X.fillRect(-6, -2, 12, 10)
+        // arms
+        const armY = jump ? g.armSpread - 4 : 0
+        X.fillStyle = '#8B5E3C'
+        if (jump) {
+          // open arms
+          X.save()
+          X.rotate(-0.4 - armY * 0.05)
+          X.fillRect(12, -4 + armY, 10, 5)
+          X.restore()
+          X.save()
+          X.rotate(0.4 + armY * 0.05)
+          X.fillRect(-22, -4 + armY, 10, 5)
+          X.restore()
+        } else {
+          X.fillRect(10, armY + 2, 8, 4)
+          X.fillRect(-18, armY + 2, 8, 4)
+        }
+        // head
+        X.fillStyle = '#8B5E3C'
+        X.beginPath()
+        X.arc(0, -11, 10, 0, Math.PI * 2)
+        X.fill()
+        // ears
+        X.fillStyle = '#6B3F1A'
+        X.beginPath()
+        X.arc(-7, -18, 4, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -18, 4, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#C49A6C'
+        X.beginPath()
+        X.arc(-7, -18, 2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -18, 2, 0, Math.PI * 2)
+        X.fill()
+        // eyes
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-4, -12, 3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(4, -12, 3, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#222'
+        X.beginPath()
+        X.arc(-3, -12, 1.5, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(5, -12, 1.5, 0, Math.PI * 2)
+        X.fill()
+        // nose
+        X.fillStyle = '#222'
+        X.beginPath()
+        X.arc(0, -9, 2, 0, Math.PI * 2)
+        X.fill()
+        // mouth
+        X.strokeStyle = '#222'
+        X.lineWidth = 1
+        X.beginPath()
+        X.arc(0, -7, 3, 0.2, Math.PI - 0.2)
+        X.stroke()
+        X.restore()
+      }
+
+      function drawLemming(o) {
+        const x = o.x,
+          y = o.y,
+          red = o.redEye
+        X.fillStyle = '#7E8A9E'
+        X.fillRect(x, y, o.w, o.h)
+        X.fillStyle = '#6B7A8E'
+        X.fillRect(x + 2, y - 4, o.w - 4, 6)
+        X.beginPath()
+        X.arc(x + o.w / 2, y - 4, o.w / 2 + 1, Math.PI, 0)
+        X.fill()
+        // eyes
+        X.fillStyle = red ? '#FF0000' : '#fff'
+        X.beginPath()
+        X.arc(x + 5, y + 5, 3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(x + o.w - 5, y + 5, 3, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = red ? '#990000' : '#222'
+        X.beginPath()
+        X.arc(x + 5, y + 5, 1.5, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(x + o.w - 5, y + 5, 1.5, 0, Math.PI * 2)
+        X.fill()
+        // teeth
+        X.fillStyle = '#fff'
+        X.fillRect(x + 6, y + 10, 3, 4)
+        X.fillRect(x + o.w - 9, y + 10, 3, 4)
+        // nose
+        X.fillStyle = '#5A6A7E'
+        X.beginPath()
+        X.arc(x + o.w / 2, y + 8, 2, 0, Math.PI * 2)
+        X.fill()
+      }
+
+      function drawCoin(c) {
+        X.save()
+        X.translate(c.x + 6, c.y + 6)
+        const sc = 0.8 + Math.sin(c.angle) * 0.2
+        X.scale(sc, 1)
+        X.fillStyle = '#FFC107'
+        X.beginPath()
+        X.arc(0, 0, 7, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#FFD54F'
+        X.beginPath()
+        X.arc(0, 0, 5, 0, Math.PI * 2)
+        X.fill()
+        // shine
+        X.fillStyle = 'rgba(255,255,255,.5)'
+        X.beginPath()
+        X.arc(-2, -2, 2, 0, Math.PI * 2)
+        X.fill()
+        // M for miel
+        X.fillStyle = '#E65100'
+        X.font = 'bold 10px sans-serif'
+        X.textAlign = 'center'
+        X.textBaseline = 'middle'
+        X.fillText('M', 0, 0)
+        X.restore()
+      }
+
+      function drawParticles() {
+        for (let p of particles) {
+          const a = p.life / p.maxLife
+          X.globalAlpha = a
+          X.fillStyle = p.color
+          X.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+        }
+        X.globalAlpha = 1
+      }
+
+      function drawHUD() {
+        X.fillStyle = 'rgba(0,0,0,.5)'
+        X.fillRect(4, 4, 160, 44)
+        X.strokeStyle = '#FFC107'
+        X.lineWidth = 2
+        X.strokeRect(4, 4, 160, 44)
+        X.fillStyle = '#fff'
+        X.font = 'bold 14px sans-serif'
+        X.fillText('🏃 ' + score, 12, 24)
+        X.fillStyle = '#FFC107'
+        X.fillText('🪙 ' + coins, 12, 42)
+        X.fillStyle = '#aaa'
+        X.font = '11px sans-serif'
+        X.fillText('🏆 ' + best, W - 80, 16)
+      }
+
+      function drawMenu() {
+        X.fillStyle = 'rgba(0,0,0,.6)'
+        X.fillRect(0, 0, W, H)
+        X.fillStyle = '#FFC107'
+        X.font = 'bold 28px sans-serif'
+        X.textAlign = 'center'
+        X.fillText('🐻 Corre, Perrito, Corre', W / 2, 80)
+        X.fillStyle = '#8B5E3C'
+        X.font = '16px sans-serif'
+        X.fillText('¡Ayuda a Grizzy a escapar!', W / 2, 115)
+        X.fillStyle = '#fff'
+        X.font = '13px sans-serif'
+        X.fillText('ESPACIO / CLICK / TAP para saltar', W / 2, 150)
+        X.fillStyle = '#FFC107'
+        X.font = 'bold 18px sans-serif'
+        const t = Date.now() / 500
+        const py = 200 + Math.sin(t) * 5
+        X.fillRect(W / 2 - 70, py - 2, 140, 36)
+        X.fillStyle = '#6B3F1A'
+        X.fillRect(W / 2 - 68, py, 136, 32)
+        X.fillStyle = '#FFC107'
+        X.font = 'bold 16px sans-serif'
+        X.fillText('▶  EMPEZAR', W / 2, py + 22)
+        // draw animated grizzy preview
+        X.drawImage(C, 0, 0) // no-op, just to keep
+        // draw mini grizzy
+        const gx = W / 2 - 50,
+          gy = 225
+        X.fillStyle = '#8B5E3C'
+        X.beginPath()
+        X.arc(gx, gy - 5, 10, 0, Math.PI * 2)
+        X.fill()
+        X.fillRect(gx - 8, gy + 2, 16, 12)
+        X.fillStyle = '#6B3F1A'
+        X.fillRect(gx - 6, gy + 10, 5, 8)
+        X.fillRect(gx + 1, gy + 10, 5, 8)
+        X.fillStyle = '#6B3F1A'
+        X.beginPath()
+        X.arc(gx - 6, gy - 12, 3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(gx + 6, gy - 12, 3, 0, Math.PI * 2)
+        X.fill()
+        if (best > 0) {
+          X.fillStyle = '#aaa'
+          X.font = '12px sans-serif'
+          X.fillText('🏆 Mejor: ' + best, W / 2, 275)
+        }
+      }
+
+      function drawGameOver() {
+        X.fillStyle = 'rgba(0,0,0,.7)'
+        X.fillRect(0, 0, W, H)
+        X.fillStyle = '#FF4444'
+        X.font = 'bold 36px sans-serif'
+        X.textAlign = 'center'
+        X.fillText('GAME OVER', W / 2, 100)
+        X.fillStyle = '#fff'
+        X.font = 'bold 20px sans-serif'
+        X.fillText('🏃 ' + score + '  🪙 ' + coins, W / 2, 150)
+        const total = score + coins * 10
+        X.fillStyle = '#FFC107'
+        X.font = '18px sans-serif'
+        X.fillText('Total: ' + total, W / 2, 180)
+        if (total >= best && total > 0) {
+          X.fillStyle = '#FFD700'
+          X.font = '16px sans-serif'
+          X.fillText('★ NUEVO RÉCORD ★', W / 2, 210)
+        }
+        X.fillStyle = '#fff'
+        X.font = '14px sans-serif'
+        X.fillText('🏆 Mejor: ' + best, W / 2, 235)
+        X.fillStyle = '#aaa'
+        X.font = '13px sans-serif'
+        X.fillText('Presiona ESPACIO o toca para reiniciar', W / 2, 268)
+      }
+
+      // Update
+      function update() {
+        frame++
+        if (state === S.menu) {
+          menuUpdate()
+          return
+        }
+        if (state === S.over) {
+          if (shakeT > 0) shakeT--
+          return
+        }
+        gameTime++
+        speed = 3 + Math.floor(gameTime / 300) * 0.5
+        if (speed > 10) speed = 10
+        jumpHeld = false
+
+        // Grizzy physics
+        if (jumping) {
+          grizzy.vy += 0.8
+          grizzy.y += grizzy.vy
+          grizzy.armSpread = Math.min(grizzy.armSpread + 0.3, 8)
+          if (grizzy.y >= groundY - 30) {
+            grizzy.y = groundY - 30
+            grizzy.vy = 0
+            jumping = false
+            jump = false
+            grizzy.armSpread = 0
+          }
+        }
+        grizzy.legPhase += 0.3 * speed
+        if (!jumping) {
+          grizzy.x = 80
+        }
+
+        // Lemmings
+        spawnObstacle()
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const o = obstacles[i]
+          o.x -= speed
+          if (o.x + o.w < 0) {
+            obstacles.splice(i, 1)
+            continue
+          }
+          // red eyes when close
+          if (!o.redEye && grizzy.x + 30 > o.x - 40) o.redEye = true
+          // collision
+          if (
+            !jump &&
+            grizzy.x + 10 < o.x + o.w &&
+            grizzy.x + 20 > o.x &&
+            grizzy.y + 10 < o.y + o.h &&
+            grizzy.y + 28 > o.y
+          ) {
+            gameOver()
+            return
+          }
+        }
+
+        // Coins
+        spawnCoin()
+        for (let i = coinList.length - 1; i >= 0; i--) {
+          const c = coinList[i]
+          c.x -= speed
+          c.angle += 0.1
+          if (c.x + 12 < 0) {
+            coinList.splice(i, 1)
+            continue
+          }
+          // collect
+          if (
+            Math.abs(grizzy.x + 15 - (c.x + 6)) < 18 &&
+            Math.abs(grizzy.y + 16 - (c.y + 6)) < 18
+          ) {
+            coins++
+            score += 10
+            emitParticles(c.x + 6, c.y + 6, 10, '#FFC107', 1.2)
+            playTone(880, 0.1, 'sine', 0.12)
+            playTone(1100, 0.08, 'sine', 0.08)
+            coinList.splice(i, 1)
+          }
+        }
+
+        // Particles
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.vy += 0.05
+          p.life--
+          if (p.life <= 0) {
+            particles.splice(i, 1)
+          }
+        }
+
+        // Score
+        score += Math.floor(speed / 3) + 1
+
+        updateDecor()
+        if (shakeT > 0) {
+          shakeX = (Math.random() - 0.5) * shakeT * 2
+          shakeY = (Math.random() - 0.5) * shakeT * 2
+          shakeT--
+        }
+        if (flash > 0) flash--
+      }
+
+      function menuUpdate() {
+        clouds.forEach((c) => {
+          c.x -= 0.3
+          if (c.x + c.w < 0) {
+            c.x = W + 10
+            c.y = 20 + Math.random() * 60
+            c.w = 60 + Math.random() * 50
+          }
+        })
+      }
+
+      function gameOver() {
+        state = S.over
+        const total = score + coins * 10
+        if (total > best) {
+          best = total
+          localStorage.setItem('grizzy_runner_best', best)
+        }
+        shakeT = 15
+        flash = 10
+        emitDeathParticles()
+        playTone(200, 0.3, 'square', 0.2)
+        playTone(140, 0.3, 'square', 0.2)
+        playTone(80, 0.5, 'sawtooth', 0.2)
+      }
+
+      function doJump() {
+        if (state === S.menu) {
+          startGame()
+          return
+        }
+        if (state === S.over) {
+          resetGame()
+          return
+        }
+        if (state === S.play && !jumping && canJump) {
+          jump = true
+          jumping = true
+          grizzy.vy = -8.5
+          grizzy.armSpread = 0
+          playTone(400, 0.12, 'sine', 0.1)
+          playTone(500, 0.08, 'sine', 0.08)
+        }
+      }
+
+      function startGame() {
+        state = S.play
+        init()
+      }
+      function resetGame() {
+        state = S.play
+        init()
+      }
+
+      // Render
+      function render() {
+        X.save()
+        if (shakeT > 0) X.translate(shakeX, shakeY)
+
+        // Sky gradient
+        const grd = X.createLinearGradient(0, 0, 0, groundY)
+        grd.addColorStop(0, '#87CEEB')
+        grd.addColorStop(1, '#FFF8E1')
+        X.fillStyle = grd
+        X.fillRect(0, 0, W, groundY)
+
+        // Sun
+        X.fillStyle = '#FFE082'
+        X.beginPath()
+        X.arc(W - 60, 50, 28, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#FFF9C4'
+        X.beginPath()
+        X.arc(W - 60, 50, 22, 0, Math.PI * 2)
+        X.fill()
+
+        // Clouds
+        clouds.forEach(drawCloud)
+
+        // Trees
+        trees.forEach(drawTree)
+
+        // Ground
+        drawGround()
+
+        if (state === S.menu) {
+          // Draw initial ground objects
+          drawMenu()
+          X.restore()
+          return
+        }
+
+        // Lemmings
+        obstacles.forEach(drawLemming)
+
+        // Coins
+        coinList.forEach(drawCoin)
+
+        // Grizzy
+        drawGrizzy()
+
+        // Particles
+        drawParticles()
+
+        // Flash
+        if (flash > 0) {
+          X.fillStyle = 'rgba(255,255,255,' + flash / 20 + ')'
+          X.fillRect(0, 0, W, H)
+        }
+
+        // HUD
+        if (state === S.play) drawHUD()
+
+        // Game over overlay
+        if (state === S.over) drawGameOver()
+
+        X.restore()
+      }
+
+      // Game loop
+      function loop() {
+        update()
+        render()
+        requestAnimationFrame(loop)
+      }
+
+      // Input
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'ArrowUp') {
+          e.preventDefault()
+          doJump()
+        }
+      })
+      C.addEventListener('mousedown', (e) => {
+        e.preventDefault()
+        doJump()
+      })
+      C.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          doJump()
+        },
+        { passive: false },
+      )
+
+      // Init and start
+      init()
+      loop()
+    </script>
+  </body>
+</html>

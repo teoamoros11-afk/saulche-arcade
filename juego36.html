@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>El Zorro Aventurero - Grizzy & the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        background: #1a0e05;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+        font-family: 'Arial Black', Arial, sans-serif;
+        touch-action: none;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      canvas {
+        display: block;
+        background: #2d1a0a;
+        image-rendering: pixelated;
+        max-width: 100vw;
+        max-height: 100vh;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <script>
+      const canvas = document.getElementById('c')
+      const ctx = canvas.getContext('2d')
+
+      const W = 600,
+        H = 300
+      canvas.width = W
+      canvas.height = H
+
+      function resize() {
+        const r = Math.min(window.innerWidth / W, window.innerHeight / H)
+        canvas.style.width = W * r + 'px'
+        canvas.style.height = H * r + 'px'
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      // Audio
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      let actx
+
+      function initAudio() {
+        if (!actx) actx = new AudioCtx()
+      }
+
+      function playTone(freq, dur, type, vol) {
+        try {
+          initAudio()
+          const o = actx.createOscillator()
+          const g = actx.createGain()
+          o.type = type || 'square'
+          o.frequency.value = freq
+          g.gain.value = vol || 0.12
+          g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur)
+          o.connect(g)
+          g.connect(actx.destination)
+          o.start()
+          o.stop(actx.currentTime + dur)
+        } catch (e) {}
+      }
+
+      function sndJump() {
+        playTone(400, 0.12, 'square', 0.1)
+        playTone(600, 0.1, 'square', 0.08)
+      }
+      function sndFruit() {
+        playTone(880, 0.1, 'sine', 0.1)
+        playTone(1100, 0.1, 'sine', 0.08)
+      }
+      function sndCrash() {
+        playTone(150, 0.3, 'sawtooth', 0.15)
+        playTone(100, 0.4, 'sawtooth', 0.1)
+      }
+      function sndOver() {
+        playTone(200, 0.3, 'sawtooth', 0.12)
+        setTimeout(() => playTone(140, 0.4, 'sawtooth', 0.1), 200)
+      }
+
+      // Game state
+      let state = 'menu' // menu | playing | over
+      let score = 0
+      let best = parseInt(localStorage.getItem('grizzy_fox_best')) || 0
+      let level = 1
+      let speed = 2.5
+      let baseSpeed = 2.5
+      let maxSpeed = 7
+      let frame = 0
+      let groundX = 0
+      let particles = []
+      let obstacles = []
+      let fruits = []
+      let clouds = []
+      let trees = []
+      let scorePopups = []
+
+      // Player
+      const player = {
+        x: 80,
+        y: 0,
+        w: 28,
+        h: 32,
+        vy: 0,
+        grounded: true,
+        jumpPower: -7,
+        gravity: 0.35,
+        legAnim: 0,
+        blinkTimer: 0,
+      }
+      player.y = H - 70 - player.h
+
+      // Ground
+      const GROUND_Y = H - 70
+
+      // Clouds
+      for (let i = 0; i < 5; i++) {
+        clouds.push({
+          x: Math.random() * W,
+          y: 20 + Math.random() * 60,
+          w: 50 + Math.random() * 40,
+          h: 20 + Math.random() * 10,
+          s: 0.2 + Math.random() * 0.3,
+        })
+      }
+
+      // Trees
+      for (let i = 0; i < 8; i++) {
+        trees.push({ x: i * 90 + Math.random() * 30, h: 60 + Math.random() * 40 })
+      }
+
+      function resetGame() {
+        score = 0
+        level = 1
+        speed = baseSpeed
+        frame = 0
+        obstacles = []
+        fruits = []
+        particles = []
+        scorePopups = []
+        player.y = GROUND_Y - player.h
+        player.vy = 0
+        player.grounded = true
+        player.legAnim = 0
+        groundX = 0
+      }
+
+      function spawnObstacle() {
+        const r = Math.random()
+        const maxObs = Math.min(3 + Math.floor(level / 4), 12)
+        if (obstacles.length >= maxObs) return
+        if (
+          obstacles.length > 0 &&
+          W - obstacles[obstacles.length - 1].x < 100 + Math.random() * 120
+        )
+          return
+
+        let type, w, h, color, face
+        if (r < 0.4) {
+          type = 'log'
+          w = 20 + Math.random() * 12
+          h = 18 + Math.random() * 8
+          color = '#5D4037'
+          face = Math.random() < 0.4
+        } else if (r < 0.7) {
+          type = 'bush'
+          w = 22 + Math.random() * 10
+          h = 20 + Math.random() * 8
+          color = '#4CAF50'
+          face = Math.random() < 0.4
+        } else {
+          type = 'lemming'
+          w = 18
+          h = 22
+          color = '#7E8A9E'
+          face = true
+        }
+        obstacles.push({
+          x: W + 10,
+          y: GROUND_Y - h,
+          w,
+          h,
+          type,
+          color,
+          face,
+          passed: false,
+        })
+      }
+
+      function spawnFruit() {
+        if (Math.random() > 0.008 + level * 0.0003) return
+        const r = Math.random()
+        let type, color, pts
+        if (r < 0.5) {
+          type = 'apple'
+          color = '#E53935'
+          pts = 10
+        } else if (r < 0.8) {
+          type = 'grape'
+          color = '#7B1FA2'
+          pts = 15
+        } else {
+          type = 'banana'
+          color = '#FDD835'
+          pts = 20
+        }
+        const sz = 12 + Math.random() * 4
+        fruits.push({
+          x: W + 10,
+          y: GROUND_Y - 30 - Math.random() * 50,
+          w: sz,
+          h: sz,
+          type,
+          color,
+          pts,
+          bob: Math.random() * Math.PI * 2,
+        })
+      }
+
+      function addParticles(x, y, color, count, spread) {
+        for (let i = 0; i < count; i++) {
+          particles.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * spread,
+            vy: -Math.random() * spread * 0.8 - 1,
+            life: 1,
+            decay: 0.01 + Math.random() * 0.02,
+            color,
+            size: 2 + Math.random() * 4,
+          })
+        }
+      }
+
+      function addScorePopup(x, y, text, color) {
+        scorePopups.push({ x, y, text, color, life: 1, vy: -2 })
+      }
+
+      // Drawing functions
+      function drawGround() {
+        ctx.fillStyle = '#8B5E3C'
+        ctx.fillRect(0, GROUND_Y, W, H - GROUND_Y)
+        ctx.fillStyle = '#6D4C2A'
+        for (let x = -groundX % 30; x < W; x += 30) {
+          ctx.fillRect(x, GROUND_Y, 30, 3)
+        }
+        ctx.fillStyle = '#5A3E22'
+        for (let x = -groundX % 45; x < W; x += 45) {
+          ctx.fillRect(x, GROUND_Y + 5, 15, 2)
+        }
+        ctx.fillStyle = '#7A5030'
+        ctx.fillRect(0, GROUND_Y - 2, W, 4)
+      }
+
+      function drawSky() {
+        const grad = ctx.createLinearGradient(0, 0, 0, GROUND_Y)
+        grad.addColorStop(0, '#87CEEB')
+        grad.addColorStop(0.5, '#B0D4E8')
+        grad.addColorStop(1, '#D4A76A')
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, W, GROUND_Y)
+      }
+
+      function drawClouds() {
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'
+        for (const c of clouds) {
+          c.x -= c.s
+          if (c.x + c.w < -20) c.x = W + 20
+          ctx.beginPath()
+          ctx.ellipse(c.x, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2)
+          ctx.ellipse(c.x - c.w * 0.25, c.y + 5, c.w * 0.3, c.h * 0.35, 0, 0, Math.PI * 2)
+          ctx.ellipse(c.x + c.w * 0.25, c.y + 3, c.w * 0.3, c.h * 0.35, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      function drawTrees() {
+        for (const t of trees) {
+          const tx = ((t.x - groundX * 0.3) % (W + 100)) - 50
+          const cx = tx + 15
+          // Trunk
+          ctx.fillStyle = '#5D4037'
+          ctx.fillRect(cx - 4, GROUND_Y - t.h, 8, t.h)
+          // Foliage
+          ctx.fillStyle = '#D2691E'
+          ctx.beginPath()
+          ctx.arc(cx, GROUND_Y - t.h - 10, 30, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#C85A17'
+          ctx.beginPath()
+          ctx.arc(cx - 12, GROUND_Y - t.h - 5, 22, 0, Math.PI * 2)
+          ctx.arc(cx + 12, GROUND_Y - t.h - 5, 22, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#B84A0A'
+          ctx.beginPath()
+          ctx.arc(cx, GROUND_Y - t.h - 18, 18, 0, Math.PI * 2)
+          ctx.fill()
+          // Falling leaves
+          for (let i = 0; i < 3; i++) {
+            const lx = cx + Math.sin(frame * 0.02 + i * 2) * 20 + 10
+            const ly = GROUND_Y - t.h + 10 + Math.sin(frame * 0.03 + i * 3) * 15 + i * 12
+            ctx.fillStyle = ['#FF8C00', '#FF6347', '#DAA520'][i]
+            ctx.fillRect(lx, ly, 4, 2)
+          }
+        }
+      }
+
+      function drawPlayer() {
+        const p = player
+        const px = p.x
+        const py = p.y
+
+        // Tail
+        ctx.fillStyle = '#FF8C00'
+        ctx.beginPath()
+        ctx.ellipse(px - 12, py + 10 + Math.sin(frame * 0.15) * 3, 10, 6, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#E07B00'
+        ctx.beginPath()
+        ctx.ellipse(px - 14, py + 10 + Math.sin(frame * 0.15) * 3, 6, 3, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Body (bear)
+        ctx.fillStyle = '#8B4513'
+        ctx.beginPath()
+        ctx.ellipse(px, py + 16, 14, 16, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Belly
+        ctx.fillStyle = '#A0522D'
+        ctx.beginPath()
+        ctx.ellipse(px, py + 18, 9, 11, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Head
+        ctx.fillStyle = '#8B4513'
+        ctx.beginPath()
+        ctx.arc(px + 4, py + 2, 12, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Ears
+        ctx.fillStyle = '#6B3410'
+        ctx.beginPath()
+        ctx.ellipse(px - 4, py - 8, 5, 7, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(px + 12, py - 8, 5, 7, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#D2691E'
+        ctx.beginPath()
+        ctx.ellipse(px - 4, py - 8, 3, 4, -0.3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.ellipse(px + 12, py - 8, 3, 4, 0.3, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Eyes
+        p.blinkTimer++
+        const blink = p.blinkTimer % 120 < 4
+        ctx.fillStyle = '#1a1a1a'
+        if (blink) {
+          ctx.fillRect(px + 1, py - 1, 5, 2)
+          ctx.fillRect(px + 9, py - 1, 5, 2)
+        } else {
+          ctx.beginPath()
+          ctx.arc(px + 3, py + 1, 2.5, 0, Math.PI * 2)
+          ctx.arc(px + 11, py + 1, 2.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'white'
+          ctx.beginPath()
+          ctx.arc(px + 4, py, 1, 0, Math.PI * 2)
+          ctx.arc(px + 12, py, 1, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        // Snout
+        ctx.fillStyle = '#D2691E'
+        ctx.beginPath()
+        ctx.ellipse(px + 7, py + 6, 6, 4, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(px + 7, py + 5, 2, 0, Math.PI * 2)
+        ctx.fill()
+
+        // Smile
+        ctx.strokeStyle = '#1a1a1a'
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.arc(px + 7, py + 8, 3, 0.1, Math.PI - 0.1)
+        ctx.stroke()
+
+        // Legs
+        ctx.fillStyle = '#6B3410'
+        const legOff = p.grounded ? Math.sin(frame * 0.3) * 3 : 2
+        ctx.fillRect(px - 8, py + 28, 7, 6 + legOff)
+        ctx.fillRect(px + 1, py + 28, 7, 6 - legOff)
+
+        // Arms
+        ctx.fillStyle = '#8B4513'
+        const armSwing = p.grounded ? Math.sin(frame * 0.25) * 2 : -3
+        ctx.fillRect(px + 12, py + 10 + armSwing, 8, 5)
+        ctx.fillRect(px - 6, py + 10 - armSwing, 8, 5)
+      }
+
+      function drawObstacle(o) {
+        if (o.type === 'log') {
+          ctx.fillStyle = o.color
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, o.y + o.h / 2, o.w / 2, o.h / 2, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#3E2723'
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath()
+            ctx.arc(o.x + 4 + i * 6, o.y + o.h / 2, 2, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          if (o.face) {
+            ctx.fillStyle = '#1a1a1a'
+            ctx.beginPath()
+            ctx.arc(o.x + 6, o.y + 6, 1.5, 0, Math.PI * 2)
+            ctx.arc(o.x + o.w - 6, o.y + 6, 1.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#1a1a1a'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.arc(o.x + o.w / 2, o.y + 10, 2, 0.1, Math.PI - 0.1)
+            ctx.stroke()
+          }
+        } else if (o.type === 'bush') {
+          ctx.fillStyle = o.color
+          ctx.beginPath()
+          ctx.arc(o.x + 6, o.y + o.h, 10, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w / 2, o.y + 4, 12, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w - 6, o.y + o.h, 10, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#388E3C'
+          ctx.beginPath()
+          ctx.arc(o.x + 4, o.y + o.h - 4, 6, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w - 4, o.y + o.h - 4, 6, 0, Math.PI * 2)
+          ctx.fill()
+          if (o.face) {
+            ctx.fillStyle = '#1a1a1a'
+            ctx.beginPath()
+            ctx.arc(o.x + 7, o.y + 6, 1.5, 0, Math.PI * 2)
+            ctx.arc(o.x + o.w - 7, o.y + 6, 1.5, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.strokeStyle = '#1a1a1a'
+            ctx.lineWidth = 1
+            ctx.beginPath()
+            ctx.arc(o.x + o.w / 2, o.y + 10, 2, 0.1, Math.PI - 0.1)
+            ctx.stroke()
+          }
+        } else {
+          // lemming
+          ctx.fillStyle = o.color
+          ctx.beginPath()
+          ctx.ellipse(o.x + o.w / 2, o.y + 8, 9, 10, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#6B7280'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2, o.y + 10, 6, 0, Math.PI * 2)
+          ctx.fill()
+          // Ears
+          ctx.fillStyle = '#9CA3AF'
+          ctx.beginPath()
+          ctx.arc(o.x + 3, o.y + 2, 4, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w - 3, o.y + 2, 4, 0, Math.PI * 2)
+          ctx.fill()
+          // Eyes
+          ctx.fillStyle = '#1a1a1a'
+          ctx.beginPath()
+          ctx.arc(o.x + 6, o.y + 6, 2, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w - 6, o.y + 6, 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'white'
+          ctx.beginPath()
+          ctx.arc(o.x + 5, o.y + 5, 0.8, 0, Math.PI * 2)
+          ctx.arc(o.x + o.w - 7, o.y + 5, 0.8, 0, Math.PI * 2)
+          ctx.fill()
+          // Nose
+          ctx.fillStyle = '#4B5563'
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2, o.y + 10, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // Smile
+          ctx.strokeStyle = '#4B5563'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(o.x + o.w / 2, o.y + 13, 3, 0.1, Math.PI - 0.1)
+          ctx.stroke()
+        }
+      }
+
+      function drawFruit(f) {
+        const fx = f.x + f.w / 2
+        const fy = f.y + f.h / 2
+        const bob = Math.sin(frame * 0.08 + f.bob) * 2
+
+        if (f.type === 'apple') {
+          ctx.fillStyle = f.color
+          ctx.beginPath()
+          ctx.arc(fx, fy + bob, f.w / 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#C62828'
+          ctx.beginPath()
+          ctx.arc(fx + 2, fy - 1 + bob, 3, 0, Math.PI * 2)
+          ctx.fill()
+          // Stem
+          ctx.strokeStyle = '#4E342E'
+          ctx.lineWidth = 2
+          ctx.beginPath()
+          ctx.moveTo(fx, fy - f.h / 2 + bob)
+          ctx.lineTo(fx + 2, fy - f.h / 2 - 4 + bob)
+          ctx.stroke()
+          // Leaf
+          ctx.fillStyle = '#4CAF50'
+          ctx.beginPath()
+          ctx.ellipse(fx + 4, fy - f.h / 2 - 2 + bob, 4, 2, 0.5, 0, Math.PI * 2)
+          ctx.fill()
+        } else if (f.type === 'grape') {
+          ctx.fillStyle = f.color
+          for (let i = 0; i < 5; i++) {
+            const gx = fx + ((i % 3) - 1) * 5
+            const gy = fy + Math.floor(i / 3) * 5 + bob - 3
+            ctx.beginPath()
+            ctx.arc(gx, gy, 3.5, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.strokeStyle = '#4A148C'
+          ctx.lineWidth = 1.5
+          ctx.beginPath()
+          ctx.moveTo(fx, fy - 6 + bob)
+          ctx.lineTo(fx + 1, fy - 12 + bob)
+          ctx.stroke()
+        } else {
+          // banana
+          ctx.fillStyle = f.color
+          ctx.beginPath()
+          ctx.ellipse(fx, fy + bob, f.w / 2, f.h / 2, -0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#F9A825'
+          ctx.beginPath()
+          ctx.ellipse(fx - 1, fy - 1 + bob, f.w / 2 - 2, f.h / 2 - 2, -0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#5D4037'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(fx - 5, fy - 3 + bob)
+          ctx.lineTo(fx - 7, fy - 8 + bob)
+          ctx.stroke()
+        }
+
+        // Glow
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'
+        ctx.beginPath()
+        ctx.arc(fx - 2, fy - 3 + bob, 3, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      function drawParticles() {
+        for (const p of particles) {
+          ctx.globalAlpha = p.life
+          ctx.fillStyle = p.color
+          ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function drawScorePopups() {
+        for (const s of scorePopups) {
+          ctx.globalAlpha = s.life
+          ctx.fillStyle = s.color
+          ctx.font = 'bold 14px Arial'
+          ctx.textAlign = 'center'
+          ctx.fillText(s.text, s.x, s.y)
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function drawHUD() {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, W, 28)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 14px Arial'
+        ctx.textAlign = 'left'
+        ctx.fillText('🍎 PUNTOS: ' + score, 8, 20)
+        ctx.textAlign = 'center'
+        ctx.fillText('NIVEL ' + level + '/40', W / 2, 20)
+        ctx.textAlign = 'right'
+        ctx.fillText('⭐ RECORD: ' + best, W - 8, 20)
+        // Speed indicator
+        ctx.fillStyle = '#FF8C00'
+        ctx.fillRect(W - 60, 3, (speed / maxSpeed) * 55, 4)
+        ctx.fillStyle = '#666'
+        ctx.fillRect(W - 60, 7, 55, 2)
+        // Progress bar
+        const prog = Math.min(level / 40, 1)
+        ctx.fillStyle = '#4CAF50'
+        ctx.fillRect(8, 3, prog * 100, 4)
+      }
+
+      function drawMenu() {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = '#FF8C00'
+        ctx.font = 'bold 28px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('🦊 EL ZORRO', W / 2, 80)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 22px Arial'
+        ctx.fillText('AVENTURERO', W / 2, 110)
+        ctx.fillStyle = '#87CEEB'
+        ctx.font = '14px Arial'
+        ctx.fillText('⭐ Grizzy & the Lemmings ⭐', W / 2, 140)
+        ctx.fillStyle = '#fff'
+        ctx.font = '16px Arial'
+        ctx.fillText('Presiona ESPACIO / CLIC / ↑ para comenzar', W / 2, 185)
+        ctx.fillStyle = '#bbb'
+        ctx.font = '12px Arial'
+        ctx.fillText('Salta para esquivar obstáculos y recoge frutas', W / 2, 210)
+        ctx.fillText('🔥 40 niveles de dificultad creciente', W / 2, 228)
+        if (best > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 14px Arial'
+          ctx.fillText('🏆 RECORD: ' + best + ' PUNTOS', W / 2, 255)
+        }
+        // Animated Grizzy on menu
+        const my = 260 + Math.sin(frame * 0.05) * 5
+        ctx.fillStyle = '#8B4513'
+        ctx.beginPath()
+        ctx.arc(W / 2, my, 18, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#D2691E'
+        ctx.beginPath()
+        ctx.ellipse(W / 2 + 3, my + 5, 8, 6, 0, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = 'white'
+        ctx.beginPath()
+        ctx.arc(W / 2 - 5, my - 3, 3, 0, Math.PI * 2)
+        ctx.arc(W / 2 + 7, my - 3, 3, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#1a1a1a'
+        ctx.beginPath()
+        ctx.arc(W / 2 - 5, my - 3, 1.5, 0, Math.PI * 2)
+        ctx.arc(W / 2 + 7, my - 3, 1.5, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      function drawGameOver() {
+        ctx.fillStyle = 'rgba(0,0,0,0.75)'
+        ctx.fillRect(0, 0, W, H)
+        ctx.fillStyle = '#E53935'
+        ctx.font = 'bold 32px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('💀 GAME OVER', W / 2, 100)
+        ctx.fillStyle = '#FF8C00'
+        ctx.font = 'bold 20px Arial'
+        ctx.fillText('PUNTOS: ' + score, W / 2, 145)
+        ctx.fillStyle = '#FFD700'
+        ctx.font = '16px Arial'
+        ctx.fillText('NIVEL: ' + level + '/40', W / 2, 170)
+        if (score >= best && score > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 18px Arial'
+          ctx.fillText('🎉 NUEVO RÉCORD!', W / 2, 200)
+        } else {
+          ctx.fillStyle = '#bbb'
+          ctx.font = '14px Arial'
+          ctx.fillText('🏆 RECORD: ' + best, W / 2, 200)
+        }
+        ctx.fillStyle = '#fff'
+        ctx.font = '14px Arial'
+        ctx.fillText('Presiona ESPACIO / CLIC / ↑ para reiniciar', W / 2, 240)
+      }
+
+      function update() {
+        if (state === 'playing') {
+          frame++
+          const p = player
+
+          // Gravity
+          p.vy += p.gravity
+          p.y += p.vy
+          if (p.y >= GROUND_Y - p.h) {
+            p.y = GROUND_Y - p.h
+            p.vy = 0
+            p.grounded = true
+          } else {
+            p.grounded = false
+          }
+
+          // Speed increases
+          speed = baseSpeed + Math.min(level * 0.1, maxSpeed - baseSpeed)
+
+          // Ground scroll
+          groundX += speed
+
+          // Spawn
+          if (frame % Math.max(50 - level * 1.2, 18) === 0) spawnObstacle()
+          spawnFruit()
+
+          // Move obstacles
+          for (let i = obstacles.length - 1; i >= 0; i--) {
+            const o = obstacles[i]
+            o.x -= speed
+            if (o.x + o.w < -20) {
+              obstacles.splice(i, 1)
+              continue
+            }
+            // Collision
+            if (p.x < o.x + o.w && p.x + p.w > o.x && p.y < o.y + o.h && p.y + p.h > o.y) {
+              sndCrash()
+              addParticles(p.x + p.w / 2, p.y + p.h / 2, '#FF4444', 20, 6)
+              state = 'over'
+              sndOver()
+              if (score > best) {
+                best = score
+                localStorage.setItem('grizzy_fox_best', best)
+              }
+              return
+            }
+          }
+
+          // Move fruits
+          for (let i = fruits.length - 1; i >= 0; i--) {
+            const f = fruits[i]
+            f.x -= speed
+            if (f.x + f.w < -20) {
+              fruits.splice(i, 1)
+              continue
+            }
+            if (p.x < f.x + f.w && p.x + p.w > f.x && p.y < f.y + f.h && p.y + p.h > f.y) {
+              score += f.pts
+              sndFruit()
+              addParticles(f.x + f.w / 2, f.y + f.h / 2, f.color, 12, 4)
+              addScorePopup(f.x + f.w / 2, f.y - 10, '+' + f.pts, f.color)
+              fruits.splice(i, 1)
+              // Level up every 75 points
+              const newLevel = Math.min(Math.floor(score / 75) + 1, 40)
+              if (newLevel > level) {
+                level = newLevel
+                addParticles(W / 2, GROUND_Y - 50, '#FFD700', 30, 8)
+              }
+            }
+          }
+
+          // Update particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p2 = particles[i]
+            p2.x += p2.vx
+            p2.y += p2.vy
+            p2.vy += 0.05
+            p2.life -= p2.decay
+            if (p2.life <= 0) particles.splice(i, 1)
+          }
+
+          // Update popups
+          for (let i = scorePopups.length - 1; i >= 0; i--) {
+            const s = scorePopups[i]
+            s.y += s.vy
+            s.life -= 0.02
+            if (s.life <= 0) scorePopups.splice(i, 1)
+          }
+        }
+
+        if (state === 'menu' || state === 'over') {
+          frame++
+        }
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, W, H)
+        drawSky()
+        drawClouds()
+        drawTrees()
+
+        if (state === 'playing' || state === 'over') {
+          // Ground
+          drawGround()
+          // Fruits
+          for (const f of fruits) drawFruit(f)
+          // Obstacles
+          for (const o of obstacles) drawObstacle(o)
+          // Player
+          drawPlayer()
+          // Particles
+          drawParticles()
+          // Popups
+          drawScorePopups()
+          // HUD
+          drawHUD()
+        }
+
+        if (state === 'menu') drawMenu()
+        if (state === 'over') drawGameOver()
+      }
+
+      function jump() {
+        if (state === 'menu') {
+          initAudio()
+          resetGame()
+          state = 'playing'
+          sndJump()
+          return
+        }
+        if (state === 'over') {
+          initAudio()
+          resetGame()
+          state = 'playing'
+          sndJump()
+          return
+        }
+        if (state === 'playing' && player.grounded) {
+          player.vy = player.jumpPower
+          player.grounded = false
+          sndJump()
+        }
+      }
+
+      // Input
+      document.addEventListener('keydown', (e) => {
+        if (e.key === ' ' || e.key === 'ArrowUp' || e.key === 'w') {
+          e.preventDefault()
+          jump()
+        }
+      })
+      canvas.addEventListener('click', (e) => {
+        e.preventDefault()
+        jump()
+      })
+      canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        jump()
+      })
+
+      // Game loop
+      function loop() {
+        update()
+        draw()
+        requestAnimationFrame(loop)
+      }
+      loop()
+    </script>
+  </body>
+</html>

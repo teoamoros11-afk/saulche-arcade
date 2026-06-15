@@ -1,0 +1,1087 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>La Abeja Trabajadora - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', sans-serif;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #87ceeb;
+        cursor: none;
+      }
+      #ui {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        display: none;
+      }
+      #ui > * {
+        pointer-events: auto;
+      }
+      #hud {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        display: flex;
+        gap: 30px;
+        background: rgba(0, 0, 0, 0.5);
+        padding: 8px 20px;
+        border-radius: 10px;
+        white-space: nowrap;
+        z-index: 10;
+      }
+      #hud span {
+        color: #ffd700;
+      }
+      #energyBar {
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 300px;
+        height: 22px;
+        background: rgba(0, 0, 0, 0.6);
+        border-radius: 11px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        overflow: hidden;
+        z-index: 10;
+      }
+      #energyFill {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44);
+        border-radius: 9px;
+        transition: width 0.15s;
+      }
+      .overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.85);
+        color: #fff;
+        text-align: center;
+        z-index: 20;
+      }
+      .overlay h1 {
+        font-size: 48px;
+        color: #ffd700;
+        text-shadow:
+          3px 3px 0 #b8860b,
+          0 0 20px rgba(255, 215, 0, 0.5);
+        margin-bottom: 10px;
+      }
+      .overlay h2 {
+        font-size: 28px;
+        color: #ff6b35;
+        margin-bottom: 10px;
+      }
+      .overlay p {
+        font-size: 18px;
+        margin: 8px 0;
+        color: #ccc;
+        max-width: 500px;
+      }
+      .overlay .btn {
+        margin-top: 20px;
+        padding: 14px 50px;
+        font-size: 22px;
+        font-weight: bold;
+        background: #ffd700;
+        color: #333;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 4px 0 #b8860b;
+      }
+      .overlay .btn:hover {
+        background: #ffed4a;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 0 #b8860b;
+      }
+      .overlay .btn:active {
+        transform: translateY(4px);
+        box-shadow: 0 0px 0 #b8860b;
+      }
+      #startScreen {
+        display: flex;
+      }
+      #gameOverScreen {
+        display: none;
+      }
+      #levelScreen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 15;
+        background: rgba(0, 0, 0, 0.7);
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        text-align: center;
+      }
+      #levelScreen h1 {
+        font-size: 60px;
+        color: #ffd700;
+        text-shadow: 0 0 30px rgba(255, 215, 0, 0.8);
+      }
+      #levelScreen p {
+        font-size: 24px;
+        color: #fff;
+        margin-top: 10px;
+      }
+      .bee-icon {
+        font-size: 70px;
+        margin-bottom: 10px;
+        animation: float 2s infinite alternate;
+      }
+      @keyframes float {
+        0% {
+          transform: translateY(0);
+        }
+        100% {
+          transform: translateY(-15px);
+        }
+      }
+      @keyframes buzz {
+        0% {
+          transform: rotate(-5deg);
+        }
+        50% {
+          transform: rotate(5deg);
+        }
+        100% {
+          transform: rotate(-5deg);
+        }
+      }
+      @media (max-width: 600px) {
+        .overlay h1 {
+          font-size: 32px;
+        }
+        .overlay h2 {
+          font-size: 22px;
+        }
+        .overlay p {
+          font-size: 14px;
+        }
+        .overlay .btn {
+          padding: 12px 35px;
+          font-size: 18px;
+        }
+        #hud {
+          font-size: 14px;
+          padding: 5px 12px;
+          gap: 15px;
+        }
+        #energyBar {
+          width: 200px;
+          height: 18px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <canvas id="c"></canvas>
+    <div id="ui">
+      <div id="hud">
+        🐻 NIVEL <span id="lvl">1</span> | 🌸 <span id="flowerCnt">0</span>/5 | 🏆
+        <span id="score">0</span>
+      </div>
+      <div id="energyBar"><div id="energyFill"></div></div>
+      <div id="levelScreen">
+        <h1>🌸 NIVEL COMPLETADO 🌸</h1>
+        <p id="levelMsg">Preparando siguiente nivel...</p>
+      </div>
+      <div id="startScreen" class="overlay">
+        <div class="bee-icon">🐝</div>
+        <h1>LA ABEJA TRABAJADORA</h1>
+        <p>Grizzy &amp; the Lemmings</p>
+        <p style="font-size: 14px; color: #999">
+          🐻 Grizzy se convierte en abeja recolectora de polen
+        </p>
+        <p>
+          Vuela con el mouse o las flechas hacia las flores 🌸<br />Evita las nubes oscuras ☁️ con
+          lemmings!<br />Cada 5 flores completas un nivel
+        </p>
+        <p style="font-size: 14px; color: #888">🏆 Récord: <span id="hsDisplay">0</span></p>
+        <button class="btn" id="startBtn">🐝 ¡VOLAR!</button>
+      </div>
+      <div id="gameOverScreen" class="overlay">
+        <h2>💀 GAME OVER</h2>
+        <p id="goReason">¡Grizzy se quedó sin energía!</p>
+        <p>Puntuación: <span id="goScore">0</span></p>
+        <p>🏆 Récord: <span id="goHigh">0</span></p>
+        <p>Nivel: <span id="goLevel">1</span></p>
+        <button class="btn" id="restartBtn">🐝 REINTENTAR</button>
+      </div>
+    </div>
+    <script>
+      const C = document.getElementById('c'),
+        X = C.getContext('2d')
+      let W, H, S
+      function resize() {
+        W = window.innerWidth
+        H = window.innerHeight
+        S = Math.min(W / 600, H / 400)
+        C.width = W
+        C.height = H
+      }
+      resize()
+      window.addEventListener('resize', resize)
+
+      const VW = 600,
+        VH = 400
+      let scale
+      function vx(x) {
+        return x * scale
+      }
+      function vy(y) {
+        return y * scale
+      }
+      function cx(v) {
+        return v / scale
+      }
+
+      const STATE = { MENU: 0, PLAY: 1, GAMEOVER: 2, LEVELCOMPLETE: 3 }
+      let state = STATE.MENU,
+        score = 0,
+        level = 1,
+        flowersInLevel = 0,
+        targetFlowers = 5
+      let grizzy = {
+        x: 300,
+        y: 200,
+        w: 36,
+        h: 44,
+        speed: 220,
+        targetX: 300,
+        targetY: 200,
+        energy: 100,
+        wingPhase: 0,
+      }
+      let flowers = [],
+        clouds = [],
+        pollenParticles = []
+      let mx = 300,
+        my = 200,
+        usingMouse = false
+      let goReason = '',
+        highScore = parseInt(localStorage.getItem('grizzy_bee_best') || '0')
+      let levelTransitionTimer = 0
+      let animTime = 0
+      let dt = 1 / 60
+
+      let audioCtx = null
+      function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      }
+      function playBuzz(freq = 200, type = 'sine', dur = 0.3) {
+        try {
+          initAudio()
+          const o = audioCtx.createOscillator(),
+            g = audioCtx.createGain()
+          o.type = type
+          o.frequency.setValueAtTime(freq, audioCtx.currentTime)
+          g.gain.setValueAtTime(0.08, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.start()
+          o.stop(audioCtx.currentTime + dur)
+        } catch (e) {}
+      }
+      function playCollect() {
+        try {
+          initAudio()
+          const o = audioCtx.createOscillator(),
+            g = audioCtx.createGain()
+          o.type = 'sine'
+          o.frequency.setValueAtTime(523, audioCtx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(1047, audioCtx.currentTime + 0.15)
+          g.gain.setValueAtTime(0.12, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2)
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.start()
+          o.stop(audioCtx.currentTime + 0.2)
+        } catch (e) {}
+      }
+      function playHurt() {
+        try {
+          initAudio()
+          const o = audioCtx.createOscillator(),
+            g = audioCtx.createGain()
+          o.type = 'sawtooth'
+          o.frequency.setValueAtTime(150, audioCtx.currentTime)
+          o.frequency.exponentialRampToValueAtTime(50, audioCtx.currentTime + 0.3)
+          g.gain.setValueAtTime(0.1, audioCtx.currentTime)
+          g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3)
+          o.connect(g)
+          g.connect(audioCtx.destination)
+          o.start()
+          o.stop(audioCtx.currentTime + 0.3)
+        } catch (e) {}
+      }
+      function playGameOver() {
+        try {
+          initAudio()
+          ;[262, 220, 175, 131].forEach((f, i) => {
+            const o = audioCtx.createOscillator(),
+              g = audioCtx.createGain()
+            o.type = 'square'
+            o.frequency.setValueAtTime(f, audioCtx.currentTime + i * 0.25)
+            g.gain.setValueAtTime(0.1, audioCtx.currentTime + i * 0.25)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.25 + 0.3)
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.start(audioCtx.currentTime + i * 0.25)
+            o.stop(audioCtx.currentTime + i * 0.25 + 0.3)
+          })
+        } catch (e) {}
+      }
+      function playLevelUp() {
+        try {
+          initAudio()
+          ;[523, 659, 784, 1047].forEach((f, i) => {
+            const o = audioCtx.createOscillator(),
+              g = audioCtx.createGain()
+            o.type = 'sine'
+            o.frequency.setValueAtTime(f, audioCtx.currentTime + i * 0.12)
+            g.gain.setValueAtTime(0.12, audioCtx.currentTime + i * 0.12)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.12 + 0.25)
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.start(audioCtx.currentTime + i * 0.12)
+            o.stop(audioCtx.currentTime + i * 0.12 + 0.25)
+          })
+        } catch (e) {}
+      }
+
+      function resetGame() {
+        score = 0
+        level = 1
+        flowersInLevel = 0
+        grizzy.energy = 100
+        grizzy.x = 300
+        grizzy.y = 200
+        grizzy.targetX = 300
+        grizzy.targetY = 200
+        flowers = []
+        clouds = []
+        pollenParticles = []
+        spawnFlowers()
+        spawnClouds()
+        updateHUD()
+      }
+
+      function spawnFlowers() {
+        flowers = []
+        const count = 3 + Math.floor(level / 3)
+        for (let i = 0; i < count; i++) {
+          flowers.push(spawnOneFlower())
+        }
+      }
+      function spawnOneFlower() {
+        const margin = 50
+        let x,
+          y,
+          attempts = 0
+        do {
+          x = margin + Math.random() * (VW - margin * 2)
+          y = margin + Math.random() * (VH - margin * 2)
+          attempts++
+        } while (attempts < 20 && Math.hypot(x - grizzy.x, y - grizzy.y) < 120)
+        const types = ['white', 'red', 'yellow']
+        const type = types[Math.floor(Math.random() * types.length)]
+        return {
+          x,
+          y,
+          type,
+          collected: false,
+          w: type === 'yellow' ? 28 : 24,
+          h: type === 'yellow' ? 28 : 24,
+        }
+      }
+
+      function spawnClouds() {
+        clouds = []
+        const count = 2 + Math.floor(level / 4)
+        for (let i = 0; i < count; i++) {
+          const x = Math.random() * VW
+          const y = 60 + Math.random() * (VH - 120)
+          const speed = 30 + level * 1.5 + Math.random() * 20
+          const dir = Math.random() > 0.5 ? 1 : -1
+          clouds.push({ x, y, w: 60, h: 36, speed, dir, phase: Math.random() * Math.PI * 2 })
+        }
+      }
+
+      function spawnPollen(x, y, count = 8) {
+        for (let i = 0; i < count; i++) {
+          const angle = Math.random() * Math.PI * 2
+          const spd = 30 + Math.random() * 60
+          pollenParticles.push({
+            x,
+            y,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd,
+            life: 0.6 + Math.random() * 0.6,
+            maxLife: 0.6 + Math.random() * 0.6,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+
+      function updateHUD() {
+        document.getElementById('lvl').textContent = level
+        document.getElementById('flowerCnt').textContent = flowersInLevel
+        document.getElementById('score').textContent = score
+        const e = Math.max(0, grizzy.energy)
+        document.getElementById('energyFill').style.width = e + '%'
+        const hue = ((e / 100) * 120).toFixed(0)
+        document.getElementById('energyFill').style.background =
+          `linear-gradient(90deg,#ff4444,#ffaa00,${e > 50 ? '#44ff44' : '#ffaa00'})`
+      }
+
+      function startGame() {
+        document.getElementById('startScreen').style.display = 'none'
+        document.getElementById('gameOverScreen').style.display = 'none'
+        document.getElementById('levelScreen').style.display = 'none'
+        document.getElementById('ui').style.display = 'block'
+        state = STATE.PLAY
+        resetGame()
+      }
+
+      function gameOver(reason) {
+        state = STATE.GAMEOVER
+        goReason = reason
+        if (score > highScore) {
+          highScore = score
+          localStorage.setItem('grizzy_bee_best', highScore)
+        }
+        document.getElementById('goReason').textContent = reason
+        document.getElementById('goScore').textContent = score
+        document.getElementById('goHigh').textContent = highScore
+        document.getElementById('goLevel').textContent = level
+        document.getElementById('gameOverScreen').style.display = 'flex'
+        playGameOver()
+      }
+
+      function levelComplete() {
+        state = STATE.LEVELCOMPLETE
+        levelTransitionTimer = 2.5
+        document.getElementById('levelScreen').style.display = 'flex'
+        document.getElementById('levelMsg').textContent = `Nivel ${level} → ${level + 1}`
+        playLevelUp()
+        setTimeout(() => {
+          if (state !== STATE.LEVELCOMPLETE) return
+          level++
+          flowersInLevel = 0
+          grizzy.energy = Math.min(100, grizzy.energy + 20)
+          grizzy.x = 300
+          grizzy.y = 200
+          grizzy.targetX = 300
+          grizzy.targetY = 200
+          spawnFlowers()
+          spawnClouds()
+          updateHUD()
+          document.getElementById('levelScreen').style.display = 'none'
+          if (level > 40) {
+            document.getElementById('levelMsg').textContent =
+              '¡FELICIDADES! ¡Completaste todos los niveles! 🏆'
+            setTimeout(() => gameOver('¡Ganaste! 🏆'), 500)
+            return
+          }
+          state = STATE.PLAY
+        }, 2500)
+      }
+
+      document.getElementById('startBtn').addEventListener('click', startGame)
+      document.getElementById('restartBtn').addEventListener('click', startGame)
+
+      C.addEventListener('mousemove', (e) => {
+        const rect = C.getBoundingClientRect()
+        mx = (e.clientX - rect.left) / S
+        my = (e.clientY - rect.top) / S
+        usingMouse = true
+      })
+      C.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault()
+          const rect = C.getBoundingClientRect()
+          const t = e.touches[0]
+          mx = (t.clientX - rect.left) / S
+          my = (t.clientY - rect.top) / S
+          usingMouse = true
+        },
+        { passive: false },
+      )
+      C.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          const rect = C.getBoundingClientRect()
+          const t = e.touches[0]
+          mx = (t.clientX - rect.left) / S
+          my = (t.clientY - rect.top) / S
+          usingMouse = true
+          initAudio()
+        },
+        { passive: false },
+      )
+      C.addEventListener('click', () => initAudio())
+
+      let keys = {}
+      document.addEventListener('keydown', (e) => {
+        keys[e.key] = true
+        if (e.key === ' ' || e.key === 'Enter') {
+          if (state === STATE.MENU) startGame()
+          else if (state === STATE.GAMEOVER) startGame()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        keys[e.key] = false
+      })
+
+      function updateGame(delta) {
+        if (state !== STATE.PLAY) return
+        animTime += delta
+
+        grizzy.wingPhase += delta * 12
+
+        if (usingMouse) {
+          grizzy.targetX = mx
+          grizzy.targetY = my
+        } else {
+          let dx = 0,
+            dy = 0
+          if (keys['ArrowLeft'] || keys['a']) dx = -1
+          if (keys['ArrowRight'] || keys['d']) dx = 1
+          if (keys['ArrowUp'] || keys['w']) dy = -1
+          if (keys['ArrowDown'] || keys['s']) dy = 1
+          if (dx || dy) {
+            const len = Math.hypot(dx, dy)
+            grizzy.targetX = grizzy.x + (dx / len) * 300
+            grizzy.targetY = grizzy.y + (dy / len) * 300
+            grizzy.targetX = Math.max(20, Math.min(VW - 20, grizzy.targetX))
+            grizzy.targetY = Math.max(20, Math.min(VH - 20, grizzy.targetY))
+          }
+        }
+
+        const dx = grizzy.targetX - grizzy.x
+        const dy = grizzy.targetY - grizzy.y
+        const dist = Math.hypot(dx, dy)
+        if (dist > 2) {
+          const speed = Math.min(((grizzy.speed * dist) / VW) * 2 + 40, grizzy.speed) * delta
+          const step = Math.min(speed, dist)
+          grizzy.x += (dx / dist) * step
+          grizzy.y += (dy / dist) * step
+        }
+        grizzy.x = Math.max(18, Math.min(VW - 18, grizzy.x))
+        grizzy.y = Math.max(22, Math.min(VH - 22, grizzy.y))
+
+        if (Math.random() < 0.3) spawnPollen(grizzy.x, grizzy.y - 10, 1)
+
+        for (let i = pollenParticles.length - 1; i >= 0; i--) {
+          const p = pollenParticles[i]
+          p.x += p.vx * delta
+          p.y += p.vy * delta
+          p.vy += 20 * delta
+          p.life -= delta
+          if (p.life <= 0) pollenParticles.splice(i, 1)
+        }
+
+        for (let i = flowers.length - 1; i >= 0; i--) {
+          const f = flowers[i]
+          if (f.collected) continue
+          const d = Math.hypot(grizzy.x - f.x, grizzy.y - f.y)
+          if (d < 28) {
+            f.collected = true
+            score += 10
+            flowersInLevel++
+            grizzy.energy = Math.min(100, grizzy.energy + 8)
+            spawnPollen(f.x, f.y, 14)
+            playCollect()
+            updateHUD()
+            setTimeout(() => {
+              if (state !== STATE.PLAY) return
+              const nf = spawnOneFlower()
+              flowers.push(nf)
+            }, 800)
+            if (flowersInLevel >= targetFlowers) {
+              levelComplete()
+              return
+            }
+          }
+        }
+
+        const cldSpeed = grizzy.speed * 0.5
+        for (const c of clouds) {
+          c.x += c.dir * c.speed * delta
+          c.y += Math.sin(animTime * 0.5 + c.phase) * 15 * delta
+          if (c.x < -80) c.x = VW + 80
+          if (c.x > VW + 80) c.x = -80
+          const d = Math.hypot(grizzy.x - c.x, grizzy.y - c.y)
+          if (d < 32) {
+            grizzy.energy = Math.max(0, grizzy.energy - 35 * delta)
+            playHurt()
+            spawnPollen(grizzy.x, grizzy.y, 4)
+            updateHUD()
+            if (grizzy.energy <= 0) {
+              gameOver('¡Grizzy se quedó sin energía!')
+              return
+            }
+          }
+        }
+
+        grizzy.energy = Math.max(0, grizzy.energy - 1.2 * delta)
+        if (grizzy.energy <= 0) {
+          gameOver('¡Grizzy se quedó sin energía!')
+          return
+        }
+        updateHUD()
+      }
+
+      function drawGrizzy(x, y) {
+        const s = scale
+        X.save()
+        X.translate(vx(x), vy(y))
+        const bob = Math.sin(animTime * 6) * 1.5 * s
+        X.translate(0, bob)
+
+        const sc = 1
+        X.scale(s * sc, s * sc)
+
+        const wobble = Math.sin(grizzy.wingPhase) * 0.08
+        X.rotate(wobble)
+
+        X.save()
+        X.translate(0, -4)
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.ellipse(-2, -16, 1.5, 5, 0.2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.ellipse(2, -16, 1.5, 5, -0.2, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#222'
+        X.beginPath()
+        X.arc(-2, -18, 1.2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(2, -18, 1.2, 0, Math.PI * 2)
+        X.fill()
+        X.restore()
+
+        X.save()
+        const wx = 16,
+          wy = 4
+        X.fillStyle = 'rgba(200,220,255,0.5)'
+        const wingFlap = Math.sin(grizzy.wingPhase) * 0.5 + 0.5
+        X.beginPath()
+        X.ellipse(6, -4, wx * (0.7 + wingFlap * 0.3), wy, 0.3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.ellipse(-6, -4, wx * (0.7 + wingFlap * 0.3), wy, -0.3, 0, Math.PI * 2)
+        X.fill()
+        X.strokeStyle = 'rgba(180,200,255,0.5)'
+        X.lineWidth = 0.5
+        X.beginPath()
+        X.moveTo(6 + wx * (0.7 + wingFlap * 0.3) * 0.5, -4)
+        X.lineTo(6 - wx * (0.7 + wingFlap * 0.3) * 0.5, -4)
+        X.stroke()
+        X.beginPath()
+        X.moveTo(-6 + wx * (0.7 + wingFlap * 0.3) * 0.5, -4)
+        X.lineTo(-6 - wx * (0.7 + wingFlap * 0.3) * 0.5, -4)
+        X.stroke()
+        X.restore()
+
+        X.fillStyle = '#8B5E3C'
+        X.beginPath()
+        X.ellipse(0, 0, 14, 16, 0, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#5C3A1E'
+        X.beginPath()
+        X.ellipse(0, 0, 12, 14, 0, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#FFD700'
+        X.beginPath()
+        X.ellipse(0, 10, 6, 3, 0, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.ellipse(0, 14, 5, 2.5, 0, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-4, -3, 3.5, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(4, -3, 3.5, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#222'
+        X.beginPath()
+        X.arc(-3, -3, 1.8, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(5, -3, 1.8, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-2.5, -4, 0.7, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(5.5, -4, 0.7, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.ellipse(0, 4, 5, 2, 0, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(2, 2, 1.2, 0, Math.PI)
+        X.fill()
+
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.ellipse(10, 2, 2, 1.5, 0, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#FFD700'
+        X.beginPath()
+        X.arc(0, 8, 2.5, 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.arc(0, 8, 1.5, 0, Math.PI * 2)
+        X.fill()
+
+        X.restore()
+      }
+
+      function drawFlower(f) {
+        X.save()
+        X.translate(vx(f.x), vy(f.y))
+        const s = scale
+        X.scale(s, s)
+        const sway = Math.sin(animTime * 1.5 + f.x * 0.01) * 2
+        X.rotate(sway * 0.017)
+
+        X.strokeStyle = '#2E7D32'
+        X.lineWidth = 3
+        X.beginPath()
+        X.moveTo(0, 0)
+        X.lineTo(0, 20)
+        X.stroke()
+
+        X.fillStyle = '#4CAF50'
+        X.beginPath()
+        X.ellipse(-4, 10, 3, 6, 0.3, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.ellipse(4, 10, 3, 6, -0.3, 0, Math.PI * 2)
+        X.fill()
+
+        if (f.type === 'white' || f.type === 'red') {
+          const petalColor = f.type === 'white' ? '#fff' : '#e53935'
+          const centerColor = f.type === 'white' ? '#FFD700' : '#FF6F00'
+          for (let i = 0; i < 7; i++) {
+            const a = (i / 7) * Math.PI * 2
+            X.fillStyle = petalColor
+            X.beginPath()
+            X.ellipse(Math.cos(a) * 8, Math.sin(a) * 8 - 2, 6, 4, a, 0, Math.PI * 2)
+            X.fill()
+          }
+          X.fillStyle = centerColor
+          X.beginPath()
+          X.arc(0, -2, 5, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = '#fff'
+          for (let i = 0; i < 5; i++) {
+            const a = (i / 5) * Math.PI * 2 + 0.3
+            X.beginPath()
+            X.arc(Math.cos(a) * 2, Math.sin(a) * 2 - 2, 1.2, 0, Math.PI * 2)
+            X.fill()
+          }
+        } else {
+          X.fillStyle = '#FFD700'
+          X.beginPath()
+          X.ellipse(0, -2, 14, 14, 0, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = '#8B4513'
+          X.beginPath()
+          X.arc(0, -2, 6, 0, Math.PI * 2)
+          X.fill()
+          for (let i = 0; i < 8; i++) {
+            const a = (i / 8) * Math.PI * 2
+            X.fillStyle = '#FFEB3B'
+            X.beginPath()
+            X.ellipse(Math.cos(a) * 10, Math.sin(a) * 10 - 2, 6, 3, a, 0, Math.PI * 2)
+            X.fill()
+          }
+        }
+
+        X.restore()
+      }
+
+      function drawCloud(c) {
+        X.save()
+        X.translate(vx(c.x), vy(c.y))
+        const s = scale
+        X.scale(s, s)
+
+        X.fillStyle = '#555'
+        X.beginPath()
+        X.arc(0, 0, 22, 0, Math.PI * 2)
+        X.arc(-18, 4, 16, 0, Math.PI * 2)
+        X.arc(18, 4, 16, 0, Math.PI * 2)
+        X.arc(-10, -8, 14, 0, Math.PI * 2)
+        X.arc(10, -8, 14, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#666'
+        X.beginPath()
+        X.arc(-6, 0, 10, 0, Math.PI * 2)
+        X.arc(6, 0, 10, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#444'
+        X.beginPath()
+        X.ellipse(0, 6, 6, 3, 0, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-7, -2, 2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -2, 2, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#333'
+        X.beginPath()
+        X.arc(-7, -2, 1.2, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7, -2, 1.2, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#fff'
+        X.beginPath()
+        X.arc(-6.5, -3, 0.5, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.arc(7.5, -3, 0.5, 0, Math.PI * 2)
+        X.fill()
+
+        X.fillStyle = '#777'
+        X.beginPath()
+        X.ellipse(-12, 5, 4, 2, 0, 0, Math.PI * 2)
+        X.fill()
+        X.beginPath()
+        X.ellipse(12, 5, 4, 2, 0, 0, Math.PI * 2)
+        X.fill()
+
+        const blink = Math.sin(animTime * 3 + this?.phase || 0)
+        if (blink > 0.5) {
+          X.fillStyle = '#e53935'
+          X.beginPath()
+          X.arc(-7, -2, 1.8, 0, Math.PI * 2)
+          X.fill()
+          X.beginPath()
+          X.arc(7, -2, 1.8, 0, Math.PI * 2)
+          X.fill()
+        }
+
+        X.restore()
+      }
+
+      function drawPollen() {
+        for (const p of pollenParticles) {
+          const alpha = p.life / p.maxLife
+          X.fillStyle = `rgba(255,215,0,${alpha * 0.8})`
+          const sz = vx(p.size) * alpha
+          X.beginPath()
+          X.arc(vx(p.x), vy(p.y), sz, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = `rgba(255,255,200,${alpha * 0.3})`
+          X.beginPath()
+          X.arc(vx(p.x), vy(p.y), sz * 1.8, 0, Math.PI * 2)
+          X.fill()
+        }
+      }
+
+      function drawBackground() {
+        scale = S
+        X.fillStyle = '#87CEEB'
+        X.fillRect(0, 0, W, H)
+
+        X.fillStyle = '#90EE90'
+        X.fillRect(0, vy(340), W, vy(60))
+
+        X.fillStyle = '#7CCD7C'
+        X.fillRect(0, vy(340), W, vy(3))
+
+        X.fillStyle = '#FFD700'
+        X.beginPath()
+        X.arc(vx(540), vy(50), vx(28), 0, Math.PI * 2)
+        X.fill()
+        X.fillStyle = '#FFEE58'
+        X.beginPath()
+        X.arc(vx(540), vy(50), vx(20), 0, Math.PI * 2)
+        X.fill()
+
+        X.strokeStyle = 'rgba(255,200,0,0.15)'
+        X.lineWidth = 1
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + animTime * 0.05
+          X.beginPath()
+          X.moveTo(vx(540), vy(50))
+          X.lineTo(vx(540 + Math.cos(a) * 45), vy(50 + Math.sin(a) * 30))
+          X.stroke()
+        }
+
+        for (let i = 0; i < 8; i++) {
+          const bx = 50 + i * 70 + Math.sin(animTime * 0.1 + i * 1.5) * 10
+          const by = 355 + Math.sin(animTime * 0.15 + i * 2.3) * 3
+          X.fillStyle = '#66BB6A'
+          X.beginPath()
+          X.ellipse(vx(bx), vy(by), vx(12), vy(4), 0, 0, Math.PI * 2)
+          X.fill()
+          X.fillStyle = '#4CAF50'
+          X.beginPath()
+          X.ellipse(vx(bx + 8), vy(by - 2), vx(10), vy(3), 0.3, 0, Math.PI * 2)
+          X.fill()
+        }
+
+        for (let i = 0; i < 3; i++) {
+          const ax = 100 + i * 200 + Math.sin(animTime * 0.08 + i * 4) * 20
+          X.fillStyle = 'rgba(255,255,255,0.2)'
+          X.beginPath()
+          X.ellipse(vx(ax), vy(120 + i * 60), vx(25), vy(8), 0, 0, Math.PI * 2)
+          X.fill()
+        }
+      }
+
+      function drawEnergyBar() {
+        const e = Math.max(0, grizzy.energy)
+        const bw = 280,
+          bh = 18
+        const bx = (W - vx(bw)) / 2,
+          by = H - vy(45)
+        X.fillStyle = 'rgba(0,0,0,0.5)'
+        X.beginPath()
+        X.roundRect(bx - 2, by - 2, vx(bw) + 4, bh + 4, 12)
+        X.fill()
+        const pct = e / 100
+        const grad = X.createLinearGradient(bx, by, bx + vx(bw) * pct, by)
+        grad.addColorStop(0, '#ff4444')
+        grad.addColorStop(0.5, '#ffaa00')
+        grad.addColorStop(1, '#44ff44')
+        X.fillStyle = grad
+        X.beginPath()
+        X.roundRect(bx, by, vx(bw) * pct, bh, 10)
+        X.fill()
+        X.fillStyle = 'rgba(255,255,255,0.4)'
+        X.beginPath()
+        X.roundRect(bx, by + 2, vx(bw) * pct, bh * 0.35, 5)
+        X.fill()
+        X.fillStyle = '#fff'
+        X.font = `bold ${vx(10)}px 'Segoe UI',sans-serif`
+        X.textAlign = 'center'
+        X.fillText('ENERGÍA', bx + vx(bw) / 2, by + bh - 3)
+      }
+
+      function draw() {
+        X.clearRect(0, 0, W, H)
+        drawBackground()
+        for (const f of flowers) if (!f.collected) drawFlower(f)
+        for (const c of clouds) drawCloud(c)
+        drawPollen()
+        drawGrizzy(grizzy.x, grizzy.y)
+        drawEnergyBar()
+      }
+
+      if (!C.getContext('2d').roundRect) {
+        CanvasRenderingContext2D.prototype.roundRect = function (x, y, w, h, r) {
+          if (w < 2 * r) r = w / 2
+          if (h < 2 * r) r = h / 2
+          this.moveTo(x + r, y)
+          this.arcTo(x + w, y, x + w, y + h, r)
+          this.arcTo(x + w, y + h, x, y + h, r)
+          this.arcTo(x, y + h, x, y, r)
+          this.arcTo(x, y, x + w, y, r)
+          return this
+        }
+      }
+
+      let lastTime = 0
+      function loop(time) {
+        requestAnimationFrame(loop)
+        dt = Math.min((time - lastTime) / 1000, 0.05)
+        lastTime = time
+        scale = S
+
+        updateGame(dt)
+        draw()
+
+        if (state === STATE.PLAY && Math.random() < 0.05) {
+          playBuzz(180 + Math.random() * 40, 'sine', 0.15)
+        }
+      }
+
+      document.getElementById('hsDisplay').textContent = highScore
+      loop(0)
+    </script>
+  </body>
+</html>

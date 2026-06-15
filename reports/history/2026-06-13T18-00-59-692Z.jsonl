@@ -1,0 +1,3 @@
+{"timestamp":1781373673944,"sessionId":"2026-06-13T18-00-59-692Z","eventType":"rule","gameId":"juego01","rule":"canvas_exists","passed":true}
+{"timestamp":1781373673946,"sessionId":"2026-06-13T18-00-59-692Z","eventType":"rule","gameId":"juego01","rule":"score_non_negative","passed":true}
+{"timestamp":1781373673948,"sessionId":"2026-06-13T18-00-59-692Z","eventType":"rule","gameId":"juego01","rule":"level_in_range","passed":true}

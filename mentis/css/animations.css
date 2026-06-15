@@ -1,0 +1,21 @@
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes glow{0%,100%{box-shadow:0 0 5px var(--gold-glow)}50%{box-shadow:0 0 20px var(--gold-glow)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes scaleIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes slideDown{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes particleFloat{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-100px) rotate(720deg);opacity:0}}
+@keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(200px) rotate(720deg);opacity:0}}
+@keyframes rainbow{0%{color:var(--red)}20%{color:var(--gold)}40%{color:var(--green)}60%{color:var(--blue)}80%{color:var(--purple)}100%{color:var(--red)}}
+.anim-float{animation:float 3s ease-in-out infinite}
+.anim-glow{animation:glow 2s ease-in-out infinite}
+.anim-shimmer{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);background-size:200% 100%;animation:shimmer 3s infinite}
+.anim-scale-in{animation:scaleIn 0.4s ease forwards}
+.anim-slide-up{animation:slideUp 0.5s ease forwards}
+.anim-slide-down{animation:slideDown 0.3s ease forwards}
+.anim-delay-1{animation-delay:0.1s}
+.anim-delay-2{animation-delay:0.2s}
+.anim-delay-3{animation-delay:0.3s}
+.anim-delay-4{animation-delay:0.4s}
+.anim-delay-5{animation-delay:0.5s}

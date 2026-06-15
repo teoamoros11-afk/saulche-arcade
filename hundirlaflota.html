@@ -1,0 +1,1309 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"
+    />
+    <title>Hundir la Flota - Grizzy vs Lemmings</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+        background: #1a0e08;
+        color: #fff8e1;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      #wrapper {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background: #2d1b0e;
+        overflow: hidden;
+      }
+      #hud {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 16px;
+        background: linear-gradient(180deg, #3d2b1e, #2d1b0e);
+        border-bottom: 2px solid #8b5e3c;
+        flex-shrink: 0;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: clamp(11px, 1.4vw, 16px);
+      }
+      .hud-item {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .hud-item .label {
+        color: #ffc107;
+        font-weight: 600;
+      }
+      .hud-item .value {
+        color: #fff8e1;
+        font-weight: 700;
+      }
+      #hud .tier-badge {
+        background: #8b5e3c;
+        color: #fff8e1;
+        padding: 2px 8px;
+        border-radius: 10px;
+        font-size: 0.85em;
+      }
+      #boards {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(12px, 3vw, 40px);
+        padding: 8px;
+        flex-wrap: wrap;
+        min-height: 0;
+      }
+      .board-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+      .board-label {
+        font-size: clamp(11px, 1.3vw, 15px);
+        font-weight: 700;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .board-label.enemy {
+        color: #7e8a9e;
+      }
+      .board-label.player {
+        color: #8b5e3c;
+      }
+      .board {
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 2px;
+        width: min(42vw, 42vh, 420px);
+        aspect-ratio: 1;
+        background: #0d4f6b;
+        padding: 4px;
+        border-radius: 6px;
+        border: 2px solid #8b5e3c;
+        touch-action: manipulation;
+      }
+      #enemyBoardGrid {
+        background: #0d4f6b;
+      }
+      #playerBoardGrid {
+        background: #1a6b8a;
+      }
+      .cell {
+        aspect-ratio: 1;
+        border-radius: 2px;
+        cursor: pointer;
+        position: relative;
+        transition: transform 0.1s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .cell:active {
+        transform: scale(0.92);
+      }
+      .cell.unknown {
+        background: #1a5276;
+        border: 1px solid #1e6a8e;
+        cursor: crosshair;
+      }
+      .cell.unknown:hover {
+        background: #2471a3;
+        border-color: #4dd0e1;
+      }
+      .cell.water {
+        background: #1a6b8a;
+        border: 1px solid #2471a3;
+      }
+      .cell.ship {
+        background: #8b5e3c;
+        border: 1px solid #a67c52;
+        position: relative;
+      }
+      .cell.ship::after {
+        content: '';
+        position: absolute;
+        inset: 3px;
+        border-radius: 2px;
+        background:
+          radial-gradient(circle at 30% 35%, #a67c52 2px, transparent 4px),
+          radial-gradient(circle at 70% 65%, #a67c52 2px, transparent 4px);
+        opacity: 0.5;
+      }
+      .cell.ship.sunk {
+        background: #5a3d26;
+        border-color: #7a5c3c;
+      }
+      .cell.ship.sunk::after {
+        opacity: 0.2;
+      }
+      .cell.hit {
+        background: #e53935;
+        border: 1px solid #ff6f60;
+        animation: explode 0.4s ease-out;
+        z-index: 2;
+      }
+      .cell.hit::after {
+        content: '✕';
+        color: #fff;
+        font-size: clamp(10px, 1.8vw, 18px);
+        font-weight: 900;
+        text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+      }
+      .cell.miss {
+        background: transparent;
+        border: 1px solid #2471a3;
+      }
+      .cell.miss::after {
+        content: '';
+        width: 40%;
+        height: 40%;
+        background: #4dd0e1;
+        border-radius: 50%;
+        opacity: 0.7;
+        animation: ripple 0.5s ease-out;
+      }
+      .cell.revealed {
+        background: #7e8a9e;
+        border: 1px solid #b0bec5;
+      }
+      .cell.revealed::after {
+        content: '';
+        position: absolute;
+        inset: 2px;
+        border-radius: 2px;
+        background: repeating-linear-gradient(
+          45deg,
+          transparent,
+          transparent 3px,
+          rgba(255, 255, 255, 0.1) 3px,
+          rgba(255, 255, 255, 0.1) 6px
+        );
+      }
+      .cell.enemy-hit {
+        background: linear-gradient(135deg, #e53935, #c62828);
+        border: 1px solid #ff6f60;
+        animation: explode 0.4s ease-out;
+      }
+      .cell.enemy-hit::after {
+        content: '✕';
+        color: #fff;
+        font-size: clamp(10px, 1.8vw, 18px);
+        font-weight: 900;
+        text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+      }
+      .cell.enemy-miss {
+        background: transparent;
+        border: 1px solid #1a5276;
+      }
+      .cell.enemy-miss::after {
+        content: '';
+        width: 30%;
+        height: 30%;
+        background: #4dd0e1;
+        border-radius: 50%;
+        opacity: 0.5;
+        animation: ripple 0.5s ease-out;
+      }
+      .cell.unknown .ship-indicator {
+        display: none;
+      }
+      #statusBar {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 6px 16px;
+        background: linear-gradient(0deg, #3d2b1e, #2d1b0e);
+        border-top: 2px solid #8b5e3c;
+        flex-shrink: 0;
+        font-size: clamp(12px, 1.5vw, 17px);
+        text-align: center;
+        min-height: 36px;
+      }
+      #statusBar .turn-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 6px;
+        vertical-align: middle;
+      }
+      #statusBar .turn-indicator.player-turn {
+        background: #ffc107;
+        box-shadow: 0 0 8px #ffc107;
+      }
+      #statusBar .turn-indicator.enemy-turn {
+        background: #e53935;
+        box-shadow: 0 0 8px #e53935;
+      }
+      #controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 6px 16px;
+        flex-shrink: 0;
+        flex-wrap: wrap;
+      }
+      #controls button,
+      #controls a {
+        background: #8b5e3c;
+        color: #fff8e1;
+        border: none;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: clamp(12px, 1.3vw, 15px);
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition:
+          background 0.2s,
+          transform 0.1s;
+        touch-action: manipulation;
+      }
+      #controls button:hover,
+      #controls a:hover {
+        background: #a67c52;
+      }
+      #controls button:active {
+        transform: scale(0.95);
+      }
+      #controls button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        backdrop-filter: blur(4px);
+      }
+      #modal {
+        background: #2d1b0e;
+        border: 3px solid #8b5e3c;
+        border-radius: 16px;
+        padding: 30px 40px;
+        text-align: center;
+        max-width: 90vw;
+        box-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+        animation: modalIn 0.3s ease-out;
+      }
+      #modal h2 {
+        font-size: clamp(20px, 3vw, 32px);
+        margin-bottom: 12px;
+      }
+      #modal p {
+        font-size: clamp(14px, 1.5vw, 18px);
+        margin-bottom: 8px;
+        color: #ccc;
+      }
+      #modal .btn {
+        background: #ffc107;
+        color: #2d1b0e;
+        border: none;
+        padding: 10px 30px;
+        border-radius: 25px;
+        font-size: clamp(14px, 1.5vw, 18px);
+        font-weight: 700;
+        cursor: pointer;
+        margin-top: 14px;
+        transition:
+          transform 0.15s,
+          background 0.2s;
+      }
+      #modal .btn:hover {
+        background: #ffca28;
+        transform: scale(1.05);
+      }
+      #modal .btn:active {
+        transform: scale(0.95);
+      }
+      #modal .btn.secondary {
+        background: #8b5e3c;
+        color: #fff8e1;
+      }
+      #modal .btn.secondary:hover {
+        background: #a67c52;
+      }
+      .particle {
+        position: fixed;
+        pointer-events: none;
+        z-index: 999;
+        border-radius: 50%;
+      }
+      @keyframes explode {
+        0% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(229, 57, 53, 0);
+        }
+        30% {
+          transform: scale(1.15);
+          box-shadow: 0 0 20px rgba(229, 57, 53, 0.6);
+        }
+        100% {
+          transform: scale(1);
+          box-shadow: 0 0 0 rgba(229, 57, 53, 0);
+        }
+      }
+      @keyframes ripple {
+        0% {
+          transform: scale(0);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(2);
+          opacity: 0;
+        }
+      }
+      @keyframes modalIn {
+        0% {
+          transform: scale(0.8) translateY(30px);
+          opacity: 0;
+        }
+        100% {
+          transform: scale(1) translateY(0);
+          opacity: 1;
+        }
+      }
+      @keyframes glow {
+        0%,
+        100% {
+          text-shadow: 0 0 4px #ffc107;
+        }
+        50% {
+          text-shadow:
+            0 0 16px #ffc107,
+            0 0 32px #ff9800;
+        }
+      }
+      @keyframes shipSink {
+        0% {
+          transform: translateY(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(20px);
+          opacity: 0;
+        }
+      }
+      @keyframes confetti {
+        0% {
+          transform: translateY(0) rotate(0);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-120px) rotate(720deg);
+          opacity: 0;
+        }
+      }
+      @media (max-width: 700px) {
+        #boards {
+          flex-direction: column;
+          gap: 8px;
+          padding: 4px;
+        }
+        .board {
+          width: min(88vw, 38vh, 380px);
+          gap: 1px;
+          padding: 3px;
+        }
+        #hud {
+          padding: 4px 8px;
+          font-size: clamp(10px, 2.5vw, 13px);
+          justify-content: center;
+        }
+        #controls {
+          padding: 4px 8px;
+        }
+        #controls button,
+        #controls a {
+          padding: 5px 12px;
+          font-size: clamp(10px, 2.5vw, 13px);
+        }
+        #modal {
+          padding: 20px 24px;
+        }
+      }
+      @media (max-height: 500px) {
+        .board {
+          width: min(40vw, 60vh, 350px);
+        }
+        #hud {
+          padding: 3px 8px;
+          font-size: 10px;
+        }
+        #statusBar {
+          min-height: 28px;
+          padding: 3px 8px;
+          font-size: 11px;
+        }
+        #controls {
+          padding: 3px 8px;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <div id="hud">
+        <div class="hud-item">
+          <span class="label">🏆</span><span class="value" id="hudScore">0</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">🌊</span><span class="value" id="hudLevel">Nv.1</span
+          ><span class="tier-badge" id="hudTier">🟢 Bahía Tranquila</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">🎯</span><span class="value" id="hudAccuracy">0%</span>
+        </div>
+        <div class="hud-item">
+          <span class="label">🚢</span><span class="value" id="hudShipsLeft">5</span>|<span
+            class="value"
+            id="hudEnemyShips"
+            >5</span
+          >
+        </div>
+      </div>
+      <div id="boards">
+        <div class="board-section" id="enemySection">
+          <div class="board-label enemy">🐭 LEMMINGS</div>
+          <div class="board" id="enemyBoardGrid"></div>
+        </div>
+        <div class="board-section" id="playerSection">
+          <div class="board-label player">🐻 GRIZZY</div>
+          <div class="board" id="playerBoardGrid"></div>
+        </div>
+      </div>
+      <div id="statusBar">🎮 Preparando batalla...</div>
+      <div id="controls">
+        <button id="restartBtn">🔄 Reiniciar nivel</button>
+        <a
+          href="#"
+          id="backBtn"
+          onclick="
+            history.back()
+            return false
+          "
+          >← Volver</a
+        >
+      </div>
+    </div>
+    <div id="overlay">
+      <div id="modal">
+        <h2 id="modalTitle">🎉 Victoria!</h2>
+        <p id="modalBody">Has derrotado a los Lemmings</p>
+        <p id="modalStats"></p>
+        <button class="btn" id="modalBtn">Continuar</button>
+        <button class="btn secondary" id="modalSecondaryBtn" style="display: none">
+          Reintentar
+        </button>
+      </div>
+    </div>
+    <script>
+      ;(function () {
+        'use strict'
+
+        const SHIP_DEFS = [
+          { size: 5, name: 'Portaaviones' },
+          { size: 4, name: 'Acorazado' },
+          { size: 3, name: 'Crucero' },
+          { size: 3, name: 'Submarino' },
+          { size: 2, name: 'Destructor' },
+        ]
+
+        const TIERS = [
+          {
+            min: 1,
+            max: 10,
+            emoji: '🟢',
+            name: 'Bahía Tranquila',
+            difficulty: 'easy',
+            advantage: 5,
+          },
+          {
+            min: 11,
+            max: 20,
+            emoji: '🟡',
+            name: 'Mar Abierto',
+            difficulty: 'medium',
+            advantage: 3,
+          },
+          { min: 21, max: 30, emoji: '🔴', name: 'Tormenta', difficulty: 'hard', advantage: 0 },
+          { min: 31, max: 40, emoji: '🟣', name: 'Huracán', difficulty: 'expert', advantage: 0 },
+        ]
+
+        function getTier(level) {
+          for (const t of TIERS) {
+            if (level >= t.min && level <= t.max) return t
+          }
+          return TIERS[0]
+        }
+
+        function getDifficulty(level) {
+          return getTier(level).difficulty
+        }
+        function getAdvantage(level) {
+          return getTier(level).advantage
+        }
+
+        let audioCtx = null
+        function getAudio() {
+          if (!audioCtx) {
+            try {
+              audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+            } catch (e) {
+              return null
+            }
+          }
+          if (audioCtx.state === 'suspended') audioCtx.resume()
+          return audioCtx
+        }
+
+        function playTone(freq, dur, type, vol) {
+          const ctx = getAudio()
+          if (!ctx) return
+          try {
+            const osc = ctx.createOscillator()
+            const gain = ctx.createGain()
+            osc.connect(gain)
+            gain.connect(ctx.destination)
+            osc.type = type || 'sine'
+            osc.frequency.setValueAtTime(freq, ctx.currentTime)
+            gain.gain.setValueAtTime(vol || 0.2, ctx.currentTime)
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur)
+            osc.start(ctx.currentTime)
+            osc.stop(ctx.currentTime + dur)
+          } catch (e) {}
+        }
+
+        function playHit() {
+          playTone(180, 0.25, 'sawtooth', 0.25)
+          setTimeout(() => playTone(120, 0.15, 'sawtooth', 0.15), 80)
+        }
+
+        function playMiss() {
+          playTone(350, 0.15, 'sine', 0.12)
+        }
+
+        function playSunk() {
+          playTone(250, 0.3, 'sawtooth', 0.2)
+          setTimeout(() => playTone(180, 0.3, 'sawtooth', 0.2), 150)
+          setTimeout(() => playTone(100, 0.4, 'sawtooth', 0.2), 300)
+        }
+
+        function playWin() {
+          playTone(400, 0.15, 'sine', 0.2)
+          setTimeout(() => playTone(500, 0.15, 'sine', 0.2), 150)
+          setTimeout(() => playTone(600, 0.15, 'sine', 0.2), 300)
+          setTimeout(() => playTone(800, 0.3, 'sine', 0.25), 450)
+        }
+
+        function playLose() {
+          playTone(300, 0.3, 'sawtooth', 0.2)
+          setTimeout(() => playTone(200, 0.3, 'sawtooth', 0.2), 200)
+          setTimeout(() => playTone(100, 0.5, 'sawtooth', 0.2), 400)
+        }
+
+        function makeBoard() {
+          return Array.from({ length: 10 }, () => Array(10).fill(0))
+        }
+
+        function canPlace(board, row, col, size, horiz) {
+          for (let i = 0; i < size; i++) {
+            const r = horiz ? row : row + i
+            const c = horiz ? col + i : col
+            if (r < 0 || r >= 10 || c < 0 || c >= 10) return false
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                const ar = r + dr,
+                  ac = c + dc
+                if (ar >= 0 && ar < 10 && ac >= 0 && ac < 10 && board[ar][ac] !== 0) return false
+              }
+            }
+          }
+          return true
+        }
+
+        function placeShips() {
+          const board = makeBoard()
+          const ships = []
+          for (let i = 0; i < SHIP_DEFS.length; i++) {
+            const { size, name } = SHIP_DEFS[i]
+            const id = i + 1
+            let placed = false
+            for (let attempt = 0; attempt < 1000 && !placed; attempt++) {
+              const row = Math.floor(Math.random() * 10)
+              const col = Math.floor(Math.random() * 10)
+              const horiz = Math.random() > 0.5
+              if (canPlace(board, row, col, size, horiz)) {
+                const cells = []
+                for (let j = 0; j < size; j++) {
+                  const r = horiz ? row : row + j
+                  const c = horiz ? col + j : col
+                  board[r][c] = id
+                  cells.push([r, c])
+                }
+                ships.push({ id, size, name, cells, sunk: false, hits: 0 })
+                placed = true
+              }
+            }
+            if (!placed) return null
+          }
+          return { board, ships }
+        }
+
+        const state = {
+          level: 1,
+          score: 0,
+          phase: 'menu',
+          playerTurn: true,
+          advantageRemaining: 5,
+          turnCount: 0,
+          totalPlayerShots: 0,
+          totalPlayerHits: 0,
+          playerBoard: null,
+          playerShips: null,
+          playerShots: null,
+          enemyBoard: null,
+          enemyShips: null,
+          enemyShotsBoard: null,
+        }
+
+        function resetGame(level) {
+          state.level = Math.min(40, Math.max(1, level || 1))
+          state.score = state.score || 0
+          state.turnCount = 0
+          state.totalPlayerShots = 0
+          state.totalPlayerHits = 0
+          state.advantageRemaining = getAdvantage(state.level)
+          state.playerTurn = true
+          state.phase = 'playing'
+
+          let p, e
+          let attempts = 0
+          do {
+            p = placeShips()
+            attempts++
+          } while (!p && attempts < 50)
+          if (!p) {
+            alert('Error colocando barcos')
+            return
+          }
+
+          attempts = 0
+          do {
+            e = placeShips()
+            attempts++
+          } while (!e && attempts < 50)
+          if (!e) {
+            alert('Error colocando barcos enemigos')
+            return
+          }
+
+          state.playerBoard = p.board
+          state.playerShips = p.ships
+          state.playerShots = makeBoard()
+
+          state.enemyBoard = makeBoard()
+          state.enemyShips = e.ships
+          state.enemyShotsBoard = e.board
+
+          saveGame()
+          render()
+          updateHUD()
+          setStatus('🎯 ¡Tu turno!', true)
+        }
+
+        function render() {
+          renderPlayerBoard()
+          renderEnemyBoard()
+        }
+
+        function renderPlayerBoard() {
+          const grid = document.getElementById('playerBoardGrid')
+          grid.innerHTML = ''
+          for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 10; c++) {
+              const cell = document.createElement('div')
+              cell.className = 'cell'
+              cell.dataset.r = r
+              cell.dataset.c = c
+
+              const shipVal = state.playerBoard[r][c]
+              const shotVal = state.playerShots[r][c]
+              let ship = null
+              if (shipVal > 0) ship = state.playerShips.find((s) => s.id === shipVal)
+
+              if (shotVal === 1) {
+                cell.classList.add('enemy-hit')
+                if (ship && ship.sunk) cell.classList.add('sunk')
+              } else if (shotVal === 2) {
+                cell.classList.add('enemy-miss')
+              } else if (shipVal > 0) {
+                cell.classList.add('ship')
+                if (ship && ship.sunk) cell.classList.add('sunk')
+              } else {
+                cell.classList.add('water')
+              }
+
+              grid.appendChild(cell)
+            }
+          }
+        }
+
+        function renderEnemyBoard() {
+          const grid = document.getElementById('enemyBoardGrid')
+          grid.innerHTML = ''
+          for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 10; c++) {
+              const cell = document.createElement('div')
+              cell.className = 'cell'
+              cell.dataset.r = r
+              cell.dataset.c = c
+
+              const eb = state.enemyBoard[r][c]
+              const isSunkReveal =
+                !eb &&
+                state.enemyShips.some(
+                  (s) => s.sunk && s.cells.some(([sr, sc]) => sr === r && sc === c),
+                )
+
+              if (eb === 1) {
+                cell.classList.add('hit')
+              } else if (eb === 2) {
+                cell.classList.add('miss')
+              } else if (eb === 3 || isSunkReveal) {
+                cell.classList.add('revealed')
+                if (eb === 0) {
+                  state.enemyBoard[r][c] = 3
+                }
+              } else {
+                cell.classList.add('unknown')
+                cell.addEventListener('click', () => handleCellClick(r, c))
+                cell.addEventListener('touchend', (e) => {
+                  e.preventDefault()
+                  handleCellClick(r, c)
+                })
+              }
+
+              grid.appendChild(cell)
+            }
+          }
+        }
+
+        function getCellElement(boardId, r, c) {
+          return document.querySelector(`#${boardId} .cell[data-r="${r}"][data-c="${c}"]`)
+        }
+
+        function handleCellClick(row, col) {
+          if (state.phase !== 'playing' || !state.playerTurn) return
+          if (state.enemyBoard[row][col] !== 0) return
+
+          state.totalPlayerShots++
+          const hit = state.enemyShotsBoard[row][col] > 0
+
+          if (hit) {
+            state.enemyBoard[row][col] = 1
+            state.totalPlayerHits++
+            state.score += 10
+            playHit()
+            spawnParticles(row, col, 'enemyBoardGrid', '#e53935', '#ff6f60')
+
+            const ship = state.enemyShips.find((s) =>
+              s.cells.some(([r, c]) => r === row && c === col),
+            )
+            if (ship) {
+              ship.hits = (ship.hits || 0) + 1
+              if (ship.hits >= ship.size && !ship.sunk) {
+                ship.sunk = true
+                for (const [sr, sc] of ship.cells) {
+                  state.enemyBoard[sr][sc] = 3
+                }
+                state.score += 50
+                playSunk()
+                setStatus(`💥 ¡${ship.name} hundido!`, true)
+                spawnParticles(row, col, 'enemyBoardGrid', '#ffc107', '#ff6f60')
+                spawnParticles(row, col, 'enemyBoardGrid', '#ff6f60', '#e53935')
+
+                const allSunk = state.enemyShips.every((s) => s.sunk)
+                if (allSunk) {
+                  state.phase = 'levelcomplete'
+                  state.score += 100
+                  const remaining = state.playerShips.filter((s) => !s.sunk).length
+                  state.score += remaining * 20
+                  playWin()
+                  render()
+                  updateHUD()
+                  saveGame()
+                  showModal(
+                    '🎉 ¡Victoria!',
+                    `Nivel ${state.level} completado. Barcos restantes: ${remaining}. ¡Puntuación: ${state.score}!`,
+                    'Siguiente nivel ▶',
+                    () => nextLevel(),
+                    '🔄 Reintentar',
+                    () => restartLevel(),
+                  )
+                  return
+                }
+              }
+            }
+            renderEnemyBoard()
+            updateHUD()
+            saveGame()
+            afterPlayerShot()
+          } else {
+            state.enemyBoard[row][col] = 2
+            playMiss()
+            spawnParticles(row, col, 'enemyBoardGrid', '#4dd0e1', '#26c6da')
+            renderEnemyBoard()
+            updateHUD()
+            saveGame()
+            afterPlayerShot()
+          }
+        }
+
+        function afterPlayerShot() {
+          if (state.phase !== 'playing') return
+          if (state.advantageRemaining > 0) {
+            state.advantageRemaining--
+            setStatus(`🎯 Ventaja: ${state.advantageRemaining} turnos extra`, true)
+          } else {
+            state.playerTurn = false
+            setStatus('🤔 Lemmings pensando...', false)
+            setTimeout(enemyTurn, 500 + Math.random() * 300)
+          }
+        }
+
+        function enemyTurn() {
+          if (state.phase !== 'playing') return
+          const move = getAIMove()
+          if (!move) return
+          const [row, col] = move
+
+          state.turnCount++
+          const hit = state.playerBoard[row][col] > 0
+
+          if (hit) {
+            state.playerShots[row][col] = 1
+            playHit()
+            spawnParticles(row, col, 'playerBoardGrid', '#e53935', '#c62828')
+
+            const ship = state.playerShips.find((s) =>
+              s.cells.some(([r, c]) => r === row && c === col),
+            )
+            if (ship) {
+              ship.hits = (ship.hits || 0) + 1
+              if (ship.hits >= ship.size && !ship.sunk) {
+                ship.sunk = true
+                playSunk()
+                setStatus(`💥 ¡Tu ${ship.name} ha sido hundido!`, false)
+
+                const allSunk = state.playerShips.every((s) => s.sunk)
+                if (allSunk) {
+                  state.phase = 'gameover'
+                  playLose()
+                  render()
+                  updateHUD()
+                  saveGame()
+                  showModal(
+                    '😵 ¡Derrota!',
+                    `Los Lemmings te han vencido en el nivel ${state.level}. Puntuación: ${state.score}`,
+                    '🔄 Reintentar',
+                    () => restartLevel(),
+                    null,
+                    null,
+                  )
+                  return
+                }
+              }
+            }
+            renderPlayerBoard()
+            updateHUD()
+            saveGame()
+            afterEnemyShot()
+          } else {
+            state.playerShots[row][col] = 2
+            playMiss()
+            spawnParticles(row, col, 'playerBoardGrid', '#4dd0e1', '#26c6da')
+            renderPlayerBoard()
+            updateHUD()
+            saveGame()
+            afterEnemyShot()
+          }
+        }
+
+        function afterEnemyShot() {
+          if (state.phase !== 'playing') return
+          state.playerTurn = true
+          setStatus('🎯 ¡Tu turno!', true)
+        }
+
+        function getAIMove() {
+          const diff = getDifficulty(state.level)
+          const untargeted = []
+          for (let r = 0; r < 10; r++) {
+            for (let c = 0; c < 10; c++) {
+              if (state.playerShots[r][c] === 0) untargeted.push([r, c])
+            }
+          }
+          if (untargeted.length === 0) return null
+
+          if (diff === 'easy') return untargeted[Math.floor(Math.random() * untargeted.length)]
+
+          if (diff === 'medium') {
+            const hits = []
+            for (let r = 0; r < 10; r++) {
+              for (let c = 0; c < 10; c++) {
+                if (state.playerShots[r][c] === 1) hits.push([r, c])
+              }
+            }
+            if (hits.length > 0) {
+              const adj = []
+              for (const [hr, hc] of hits) {
+                for (const [dr, dc] of [
+                  [-1, 0],
+                  [1, 0],
+                  [0, -1],
+                  [0, 1],
+                ]) {
+                  const ar = hr + dr,
+                    ac = hc + dc
+                  if (ar >= 0 && ar < 10 && ac >= 0 && ac < 10 && state.playerShots[ar][ac] === 0) {
+                    adj.push([ar, ac])
+                  }
+                }
+              }
+              if (adj.length > 0) return adj[Math.floor(Math.random() * adj.length)]
+            }
+            return untargeted[Math.floor(Math.random() * untargeted.length)]
+          }
+
+          if (diff === 'hard') {
+            const hits = []
+            for (let r = 0; r < 10; r++) {
+              for (let c = 0; c < 10; c++) {
+                if (state.playerShots[r][c] === 1) hits.push([r, c])
+              }
+            }
+            if (hits.length > 0) {
+              for (const [hr, hc] of hits) {
+                let left = hc,
+                  right = hc
+                while (left > 0 && state.playerShots[hr][left - 1] === 1) left--
+                while (right < 9 && state.playerShots[hr][right + 1] === 1) right++
+                if (right - left > 0) {
+                  if (left > 0 && state.playerShots[hr][left - 1] === 0) return [hr, left - 1]
+                  if (right < 9 && state.playerShots[hr][right + 1] === 0) return [hr, right + 1]
+                }
+                let up = hr,
+                  down = hr
+                while (up > 0 && state.playerShots[up - 1][hc] === 1) up--
+                while (down < 9 && state.playerShots[down + 1][hc] === 1) down++
+                if (down - up > 0) {
+                  if (up > 0 && state.playerShots[up - 1][hc] === 0) return [up - 1, hc]
+                  if (down < 9 && state.playerShots[down + 1][hc] === 0) return [down + 1, hc]
+                }
+              }
+              const adj = []
+              for (const [hr, hc] of hits) {
+                for (const [dr, dc] of [
+                  [-1, 0],
+                  [1, 0],
+                  [0, -1],
+                  [0, 1],
+                ]) {
+                  const ar = hr + dr,
+                    ac = hc + dc
+                  if (ar >= 0 && ar < 10 && ac >= 0 && ac < 10 && state.playerShots[ar][ac] === 0) {
+                    adj.push([ar, ac])
+                  }
+                }
+              }
+              if (adj.length > 0) return adj[Math.floor(Math.random() * adj.length)]
+            }
+            const parity = untargeted.filter(([r, c]) => (r + c) % 2 === 0)
+            const pool = parity.length > 0 ? parity : untargeted
+            return pool[Math.floor(Math.random() * pool.length)]
+          }
+
+          if (diff === 'expert') {
+            const probs = Array.from({ length: 10 }, () => Array(10).fill(0))
+            const remaining = state.playerShips.filter((s) => !s.sunk)
+            for (const ship of remaining) {
+              for (let r = 0; r < 10; r++) {
+                for (let c = 0; c <= 10 - ship.size; c++) {
+                  let ok = true
+                  for (let i = 0; i < ship.size; i++) {
+                    if (state.playerShots[r][c + i] === 2) {
+                      ok = false
+                      break
+                    }
+                  }
+                  if (ok) {
+                    for (let i = 0; i < ship.size; i++) {
+                      if (state.playerShots[r][c + i] === 0) probs[r][c + i]++
+                    }
+                  }
+                }
+              }
+              for (let r = 0; r <= 10 - ship.size; r++) {
+                for (let c = 0; c < 10; c++) {
+                  let ok = true
+                  for (let i = 0; i < ship.size; i++) {
+                    if (state.playerShots[r + i][c] === 2) {
+                      ok = false
+                      break
+                    }
+                  }
+                  if (ok) {
+                    for (let i = 0; i < ship.size; i++) {
+                      if (state.playerShots[r + i][c] === 0) probs[r + i][c]++
+                    }
+                  }
+                }
+              }
+            }
+            let maxP = 0,
+              best = []
+            for (let r = 0; r < 10; r++) {
+              for (let c = 0; c < 10; c++) {
+                if (state.playerShots[r][c] === 0) {
+                  if (probs[r][c] > maxP) {
+                    maxP = probs[r][c]
+                    best = [[r, c]]
+                  } else if (probs[r][c] === maxP && maxP > 0) best.push([r, c])
+                }
+              }
+            }
+            if (best.length > 0) return best[Math.floor(Math.random() * best.length)]
+            return untargeted[Math.floor(Math.random() * untargeted.length)]
+          }
+
+          return untargeted[Math.floor(Math.random() * untargeted.length)]
+        }
+
+        function spawnParticles(row, col, boardId, color1, color2) {
+          const cell = getCellElement(boardId, row, col)
+          if (!cell) return
+          const rect = cell.getBoundingClientRect()
+          const cx = rect.left + rect.width / 2
+          const cy = rect.top + rect.height / 2
+          const count = 10 + Math.floor(Math.random() * 6)
+          const colors = [color1, color2, '#fff8e1', '#ffc107']
+          for (let i = 0; i < count; i++) {
+            const p = document.createElement('div')
+            p.className = 'particle'
+            const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5
+            const dist = 20 + Math.random() * 40
+            const size = 3 + Math.random() * 4
+            p.style.cssText = `left:${cx}px;top:${cy}px;width:${size}px;height:${size}px;background:${colors[i % colors.length]}`
+            document.body.appendChild(p)
+            p.animate(
+              [
+                { transform: 'translate(0,0) scale(1)', opacity: 1 },
+                {
+                  transform: `translate(${Math.cos(angle) * dist}px,${Math.sin(angle) * dist}px) scale(0)`,
+                  opacity: 0,
+                },
+              ],
+              { duration: 350 + Math.random() * 200, easing: 'ease-out', fill: 'forwards' },
+            ).onfinish = () => p.remove()
+          }
+        }
+
+        function setStatus(msg, isPlayer) {
+          const bar = document.getElementById('statusBar')
+          const indicator = `<span class="turn-indicator ${isPlayer ? 'player-turn' : 'enemy-turn'}"></span>`
+          bar.innerHTML = indicator + msg
+        }
+
+        function updateHUD() {
+          document.getElementById('hudScore').textContent = state.score
+          document.getElementById('hudLevel').textContent = `Nv.${state.level}`
+          const tier = getTier(state.level)
+          document.getElementById('hudTier').textContent = `${tier.emoji} ${tier.name}`
+          const acc =
+            state.totalPlayerShots > 0
+              ? Math.round((state.totalPlayerHits / state.totalPlayerShots) * 100)
+              : 0
+          document.getElementById('hudAccuracy').textContent = acc + '%'
+          const pSunk = state.playerShips ? state.playerShips.filter((s) => s.sunk).length : 0
+          const eSunk = state.enemyShips ? state.enemyShips.filter((s) => s.sunk).length : 0
+          document.getElementById('hudShipsLeft').textContent = SHIP_DEFS.length - pSunk
+          document.getElementById('hudEnemyShips').textContent = SHIP_DEFS.length - eSunk
+        }
+
+        function showModal(title, body, btnText, btnAction, btn2Text, btn2Action) {
+          document.getElementById('modalTitle').textContent = title
+          document.getElementById('modalBody').textContent = body
+          document.getElementById('modalStats').textContent =
+            `🏆 ${state.score} pts | 🎯 ${state.totalPlayerShots > 0 ? Math.round((state.totalPlayerHits / state.totalPlayerShots) * 100) : 0}% precisión`
+          const btn = document.getElementById('modalBtn')
+          btn.textContent = btnText
+          btn.onclick = () => {
+            hideModal()
+            if (btnAction) btnAction()
+          }
+          const btn2 = document.getElementById('modalSecondaryBtn')
+          if (btn2Text && btn2Action) {
+            btn2.style.display = 'inline-block'
+            btn2.textContent = btn2Text
+            btn2.onclick = () => {
+              hideModal()
+              btn2Action()
+            }
+          } else {
+            btn2.style.display = 'none'
+          }
+          document.getElementById('overlay').style.display = 'flex'
+        }
+
+        function hideModal() {
+          document.getElementById('overlay').style.display = 'none'
+        }
+
+        function nextLevel() {
+          if (state.level >= 40) {
+            showModal(
+              '🏆 ¡Campeón!',
+              `Has completado todos los 40 niveles con ${state.score} puntos. ¡Eres el verdadero Grizzy!`,
+              '🔄 Jugar de nuevo',
+              () => {
+                state.score = 0
+                resetGame(1)
+              },
+              null,
+              null,
+            )
+            return
+          }
+          state.score += 50
+          resetGame(state.level + 1)
+        }
+
+        function restartLevel() {
+          const lvl = state.level
+          state.score = Math.max(0, state.score - 30)
+          resetGame(lvl)
+        }
+
+        function saveGame() {
+          try {
+            const data = {
+              level: state.level,
+              score: state.score,
+              phase: state.phase,
+              playerTurn: state.playerTurn,
+              advantageRemaining: state.advantageRemaining,
+              turnCount: state.turnCount,
+              totalPlayerShots: state.totalPlayerShots,
+              totalPlayerHits: state.totalPlayerHits,
+              playerBoard: state.playerBoard,
+              playerShips: state.playerShips,
+              playerShots: state.playerShots,
+              enemyBoard: state.enemyBoard,
+              enemyShips: state.enemyShips,
+              enemyShotsBoard: state.enemyShotsBoard,
+            }
+            localStorage.setItem('grizzyBattleship', JSON.stringify(data))
+          } catch (e) {}
+        }
+
+        function loadGame() {
+          try {
+            const raw = localStorage.getItem('grizzyBattleship')
+            if (!raw) return false
+            const data = JSON.parse(raw)
+            Object.assign(state, data)
+            return state.playerBoard && state.enemyBoard && state.playerShips && state.enemyShips
+          } catch (e) {
+            return false
+          }
+        }
+
+        function startNewGame() {
+          state.score = 0
+          resetGame(1)
+        }
+
+        function startGame() {
+          if (loadGame() && state.phase === 'playing') {
+            showModal(
+              '🐻 ¡Bienvenido de vuelta!',
+              `Nivel ${state.level} - ${getTier(state.level).emoji + ' ' + getTier(state.level).name}`,
+              '▶ Continuar partida',
+              () => {
+                render()
+                updateHUD()
+                setStatus('🎯 ¡Tu turno!', true)
+              },
+              '🔄 Nueva partida',
+              () => {
+                localStorage.removeItem('grizzyBattleship')
+                startNewGame()
+              },
+            )
+          } else {
+            startNewGame()
+          }
+        }
+
+        document.getElementById('restartBtn').addEventListener('click', () => {
+          showModal(
+            '🔄 ¿Reiniciar nivel?',
+            `Se reiniciará el nivel ${state.level} actual. Perderás 30 puntos.`,
+            '✅ Sí, reiniciar',
+            () => restartLevel(),
+            '❌ Cancelar',
+            hideModal,
+          )
+        })
+
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && document.getElementById('overlay').style.display === 'flex')
+            hideModal()
+        })
+
+        startGame()
+      })()
+    </script>
+  </body>
+</html>

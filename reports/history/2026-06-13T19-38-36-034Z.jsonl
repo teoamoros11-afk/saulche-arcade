@@ -1,0 +1,4 @@
+{"timestamp":1781379518839,"sessionId":"2026-06-13T19-38-36-034Z","eventType":"state-transition","gameId":"juego01","before":{"gameState":"start","score":0},"after":{"gameState":"playing","score":0}}
+{"timestamp":1781379522453,"sessionId":"2026-06-13T19-38-36-034Z","eventType":"rule","gameId":"juego01","rule":"canvas_exists","passed":true}
+{"timestamp":1781379522471,"sessionId":"2026-06-13T19-38-36-034Z","eventType":"rule","gameId":"juego01","rule":"score_non_negative","passed":true}
+{"timestamp":1781379522501,"sessionId":"2026-06-13T19-38-36-034Z","eventType":"rule","gameId":"juego01","rule":"level_in_range","passed":true}

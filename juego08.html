@@ -1,0 +1,1059 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Robot Constructor - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        user-select: none;
+        -webkit-user-select: none;
+      }
+      @font-face {
+        font-family: 'GrizzyFont';
+        src: local('Arial Black'), local('Impact');
+        font-weight: 900;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        font-family: 'GrizzyFont', 'Arial Black', sans-serif;
+        background: #2d1b0e;
+      }
+
+      #game {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+        overflow: hidden;
+      }
+      #bg-canvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+      }
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        pointer-events: none;
+      }
+      #ui-overlay > * {
+        pointer-events: auto;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 16px;
+        background: rgba(0, 0, 0, 0.7);
+        border-bottom: 3px solid #ff9800;
+        z-index: 20;
+        flex-shrink: 0;
+        min-height: 50px;
+      }
+      .header h1 {
+        color: #ff9800;
+        font-size: clamp(14px, 3vw, 24px);
+        text-shadow: 2px 2px 0 #3e2723;
+        letter-spacing: 2px;
+      }
+      .header .score {
+        color: #fff;
+        font-size: clamp(16px, 3vw, 22px);
+        background: #1b3a2d;
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: 2px solid #4caf50;
+      }
+      .header .level {
+        color: #fff;
+        font-size: clamp(14px, 2.5vw, 18px);
+        background: #3e2723;
+        padding: 4px 12px;
+        border-radius: 8px;
+        border: 2px solid #ff9800;
+      }
+      .header .btn-back {
+        background: #ff9800;
+        border: none;
+        color: #2d1b0e;
+        padding: 6px 14px;
+        border-radius: 6px;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: clamp(12px, 2vw, 16px);
+      }
+
+      #parts-area {
+        flex: 0 0 auto;
+        background: #1b3a2d;
+        border-bottom: 4px solid #4caf50;
+        padding: 8px;
+        z-index: 20;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 8px;
+        min-height: 90px;
+      }
+      .part {
+        position: relative;
+        border: 2px solid #8b7355;
+        border-radius: 8px;
+        cursor: grab;
+        touch-action: none;
+        transition:
+          transform 0.1s,
+          box-shadow 0.1s;
+        background: linear-gradient(145deg, #9e9e9e, #616161);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 30;
+      }
+      .part:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 12px rgba(255, 152, 0, 0.5);
+      }
+      .part.dragging {
+        position: fixed;
+        z-index: 1000;
+        cursor: grabbing;
+        transform: scale(1.1);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+      }
+      .part.placed {
+        opacity: 0.3;
+        pointer-events: none;
+        border-color: #4caf50;
+      }
+      .part svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      #build-area {
+        flex: 1 1 auto;
+        position: relative;
+        z-index: 20;
+        overflow: hidden;
+        background: #3e2723;
+      }
+      .silhouette {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: clamp(200px, 60vw, 500px);
+        aspect-ratio: 3/4;
+      }
+      .slot {
+        position: absolute;
+        border: 2px dashed rgba(255, 255, 255, 0.3);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          border-color 0.2s,
+          background 0.2s;
+      }
+      .slot.hover {
+        border-color: #ff9800;
+        background: rgba(255, 152, 0, 0.1);
+      }
+      .slot.filled {
+        border: 2px solid #4caf50;
+        background: rgba(76, 175, 80, 0.1);
+      }
+      .placed-part {
+        position: absolute;
+        pointer-events: none;
+        z-index: 5;
+      }
+      .placed-part svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+
+      /* Screens */
+      .screen {
+        display: none;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 100;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(45, 27, 14, 0.95);
+      }
+      .screen.active {
+        display: flex;
+      }
+      .screen h2 {
+        color: #ff9800;
+        font-size: clamp(28px, 6vw, 56px);
+        text-shadow: 3px 3px 0 #3e2723;
+        margin-bottom: 10px;
+        text-align: center;
+      }
+      .screen p {
+        color: #ddd;
+        font-size: clamp(16px, 3vw, 28px);
+        text-align: center;
+        max-width: 600px;
+        margin-bottom: 20px;
+        line-height: 1.4;
+      }
+      .btn {
+        background: linear-gradient(to bottom, #ff9800, #e65100);
+        border: 3px solid #fff;
+        color: #fff;
+        padding: 14px 40px;
+        border-radius: 12px;
+        font-size: clamp(18px, 3vw, 28px);
+        font-weight: bold;
+        cursor: pointer;
+        transition: transform 0.15s;
+        font-family: inherit;
+        letter-spacing: 1px;
+        text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+        margin: 6px;
+      }
+      .btn:hover {
+        transform: scale(1.05);
+      }
+      .btn:active {
+        transform: scale(0.95);
+      }
+      .btn-small {
+        font-size: clamp(14px, 2vw, 20px);
+        padding: 10px 24px;
+      }
+
+      /* Celebration */
+      #celebration {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 200;
+        pointer-events: none;
+        overflow: hidden;
+        display: none;
+      }
+      .confetti {
+        position: absolute;
+        width: 10px;
+        height: 10px;
+        top: -10px;
+        animation: confettiFall linear forwards;
+      }
+      @keyframes confettiFall {
+        0% {
+          transform: translateY(0) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(110vh) rotate(720deg);
+          opacity: 0;
+        }
+      }
+
+      #toast {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 300;
+        background: rgba(0, 0, 0, 0.85);
+        color: #ff9800;
+        padding: 20px 40px;
+        border-radius: 16px;
+        border: 3px solid #ff9800;
+        font-size: clamp(24px, 5vw, 48px);
+        text-align: center;
+        pointer-events: none;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      #toast.show {
+        opacity: 1;
+      }
+
+      /* Responsive */
+      @media (max-width: 600px) {
+        #parts-area {
+          padding: 4px;
+          gap: 4px;
+          min-height: 70px;
+        }
+        .part {
+          border-width: 1.5px;
+        }
+        .header {
+          padding: 4px 8px;
+          min-height: 40px;
+        }
+        .silhouette {
+          width: clamp(160px, 80vw, 300px);
+        }
+      }
+      @media (min-width: 900px) {
+        .silhouette {
+          width: clamp(300px, 45vw, 500px);
+        }
+      }
+
+      /* Stars animation bg */
+      @keyframes twinkle {
+        0%,
+        100% {
+          opacity: 0.2;
+        }
+        50% {
+          opacity: 0.8;
+        }
+      }
+
+      /* level complete flash */
+      @keyframes flashGreen {
+        0%,
+        100% {
+          background: #3e2723;
+        }
+        50% {
+          background: rgba(76, 175, 80, 0.3);
+        }
+      }
+      .flash {
+        animation: flashGreen 0.5s ease 3;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="game">
+      <canvas id="bg-canvas"></canvas>
+
+      <div id="ui-overlay">
+        <div class="header">
+          <button class="btn-back" id="btnBack">← Menú</button>
+          <div class="level" id="levelDisplay">Nivel 1</div>
+          <div class="score" id="scoreDisplay">0 pts</div>
+        </div>
+        <div id="parts-area"></div>
+        <div id="build-area">
+          <div class="silhouette" id="silhouette"></div>
+        </div>
+      </div>
+
+      <div class="screen active" id="screenStart">
+        <h2>🤖 ROBOT<br />CONSTRUCTOR</h2>
+        <p>¡Ayuda a Grizzy a construir robots con las piezas!</p>
+        <p style="font-size: clamp(12px, 2vw, 18px); color: #aaa">
+          Arrastra cada pieza a su lugar correcto
+        </p>
+        <button class="btn" id="btnStart">¡JUGAR!</button>
+        <button class="btn btn-small" id="btnContinue" style="display: none">
+          Continuar partida
+        </button>
+      </div>
+
+      <div class="screen" id="screenComplete">
+        <h2>🏆 ¡FELICIDADES!</h2>
+        <p id="completeMsg">¡Completaste todos los 40 niveles!</p>
+        <p>Puntuación final: <span id="finalScore">0</span></p>
+        <button class="btn" id="btnRestart">Jugar de nuevo</button>
+      </div>
+
+      <div id="toast"></div>
+      <div id="celebration"></div>
+    </div>
+
+    <script>
+      ;(function () {
+        'use strict'
+
+        // ===== AUDIO =====
+        const AudioCtx = window.AudioContext || window.webkitAudioContext
+        let audioCtx = null
+        function initAudio() {
+          if (!audioCtx) audioCtx = new AudioCtx()
+        }
+
+        function playTone(freq, dur, type = 'sine', vol = 0.15) {
+          try {
+            initAudio()
+            const o = audioCtx.createOscillator(),
+              g = audioCtx.createGain()
+            o.type = type
+            o.frequency.value = freq
+            g.gain.setValueAtTime(vol, audioCtx.currentTime)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.start()
+            o.stop(audioCtx.currentTime + dur)
+          } catch (e) {}
+        }
+        function sndGrab() {
+          playTone(600, 0.08, 'square', 0.08)
+        }
+        function sndPlace() {
+          playTone(880, 0.15, 'sine', 0.12)
+          setTimeout(() => playTone(1100, 0.12, 'sine', 0.1), 80)
+        }
+        function sndError() {
+          playTone(200, 0.25, 'sawtooth', 0.08)
+        }
+        function sndLevelUp() {
+          ;[523, 659, 784, 1047].forEach((f, i) =>
+            setTimeout(() => playTone(f, 0.18, 'sine', 0.12), i * 100),
+          )
+        }
+
+        // ===== LEVELS =====
+        const MODELS = [
+          {
+            name: 'Grizzy Bot',
+            theme: 'grizzy',
+            colors: { head: '#8B6914', torso: '#A0522D', arm: '#8B4513', leg: '#6B3410' },
+          },
+          {
+            name: 'Lemmin Bot',
+            theme: 'lemming',
+            colors: { head: '#4A90D9', torso: '#2E6EB5', arm: '#1E4D8A', leg: '#163D6E' },
+          },
+          {
+            name: 'Bee Bot',
+            theme: 'bee',
+            colors: { head: '#FFD700', torso: '#FFA500', arm: '#FF8C00', leg: '#CC7000' },
+          },
+          {
+            name: 'Fish Bot',
+            theme: 'fish',
+            colors: { head: '#00CED1', torso: '#20B2AA', arm: '#008B8B', leg: '#006666' },
+          },
+          {
+            name: 'Butterfly Bot',
+            theme: 'butterfly',
+            colors: { head: '#FF69B4', torso: '#DA70D6', arm: '#BA55D3', leg: '#9932CC' },
+          },
+          {
+            name: 'Grizzy King',
+            theme: 'grizzy',
+            colors: { head: '#B8860B', torso: '#D2691E', arm: '#8B4513', leg: '#5C3310' },
+          },
+          {
+            name: 'Lemming King',
+            theme: 'lemming',
+            colors: { head: '#6CB4EE', torso: '#4A90D9', arm: '#2E6EB5', leg: '#1E4D8A' },
+          },
+          {
+            name: 'Golden Bot',
+            theme: 'gold',
+            colors: { head: '#FFD700', torso: '#DAA520', arm: '#B8860B', leg: '#8B6914' },
+          },
+        ]
+
+        function genLevels() {
+          const L = []
+          const S = (s) => ({ x: s, y: s, w: s, h: s })
+          for (let i = 0; i < 40; i++) {
+            const mi = i % MODELS.length
+            const mod = MODELS[mi]
+            const diff = Math.floor(i / 8)
+            const sz = clamp(40 + diff * 6, 44, 80)
+            const sp = clamp(10 - diff * 1.5, 4, 10)
+            const theme = mod.theme
+            const c = mod.colors
+            const headColor =
+              theme === 'grizzy'
+                ? '#8B6914'
+                : theme === 'lemming'
+                  ? '#4A90D9'
+                  : theme === 'bee'
+                    ? '#FFD700'
+                    : theme === 'fish'
+                      ? '#00CED1'
+                      : theme === 'butterfly'
+                        ? '#FF69B4'
+                        : c.head
+            const torsoColor = c.torso
+            const armColor = c.arm
+            const legColor = c.leg
+            const bw = Math.floor(sz * 0.5),
+              bh = Math.floor(sz * 0.35)
+
+            L.push({
+              id: i,
+              model: mod.name,
+              theme,
+              sz,
+              diff,
+              head: { w: sz, h: sz, color: headColor, face: theme },
+              torso: { w: Math.floor(sz * 0.9), h: Math.floor(sz * 1.2), color: torsoColor },
+              left_arm: { w: bw, h: bh, color: armColor, side: 'L' },
+              right_arm: { w: bw, h: bh, color: armColor, side: 'R' },
+              left_leg: { w: bw, h: bh + Math.floor(sz * 0.15), color: legColor, side: 'L' },
+              right_leg: { w: bw, h: bh + Math.floor(sz * 0.15), color: legColor, side: 'R' },
+              gap: sp,
+            })
+          }
+          return L
+        }
+        const LEVELS = genLevels()
+        function clamp(v, mn, mx) {
+          return Math.max(mn, Math.min(mx, v))
+        }
+
+        // ===== PARTS DEFINITION =====
+        const PART_KEYS = ['head', 'torso', 'left_arm', 'right_arm', 'left_leg', 'right_leg']
+        const PART_LABELS = {
+          head: 'Cabeza',
+          torso: 'Torso',
+          left_arm: 'Brazo Izq',
+          right_arm: 'Brazo Der',
+          left_leg: 'Pierna Izq',
+          right_leg: 'Pierna Der',
+        }
+
+        // ===== GAME STATE =====
+        let state = {
+          level: 0,
+          score: 0,
+          placed: {},
+          completedLevels: [],
+          totalScore: 0,
+        }
+        let dragging = null,
+          dragOffX = 0,
+          dragOffY = 0,
+          dragOrigIdx = null,
+          dragOrigSlot = null
+        let levelData = null
+        let placedElements = {}
+
+        // ===== DOM REFS =====
+        const partsArea = document.getElementById('parts-area')
+        const silhouette = document.getElementById('silhouette')
+        const buildArea = document.getElementById('build-area')
+        const levelDisplay = document.getElementById('levelDisplay')
+        const scoreDisplay = document.getElementById('scoreDisplay')
+        const toast = document.getElementById('toast')
+        const celebration = document.getElementById('celebration')
+        const screenStart = document.getElementById('screenStart')
+        const screenComplete = document.getElementById('screenComplete')
+        const btnStart = document.getElementById('btnStart')
+        const btnContinue = document.getElementById('btnContinue')
+        const btnBack = document.getElementById('btnBack')
+        const btnRestart = document.getElementById('btnRestart')
+        const finalScore = document.getElementById('finalScore')
+        const completeMsg = document.getElementById('completeMsg')
+
+        // ===== SVG GENERATORS =====
+        function svgPart(key, part, w, h) {
+          const c = part.color || '#888'
+          const r = 6
+          const f = part.face || ''
+          let inner = ''
+          if (key === 'head') {
+            inner = `<rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="${r}" fill="${c}" stroke="#333" stroke-width="1.5"/>
+      <rect x="${w * 0.25}" y="${h * 0.2}" width="${w * 0.15}" height="${h * 0.12}" rx="2" fill="#fff" stroke="#333" stroke-width="0.8"/>
+      <rect x="${w * 0.6}" y="${h * 0.2}" width="${w * 0.15}" height="${h * 0.12}" rx="2" fill="#fff" stroke="#333" stroke-width="0.8"/>
+      <circle cx="${w * 0.32}" cy="${h * 0.26}" r="${w * 0.04}" fill="#111"/>
+      <circle cx="${w * 0.68}" cy="${h * 0.26}" r="${w * 0.04}" fill="#111"/>`
+            if (f === 'grizzy') {
+              inner += `<ellipse cx="${w * 0.5}" cy="${h * 0.55}" rx="${w * 0.18}" ry="${h * 0.08}" fill="#5C3310"/>
+        <ellipse cx="${w * 0.5}" cy="${h * 0.53}" rx="${w * 0.12}" ry="${h * 0.04}" fill="#8B6914"/>`
+            } else if (f === 'lemming') {
+              inner += `<circle cx="${w * 0.5}" cy="${h * 0.5}" r="${w * 0.12}" fill="#FFB6C1"/>
+        <circle cx="${w * 0.46}" cy="${h * 0.48}" r="${w * 0.03}" fill="#333"/>
+        <circle cx="${w * 0.54}" cy="${h * 0.48}" r="${w * 0.03}" fill="#333"/>`
+            } else if (f === 'bee') {
+              inner += `<line x1="${w * 0.2}" y1="${h * 0.45}" x2="${w * 0.8}" y2="${h * 0.35}" stroke="#333" stroke-width="1.5"/>
+        <line x1="${w * 0.2}" y1="${h * 0.6}" x2="${w * 0.8}" y2="${h * 0.5}" stroke="#333" stroke-width="1.5"/>`
+            } else if (f === 'fish') {
+              inner += `<ellipse cx="${w * 0.7}" cy="${h * 0.5}" rx="${w * 0.08}" ry="${h * 0.06}" fill="#FF6347"/>`
+            } else if (f === 'butterfly') {
+              inner += `<path d="M${w * 0.2} ${h * 0.4} Q${w * 0.5} ${h * 0.1} ${w * 0.8} ${h * 0.4} Q${w * 0.5} ${h * 0.3} ${w * 0.2} ${h * 0.4}" fill="#FF69B4" opacity="0.5"/>
+        <path d="M${w * 0.2} ${h * 0.6} Q${w * 0.5} ${h * 0.9} ${w * 0.8} ${h * 0.6} Q${w * 0.5} ${h * 0.7} ${w * 0.2} ${h * 0.6}" fill="#FF69B4" opacity="0.5"/>`
+            }
+            inner += `<ellipse cx="${w * 0.5}" cy="${h * 0.7}" rx="${w * 0.08}" ry="${h * 0.04}" fill="#333" opacity="0.3"/>`
+          } else if (key === 'torso') {
+            inner = `<rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="${r}" fill="${c}" stroke="#333" stroke-width="1.5"/>
+      <rect x="${w * 0.2}" y="${h * 0.1}" width="${w * 0.6}" height="${h * 0.35}" rx="4" fill="rgba(255,255,255,0.15)"/>
+      <circle cx="${w * 0.5}" cy="${h * 0.5}" r="${Math.min(w, h) * 0.1}" fill="#FF9800" opacity="0.6"/>
+      ${Array.from({ length: 4 }, (_, i) => `<rect x="${w * 0.15 + i * w * 0.2}" y="${h * 0.7}" width="${w * 0.1}" height="${h * 0.08}" rx="2" fill="rgba(255,255,255,0.2)"/>`).join('')}`
+          } else if (key.includes('arm')) {
+            const isR = part.side === 'R'
+            inner = `<rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="${r}" fill="${c}" stroke="#333" stroke-width="1.5"/>
+      <circle cx="${isR ? w * 0.7 : w * 0.3}" cy="${h * 0.25}" r="${Math.min(w, h) * 0.12}" fill="rgba(255,255,255,0.15)"/>`
+          } else if (key.includes('leg')) {
+            const isR = part.side === 'R'
+            inner = `<rect x="2" y="2" width="${w - 4}" height="${h - 4}" rx="${r}" fill="${c}" stroke="#333" stroke-width="1.5"/>
+      <rect x="${isR ? w * 0.5 : w * 0.15}" y="${h * 0.15}" width="${w * 0.35}" height="${h * 0.25}" rx="3" fill="rgba(255,255,255,0.1)"/>
+      <rect x="${w * 0.2}" y="${h * 0.6}" width="${w * 0.6}" height="${h * 0.12}" rx="3" fill="rgba(0,0,0,0.2)"/>`
+          }
+          return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${inner}</svg>`
+        }
+
+        // ===== LAYOUT POSITIONS =====
+        function getSlotPositions(lvl, sw, sh) {
+          const lev = lvl || levelData
+          if (!lev) return {}
+          const s = lev.sz,
+            g = lev.gap
+          const cx = sw / 2
+          const headY = sh * 0.02
+          const torsoY = headY + s + g
+          const armY = torsoY + lev.torso.h * 0.2
+          const legY = torsoY + lev.torso.h + g
+          const armW = lev.left_arm.w,
+            armH = lev.left_arm.h
+          const legW = lev.left_leg.w,
+            legH = lev.left_leg.h
+          return {
+            head: { x: cx - s / 2, y: headY, w: s, h: s },
+            torso: { x: cx - lev.torso.w / 2, y: torsoY, w: lev.torso.w, h: lev.torso.h },
+            left_arm: { x: cx - lev.torso.w / 2 - armW - g, y: armY, w: armW, h: armH },
+            right_arm: { x: cx + lev.torso.w / 2 + g, y: armY, w: armW, h: armH },
+            left_leg: { x: cx - legW - g * 0.5, y: legY, w: legW, h: legH },
+            right_leg: { x: cx + g * 0.5, y: legY, w: legW, h: legH },
+          }
+        }
+
+        // ===== DRAW SILHOUETTE =====
+        function drawSilhouette() {
+          silhouette.innerHTML = ''
+          const sw = silhouette.clientWidth,
+            sh = silhouette.clientHeight
+          if (!sw || !sh || !levelData) return
+          const pos = getSlotPositions(levelData, sw, sh)
+          PART_KEYS.forEach((key) => {
+            const p = pos[key]
+            if (!p) return
+            const slot = document.createElement('div')
+            slot.className = 'slot'
+            slot.dataset.part = key
+            slot.style.left = p.x + 'px'
+            slot.style.top = p.y + 'px'
+            slot.style.width = p.w + 'px'
+            slot.style.height = p.h + 'px'
+            slot.style.borderStyle = 'dashed'
+            if (state.placed[key]) {
+              slot.classList.add('filled')
+              const el = document.createElement('div')
+              el.className = 'placed-part'
+              el.style.left = p.x + 'px'
+              el.style.top = p.y + 'px'
+              el.style.width = p.w + 'px'
+              el.style.height = p.h + 'px'
+              const partDef = levelData[key]
+              el.innerHTML = svgPart(key, partDef, p.w, p.h)
+              silhouette.appendChild(el)
+            }
+            silhouette.appendChild(slot)
+          })
+        }
+
+        // ===== RENDER PARTS AREA =====
+        function renderParts() {
+          partsArea.innerHTML = ''
+          placedElements = {}
+          const parts = [...PART_KEYS]
+          // Shuffle
+          for (let i = parts.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1))
+            ;[parts[i], parts[j]] = [parts[j], parts[i]]
+          }
+          // size
+          const sz = clamp(Math.floor((buildArea.clientHeight - 160) / 8), 40, 70)
+          parts.forEach((key, i) => {
+            if (state.placed[key]) return
+            const partDef = levelData[key]
+            if (!partDef) return
+            const el = document.createElement('div')
+            el.className = 'part'
+            el.dataset.part = key
+            const pw = partDef.w || sz,
+              ph = partDef.h || sz
+            const scale = Math.min(1, 60 / Math.max(pw, ph))
+            const dw = Math.round(pw * scale),
+              dh = Math.round(ph * scale)
+            el.style.width = dw + 'px'
+            el.style.height = dh + 'px'
+            el.innerHTML = svgPart(key, partDef, dw, dh)
+            el.addEventListener('mousedown', onDragStart)
+            el.addEventListener('touchstart', onDragStart, { passive: false })
+            partsArea.appendChild(el)
+          })
+        }
+
+        // ===== DRAG & DROP =====
+        function onDragStart(e) {
+          e.preventDefault()
+          const el = e.currentTarget
+          if (el.classList.contains('placed')) return
+          sndGrab()
+          const rect = el.getBoundingClientRect()
+          const touch = e.touches ? e.touches[0] : e
+          dragOffX = touch.clientX - rect.left
+          dragOffY = touch.clientY - rect.top
+          dragging = el
+          el.classList.add('dragging')
+          el.style.left = touch.clientX - dragOffX + 'px'
+          el.style.top = touch.clientY - dragOffY + 'px'
+          el.style.width = rect.width + 'px'
+          el.style.height = rect.height + 'px'
+          document.addEventListener('mousemove', onDragMove)
+          document.addEventListener('mouseup', onDragEnd)
+          document.addEventListener('touchmove', onDragMove, { passive: false })
+          document.addEventListener('touchend', onDragEnd)
+        }
+
+        function onDragMove(e) {
+          e.preventDefault()
+          if (!dragging) return
+          const touch = e.touches ? e.touches[0] : e
+          dragging.style.left = touch.clientX - dragOffX + 'px'
+          dragging.style.top = touch.clientY - dragOffY + 'px'
+          // highlight slot
+          const slots = silhouette.querySelectorAll('.slot:not(.filled)')
+          slots.forEach((s) => s.classList.remove('hover'))
+          const key = dragging.dataset.part
+          const slot = silhouette.querySelector(`.slot[data-part="${key}"]`)
+          if (slot && !slot.classList.contains('filled')) {
+            const sr = slot.getBoundingClientRect()
+            const cx = touch.clientX,
+              cy = touch.clientY
+            const margin = 40
+            if (
+              cx >= sr.left - margin &&
+              cx <= sr.right + margin &&
+              cy >= sr.top - margin &&
+              cy <= sr.bottom + margin
+            ) {
+              slot.classList.add('hover')
+            }
+          }
+        }
+
+        function onDragEnd(e) {
+          if (!dragging) return
+          const touch = e.changedTouches ? e.changedTouches[0] : e
+          const key = dragging.dataset.part
+          const slot = silhouette.querySelector(`.slot[data-part="${key}"]`)
+          let placed = false
+          if (slot && !slot.classList.contains('filled')) {
+            const sr = slot.getBoundingClientRect()
+            const cx = touch.clientX,
+              cy = touch.clientY
+            const margin = 60
+            if (
+              cx >= sr.left - margin &&
+              cx <= sr.right + margin &&
+              cy >= sr.top - margin &&
+              cy <= sr.bottom + margin
+            ) {
+              // Snap!
+              state.placed[key] = true
+              placed = true
+              slot.classList.add('filled')
+              slot.classList.remove('hover')
+              dragging.classList.add('placed')
+              sndPlace()
+              // Redraw silhouette to show placed part
+              drawSilhouette()
+              // Remove original from parts area
+              dragging.remove()
+              state.score += 20
+              updateUI()
+              checkComplete()
+            }
+          }
+          if (!placed) {
+            sndError()
+          }
+          dragging.classList.remove('dragging')
+          dragging.style.left = ''
+          dragging.style.top = ''
+          dragging.style.width = ''
+          dragging.style.height = ''
+          silhouette.querySelectorAll('.slot.hover').forEach((s) => s.classList.remove('hover'))
+          dragging = null
+          document.removeEventListener('mousemove', onDragMove)
+          document.removeEventListener('mouseup', onDragEnd)
+          document.removeEventListener('touchmove', onDragMove)
+          document.removeEventListener('touchend', onDragEnd)
+        }
+
+        // ===== CHECK COMPLETE =====
+        function checkComplete() {
+          const allPlaced = PART_KEYS.every((k) => state.placed[k])
+          if (!allPlaced) return
+          state.score += 100
+          sndLevelUp()
+          updateUI()
+          showToast('¡Robot Completo! +100')
+          triggerCelebration()
+          setTimeout(() => {
+            if (state.level < 39) {
+              state.level++
+              save()
+              loadLevel(state.level)
+              showToast('Nivel ' + (state.level + 1))
+            } else {
+              save()
+              showComplete()
+            }
+          }, 1500)
+        }
+
+        // ===== LOAD LEVEL =====
+        function loadLevel(idx) {
+          state.level = idx
+          state.placed = {}
+          levelData = LEVELS[idx]
+          levelDisplay.textContent = 'Nivel ' + (idx + 1) + ' - ' + levelData.model
+          updateUI()
+          drawSilhouette()
+          renderParts()
+        }
+
+        function updateUI() {
+          scoreDisplay.textContent = state.score + ' pts'
+        }
+
+        // ===== TOAST =====
+        function showToast(msg) {
+          toast.textContent = msg
+          toast.classList.add('show')
+          clearTimeout(toast._t)
+          toast._t = setTimeout(() => toast.classList.remove('show'), 1200)
+        }
+
+        // ===== CELEBRATION =====
+        function triggerCelebration() {
+          celebration.style.display = 'block'
+          const colors = [
+            '#FF9800',
+            '#4CAF50',
+            '#FFD700',
+            '#FF69B4',
+            '#00CED1',
+            '#fff',
+            '#f44336',
+            '#9C27B0',
+          ]
+          for (let i = 0; i < 80; i++) {
+            const c = document.createElement('div')
+            c.className = 'confetti'
+            c.style.left = Math.random() * 100 + '%'
+            c.style.width = 5 + Math.random() * 10 + 'px'
+            c.style.height = 5 + Math.random() * 10 + 'px'
+            c.style.background = colors[Math.floor(Math.random() * colors.length)]
+            c.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px'
+            c.style.animationDuration = 2 + Math.random() * 3 + 's'
+            c.style.animationDelay = Math.random() * 0.5 + 's'
+            celebration.appendChild(c)
+          }
+          setTimeout(() => {
+            celebration.innerHTML = ''
+            celebration.style.display = 'none'
+          }, 4000)
+        }
+
+        // ===== SCREENS =====
+        function showStart() {
+          screenStart.classList.add('active')
+          screenComplete.classList.remove('active')
+        }
+
+        function showComplete() {
+          screenComplete.classList.add('active')
+          screenStart.classList.remove('active')
+          finalScore.textContent = state.score
+          completeMsg.textContent =
+            '¡Completaste todos los 40 niveles con ' + state.score + ' puntos!'
+        }
+
+        // ===== SAVE/LOAD =====
+        function save() {
+          try {
+            localStorage.setItem(
+              'grizzy_robot',
+              JSON.stringify({
+                level: state.level,
+                score: state.score,
+                completedLevels: state.completedLevels,
+              }),
+            )
+          } catch (e) {}
+        }
+
+        function load() {
+          try {
+            const d = JSON.parse(localStorage.getItem('grizzy_robot'))
+            if (d && typeof d.level === 'number') {
+              state.level = d.level
+              state.score = d.score || 0
+              state.completedLevels = d.completedLevels || []
+              return true
+            }
+          } catch (e) {}
+          return false
+        }
+
+        // ===== BG CANVAS =====
+        function drawBG() {
+          const c = document.getElementById('bg-canvas')
+          const ctx = c.getContext('2d')
+          const resize = () => {
+            c.width = window.innerWidth
+            c.height = window.innerHeight
+            draw()
+          }
+          window.addEventListener('resize', resize)
+          function draw() {
+            const w = c.width,
+              h = c.height
+            ctx.fillStyle = '#2D1B0E'
+            ctx.fillRect(0, 0, w, h)
+            // workshop texture - rivets and lines
+            ctx.strokeStyle = 'rgba(255,255,255,0.03)'
+            ctx.lineWidth = 1
+            for (let i = 0; i < w; i += 30) {
+              ctx.beginPath()
+              ctx.moveTo(i, 0)
+              ctx.lineTo(i, h)
+              ctx.stroke()
+            }
+            for (let i = 0; i < h; i += 30) {
+              ctx.beginPath()
+              ctx.moveTo(0, i)
+              ctx.lineTo(w, i)
+              ctx.stroke()
+            }
+            // some gear shapes
+            for (let i = 0; i < 5; i++) {
+              const gx = Math.random() * w,
+                gy = Math.random() * h,
+                gr = 15 + Math.random() * 30
+              ctx.beginPath()
+              for (let a = 0; a < 12; a++) {
+                const r = a % 2 === 0 ? gr : gr * 0.65
+                const angle = (a / 12) * Math.PI * 2 - Math.PI / 2
+                const px = gx + Math.cos(angle) * r,
+                  py = gy + Math.sin(angle) * r
+                a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py)
+              }
+              ctx.closePath()
+              ctx.strokeStyle = 'rgba(255,152,0,0.04)'
+              ctx.lineWidth = 2
+              ctx.stroke()
+            }
+          }
+          resize()
+        }
+        drawBG()
+
+        // ===== INIT =====
+        function init() {
+          if (load()) {
+            btnContinue.style.display = 'inline-block'
+            btnContinue.onclick = () => {
+              screenStart.classList.remove('active')
+              loadLevel(state.level)
+            }
+          }
+          btnStart.onclick = () => {
+            state.level = 0
+            state.score = 0
+            state.placed = {}
+            state.completedLevels = []
+            screenStart.classList.remove('active')
+            save()
+            loadLevel(0)
+          }
+          btnBack.onclick = () => {
+            save()
+            showStart()
+          }
+          btnRestart.onclick = () => {
+            state.level = 0
+            state.score = 0
+            state.placed = {}
+            state.completedLevels = []
+            save()
+            screenComplete.classList.remove('active')
+            loadLevel(0)
+          }
+          showStart()
+          // Handle resize
+          let resizeTimer
+          window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer)
+            resizeTimer = setTimeout(() => {
+              if (
+                levelData &&
+                !screenStart.classList.contains('active') &&
+                !screenComplete.classList.contains('active')
+              ) {
+                drawSilhouette()
+                renderParts()
+              }
+            }, 200)
+          })
+        }
+
+        // ===== ARTIFICIAL LEVEL DATA FIX =====
+        // Re-generate levels with proper sizing for each part key
+        // Already done in genLevels
+
+        init()
+
+        // Manual fire to ensure level 0 visible
+        setTimeout(() => {
+          if (!screenStart.classList.contains('active') && levelData) {
+            drawSilhouette()
+            renderParts()
+          }
+        }, 100)
+      })()
+    </script>
+  </body>
+</html>

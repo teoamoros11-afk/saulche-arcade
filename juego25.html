@@ -1,0 +1,1115 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"
+    />
+    <title>El Castillo de los Gatos</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        background: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        text-align: center;
+        padding: 20px;
+        backdrop-filter: blur(4px);
+      }
+      .screen.hidden {
+        display: none;
+      }
+      h1 {
+        font-size: 2.8em;
+        margin-bottom: 8px;
+        text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.7);
+        color: #ffd700;
+        letter-spacing: 2px;
+      }
+      h2 {
+        font-size: 2em;
+        margin-bottom: 10px;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+      }
+      p {
+        font-size: 1.05em;
+        margin-bottom: 12px;
+        max-width: 500px;
+        line-height: 1.5;
+        color: #ddd;
+      }
+      .btn {
+        display: inline-block;
+        padding: 16px 44px;
+        font-size: 1.3em;
+        background: #e67e22;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition:
+          transform 0.12s,
+          background 0.2s,
+          box-shadow 0.2s;
+        touch-action: manipulation;
+        margin: 8px;
+        font-weight: bold;
+        box-shadow: 0 4px 15px rgba(230, 126, 34, 0.4);
+      }
+      .btn:hover {
+        background: #d35400;
+        transform: scale(1.06);
+        box-shadow: 0 6px 20px rgba(230, 126, 34, 0.6);
+      }
+      .btn:active {
+        transform: scale(0.94);
+      }
+      .btn-secondary {
+        background: #555;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+      }
+      .btn-secondary:hover {
+        background: #444;
+      }
+      #hud {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        padding: 10px 18px;
+        display: flex;
+        justify-content: space-between;
+        z-index: 5;
+        color: #fff;
+        font-size: 1em;
+        font-weight: bold;
+        text-shadow: 1px 1px 4px rgba(0, 0, 0, 0.9);
+        pointer-events: none;
+        background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+      }
+      #hud.hidden {
+        display: none;
+      }
+      .hud-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 2px 8px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+      }
+      .hud-icon {
+        font-size: 1.2em;
+      }
+      #scoreVal {
+        color: #ffd700;
+        min-width: 30px;
+      }
+      #levelVal {
+        color: #4fc3f7;
+        min-width: 20px;
+      }
+      #timeVal {
+        color: #ff5252;
+        min-width: 25px;
+      }
+      #comboVal {
+        color: #69f0ae;
+        min-width: 15px;
+      }
+      .final-score {
+        font-size: 3.5em;
+        color: #ffd700;
+        margin: 8px 0;
+        font-weight: bold;
+        text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+      }
+      .stats {
+        font-size: 1.05em;
+        margin: 4px 0;
+        opacity: 0.9;
+        color: #bbb;
+      }
+      .stats span {
+        color: #fff;
+        font-weight: bold;
+      }
+      .instructions {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 12px 20px;
+        margin: 10px 0;
+        font-size: 0.95em;
+        line-height: 1.7;
+      }
+      .instructions span {
+        display: inline-block;
+        margin: 0 4px;
+      }
+      #levelUpText {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 6;
+        font-size: 3em;
+        color: #ffd700;
+        font-weight: bold;
+        text-shadow: 0 0 30px rgba(255, 215, 0, 0.6);
+        pointer-events: none;
+        opacity: 0;
+        transition: none;
+      }
+      #levelUpText.show {
+        animation: levelUpAnim 1.2s ease-out forwards;
+      }
+      @keyframes levelUpAnim {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(0.5);
+        }
+        50% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1.2);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -60%) scale(1);
+        }
+      }
+      @media (max-width: 600px) {
+        h1 {
+          font-size: 1.7em;
+        }
+        h2 {
+          font-size: 1.4em;
+        }
+        .btn {
+          padding: 14px 28px;
+          font-size: 1.1em;
+        }
+        #hud {
+          font-size: 0.78em;
+          padding: 6px 10px;
+        }
+        .hud-item {
+          padding: 2px 5px;
+        }
+        .final-score {
+          font-size: 2.5em;
+        }
+        p {
+          font-size: 0.95em;
+        }
+        .instructions {
+          font-size: 0.85em;
+          padding: 10px 14px;
+        }
+        #levelUpText {
+          font-size: 2em;
+        }
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="startScreen" class="screen">
+      <h1>🏰 EL CASTILLO DE LOS GATOS 🐱</h1>
+      <p style="color: #ffd700; font-size: 1.1em; font-weight: bold">
+        Una aventura de Grizzy &amp; los Lemmings
+      </p>
+      <div class="instructions">
+        <span>🐱 Gato normal: <b style="color: #7e8a9e">+10 pts</b></span
+        ><br />
+        <span>⭐ Gato Dorado: <b style="color: #ffd700">+50 pts</b></span
+        ><br />
+        <span>❌ Ventana vacía: <b style="color: #ff5252">-2s</b></span
+        ><br />
+        <span>⏱️ <b>60 segundos</b> · 40 niveles</span>
+      </div>
+      <p style="font-size: 0.9em; color: #aaa">
+        ¡Toca los gatos en las ventanas antes de que escapen!
+      </p>
+      <button class="btn" onclick="startGame()">🎮 ¡JUGAR!</button>
+    </div>
+
+    <div id="gameOverScreen" class="screen hidden">
+      <h2>🐻 ¡GAME OVER!</h2>
+      <p>Grizzy está agotado de tanto atrapar gatos... ¡inténtalo de nuevo!</p>
+      <div class="final-score" id="finalScore">0</div>
+      <p class="stats">Nivel alcanzado: <span id="finalLevel">1</span></p>
+      <p class="stats">Gatos atrapados: <span id="finalCats">0</span></p>
+      <p class="stats">Mejor puntuación: <span id="bestScore">0</span></p>
+      <button class="btn" onclick="startGame()">🔄 JUGAR DE NUEVO</button>
+    </div>
+
+    <div id="hud" class="hidden">
+      <div class="hud-item"><span class="hud-icon">⭐</span> <span id="scoreVal">0</span></div>
+      <div class="hud-item"><span class="hud-icon">🏰</span> Nv <span id="levelVal">1</span></div>
+      <div class="hud-item"><span class="hud-icon">⏱️</span> <span id="timeVal">60</span>s</div>
+      <div class="hud-item"><span class="hud-icon">🔥</span> <span id="comboVal">0</span></div>
+    </div>
+
+    <div id="levelUpText">⬆️ ¡SUBES DE NIVEL!</div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+      ;(function () {
+        const canvas = document.getElementById('gameCanvas')
+        const ctx = canvas.getContext('2d')
+        let W, H
+
+        function resize() {
+          W = canvas.width = window.innerWidth
+          H = canvas.height = window.innerHeight
+        }
+        window.addEventListener('resize', resize)
+        resize()
+
+        // ===== AUDIO =====
+        let audioCtx
+        function initAudio() {
+          if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+        }
+        function tone(freq, dur, type, vol) {
+          try {
+            initAudio()
+            const o = audioCtx.createOscillator()
+            const g = audioCtx.createGain()
+            o.type = type || 'sine'
+            o.frequency.setValueAtTime(freq, audioCtx.currentTime)
+            g.gain.setValueAtTime(vol || 0.12, audioCtx.currentTime)
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + (dur || 0.15))
+            o.connect(g)
+            g.connect(audioCtx.destination)
+            o.start()
+            o.stop(audioCtx.currentTime + (dur || 0.15))
+          } catch (e) {}
+        }
+
+        // ===== GAME STATE =====
+        const S = {
+          score: 0,
+          level: 1,
+          timeLeft: 60,
+          combo: 0,
+          catsCaught: 0,
+          running: false,
+          activeCats: [],
+          particles: [],
+          bats: [],
+          floatingTexts: [],
+          spawnTimer: 0,
+          windowPositions: [],
+          hudTimer: 0,
+          shakeTimer: 0,
+          timeAccum: 0,
+          levelUpAnim: 0,
+          lastTime: 0,
+        }
+
+        function gridSize(lv) {
+          if (lv <= 13) return 3
+          if (lv <= 26) return 4
+          return 5
+        }
+
+        function catDuration(lv) {
+          return Math.max(0.5, 1.5 - ((lv - 1) * 1.0) / 39)
+        }
+
+        function initLevel() {
+          S.activeCats = []
+          S.spawnTimer = 0
+        }
+
+        function computeWindows() {
+          const gs = gridSize(S.level)
+          const cw = Math.min(W * 0.55, 500)
+          const ch = H * 0.5
+          const cx = (W - cw) / 2
+          const cy = H * 0.22
+          const tw = cw * 0.12
+          const ax = cx + cw * 0.1
+          const aw = cw * 0.8
+          const ay = cy + tw * 0.3 + 28
+          const ah = ch - tw * 0.3 - 48
+          const gapX = aw / gs
+          const gapY = ah / gs
+          const ww = gapX * 0.6
+          const wh = gapY * 0.7
+          S.windowPositions = []
+          for (let r = 0; r < gs; r++) {
+            for (let c = 0; c < gs; c++) {
+              S.windowPositions.push({
+                x: ax + c * gapX + (gapX - ww) / 2,
+                y: ay + r * gapY + (gapY - wh) / 2,
+                w: ww,
+                h: wh,
+                row: r,
+                col: c,
+              })
+            }
+          }
+        }
+
+        // ===== DRAWING =====
+        function drawSky() {
+          const g = ctx.createLinearGradient(0, 0, 0, H)
+          g.addColorStop(0, '#0f1f3a')
+          g.addColorStop(0.2, '#1a3a5c')
+          g.addColorStop(0.4, '#4a90d9')
+          g.addColorStop(0.65, '#87CEEB')
+          g.addColorStop(1, '#B0E0E6')
+          ctx.fillStyle = g
+          ctx.fillRect(0, 0, W, H)
+
+          ctx.fillStyle = 'rgba(255,255,255,0.5)'
+          ;[
+            [0.08, 0.06, 80, 22],
+            [0.35, 0.03, 110, 28],
+            [0.62, 0.08, 70, 18],
+            [0.88, 0.05, 90, 24],
+          ].forEach((c) => {
+            const x = c[0] * W,
+              y = c[1] * H,
+              w = c[2],
+              h = c[3]
+            ctx.beginPath()
+            ctx.ellipse(x, y, w, h, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.ellipse(x - w * 0.4, y + h * 0.2, w * 0.5, h * 0.8, 0, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.ellipse(x + w * 0.4, y + h * 0.2, w * 0.5, h * 0.8, 0, 0, Math.PI * 2)
+            ctx.fill()
+          })
+        }
+
+        function drawCastle() {
+          const gs = gridSize(S.level)
+          const cw = Math.min(W * 0.55, 500)
+          const ch = H * 0.5
+          const cx = (W - cw) / 2
+          const cy = H * 0.22
+          const tw = cw * 0.12
+
+          ctx.fillStyle = '#5a6a3a'
+          ctx.fillRect(0, cy + ch, W, H - cy - ch)
+          ctx.fillStyle = '#3a5a2a'
+          ctx.fillRect(0, cy + ch - 4, W, 8)
+
+          const bx = cx,
+            by = cy + tw * 0.3,
+            bw = cw,
+            bh = ch - tw * 0.3
+          ctx.fillStyle = '#7a7a8a'
+          ctx.fillRect(bx, by, bw, bh)
+          ctx.strokeStyle = '#6a6a7a'
+          ctx.lineWidth = 1
+          for (let y = by + 14; y < by + bh; y += 14) {
+            ctx.beginPath()
+            ctx.moveTo(bx, y)
+            ctx.lineTo(bx + bw, y)
+            ctx.stroke()
+          }
+          for (let x = bx; x < bx + bw; x += 22) {
+            ctx.beginPath()
+            ctx.moveTo(x, by)
+            ctx.lineTo(x, by + bh)
+            ctx.stroke()
+          }
+
+          ctx.fillStyle = '#6a6a7a'
+          const bc = Math.floor(bw / 18)
+          const bw2 = bw / bc
+          for (let i = 0; i < bc; i += 2) {
+            ctx.fillRect(bx + i * bw2, by - 14, bw2, 14)
+          }
+
+          function drawTower(tx) {
+            const th = ch * 1.12
+            ctx.fillStyle = '#7a7a8a'
+            ctx.fillRect(tx, by + ch - th, tw, th - tw * 0.3)
+            ctx.fillStyle = '#5a5a6a'
+            ctx.beginPath()
+            ctx.moveTo(tx - 4, by + ch - th)
+            ctx.lineTo(tx + tw / 2, by + ch - th - 12)
+            ctx.lineTo(tx + tw + 4, by + ch - th)
+            ctx.fill()
+            ctx.fillStyle = '#6a6a7a'
+            for (let i = 0; i < 4; i += 2) {
+              ctx.fillRect(tx + (i * tw) / 4, by + ch - th - 10, tw / 4, 10)
+            }
+            ctx.strokeStyle = '#333'
+            ctx.lineWidth = 2
+            ctx.beginPath()
+            ctx.moveTo(tx + tw / 2, by + ch - th - 12)
+            ctx.lineTo(tx + tw / 2, by + ch - th - 38)
+            ctx.stroke()
+            ctx.fillStyle = '#e74c3c'
+            ctx.beginPath()
+            ctx.moveTo(tx + tw / 2, by + ch - th - 38)
+            ctx.lineTo(tx + tw / 2 + 18, by + ch - th - 28)
+            ctx.lineTo(tx + tw / 2, by + ch - th - 18)
+            ctx.fill()
+          }
+          drawTower(cx - tw * 0.6)
+          drawTower(cx + cw - tw * 0.4)
+
+          const ax = cx + cw * 0.1,
+            aw = cw * 0.8
+          const ay = by + 28,
+            ah = bh - 48
+          const gapX = aw / gs,
+            gapY = ah / gs
+          const ww = gapX * 0.6,
+            wh = gapY * 0.7
+
+          for (let r = 0; r < gs; r++) {
+            for (let c = 0; c < gs; c++) {
+              const idx = r * gs + c
+              const pos = S.windowPositions[idx]
+              if (!pos) continue
+              const wx = pos.x,
+                wy = pos.y
+              const archR = ww / 2
+              const hasCat = S.activeCats.some((a) => a.windowIdx === idx && a.active)
+
+              ctx.fillStyle = hasCat ? '#2a2a3a' : '#1a1a22'
+              ctx.beginPath()
+              ctx.arc(wx + ww / 2, wy + archR, archR, Math.PI, 0, true)
+              ctx.lineTo(wx + ww, wy + wh)
+              ctx.lineTo(wx, wy + wh)
+              ctx.closePath()
+              ctx.fill()
+
+              ctx.strokeStyle = '#555'
+              ctx.lineWidth = 2
+              ctx.beginPath()
+              ctx.arc(wx + ww / 2, wy + archR, archR, Math.PI, 0, true)
+              ctx.lineTo(wx + ww, wy + wh)
+              ctx.lineTo(wx, wy + wh)
+              ctx.closePath()
+              ctx.stroke()
+
+              ctx.strokeStyle = '#444'
+              ctx.lineWidth = 1.5
+              ctx.beginPath()
+              ctx.moveTo(wx + ww / 2, wy + archR * 0.6)
+              ctx.lineTo(wx + ww / 2, wy + wh)
+              ctx.stroke()
+              ctx.beginPath()
+              ctx.moveTo(wx + 4, wy + wh * 0.55)
+              ctx.lineTo(wx + ww - 4, wy + wh * 0.55)
+              ctx.stroke()
+            }
+          }
+        }
+
+        function drawCat(cat) {
+          const pos = S.windowPositions[cat.windowIdx]
+          if (!pos) return
+          const x = pos.x + pos.w / 2,
+            y = pos.y + pos.h * 0.6
+          const s = pos.w * 0.48
+          const golden = cat.golden
+          const bColor = golden ? '#FFC107' : '#7E8A9E'
+          const dColor = golden ? '#FF8F00' : '#5C6A7A'
+          const t = cat.time / cat.maxTime
+          const urge = 1 - t
+          const bob = Math.sin(performance.now() * 0.006 + cat.maxTime * 5) * 1.5 * (1 + urge * 2)
+          const eyeW = 0.08 + urge * 0.02
+
+          ctx.shadowColor = golden ? 'rgba(255,193,7,0.4)' : 'transparent'
+          ctx.shadowBlur = golden ? 18 : 0
+
+          ctx.strokeStyle = dColor
+          ctx.lineWidth = s * 0.1
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          ctx.moveTo(x + s * 0.45, y + bob)
+          ctx.quadraticCurveTo(x + s * 0.85, y - s * 0.4, x + s * 0.6, y - s * 0.65)
+          ctx.stroke()
+
+          ctx.fillStyle = bColor
+          ctx.beginPath()
+          ctx.ellipse(x, y + bob, s * 0.42, s * 0.33, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x, y - s * 0.22 + bob, s * 0.28, s * 0.26, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = bColor
+          ctx.beginPath()
+          ctx.moveTo(x - s * 0.22, y - s * 0.37 + bob)
+          ctx.lineTo(x - s * 0.32, y - s * 0.62 + bob)
+          ctx.lineTo(x - s * 0.1, y - s * 0.42 + bob)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.moveTo(x + s * 0.22, y - s * 0.37 + bob)
+          ctx.lineTo(x + s * 0.32, y - s * 0.62 + bob)
+          ctx.lineTo(x + s * 0.1, y - s * 0.42 + bob)
+          ctx.fill()
+
+          ctx.fillStyle = '#FFB6C1'
+          ctx.beginPath()
+          ctx.moveTo(x - s * 0.19, y - s * 0.39 + bob)
+          ctx.lineTo(x - s * 0.25, y - s * 0.55 + bob)
+          ctx.lineTo(x - s * 0.12, y - s * 0.41 + bob)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.moveTo(x + s * 0.19, y - s * 0.39 + bob)
+          ctx.lineTo(x + s * 0.25, y - s * 0.55 + bob)
+          ctx.lineTo(x + s * 0.12, y - s * 0.41 + bob)
+          ctx.fill()
+
+          const flash = t < 0.3 && Math.sin(performance.now() * 0.02) > 0 ? '#ff4444' : '#fff'
+          ctx.fillStyle = flash
+          ctx.beginPath()
+          ctx.ellipse(
+            x - s * 0.09,
+            y - s * 0.26 + bob,
+            s * 0.07 + eyeW,
+            s * 0.09 + eyeW,
+            0,
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(
+            x + s * 0.09,
+            y - s * 0.26 + bob,
+            s * 0.07 + eyeW,
+            s * 0.09 + eyeW,
+            0,
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(x - s * 0.09, y - s * 0.26 + bob, s * 0.035 + eyeW * 0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + s * 0.09, y - s * 0.26 + bob, s * 0.035 + eyeW * 0.3, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#FF69B4'
+          ctx.beginPath()
+          ctx.moveTo(x, y - s * 0.16 + bob)
+          ctx.lineTo(x - s * 0.035, y - s * 0.13 + bob)
+          ctx.lineTo(x + s * 0.035, y - s * 0.13 + bob)
+          ctx.closePath()
+          ctx.fill()
+
+          ctx.strokeStyle = '#aaa'
+          ctx.lineWidth = 1
+          for (const [sx, sy] of [
+            [-1, -0.17],
+            [-1, -0.15],
+            [-1, -0.12],
+            [1, -0.17],
+            [1, -0.15],
+            [1, -0.12],
+          ]) {
+            const dir = sx < 0 ? -1 : 1
+            ctx.beginPath()
+            ctx.moveTo(x + sx * s * 0.13, y + sy * s + bob)
+            ctx.lineTo(x + sx * s * 0.38, y + (sy + dir * 0.06) * s + bob)
+            ctx.stroke()
+          }
+
+          if (golden) {
+            ctx.fillStyle = '#FFD700'
+            ctx.beginPath()
+            ctx.moveTo(x - s * 0.22, y - s * 0.52 + bob)
+            ctx.lineTo(x - s * 0.27, y - s * 0.72 + bob)
+            ctx.lineTo(x - s * 0.12, y - s * 0.62 + bob)
+            ctx.lineTo(x, y - s * 0.75 + bob)
+            ctx.lineTo(x + s * 0.12, y - s * 0.62 + bob)
+            ctx.lineTo(x + s * 0.27, y - s * 0.72 + bob)
+            ctx.lineTo(x + s * 0.22, y - s * 0.52 + bob)
+            ctx.closePath()
+            ctx.fill()
+            ctx.strokeStyle = '#FF8F00'
+            ctx.lineWidth = 1.5
+            ctx.stroke()
+
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'
+            const starX = x + (Math.sin(performance.now() * 0.003) * 0.5 - 0.2) * s * 0.3
+            const starY = y - s * 0.1 + bob + Math.cos(performance.now() * 0.004) * s * 0.1
+            ctx.beginPath()
+            ctx.arc(starX, starY, s * 0.04, 0, Math.PI * 2)
+            ctx.fill()
+          }
+
+          ctx.shadowBlur = 0
+        }
+
+        function drawGrizzy() {
+          const x = W / 2,
+            y = H - 12
+          const s = Math.min(W * 0.07, 36)
+          const t = performance.now() * 0.002
+          const armSwing = Math.sin(t) * 3
+
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.ellipse(x, y - s * 0.8, s * 0.45, s * 0.6, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#6D4C41'
+          ctx.beginPath()
+          ctx.ellipse(x, y - s * 1.6, s * 0.42, s * 0.38, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#8D6E63'
+          ctx.beginPath()
+          ctx.ellipse(x + s * 0.08, y - s * 1.5, s * 0.18, s * 0.13, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#333'
+          ctx.beginPath()
+          ctx.ellipse(x + s * 0.12, y - s * 1.5, s * 0.045, s * 0.035, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(x - s * 0.08, y - s * 1.7, s * 0.035, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + s * 0.08, y - s * 1.7, s * 0.035, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#4E342E'
+          ctx.beginPath()
+          ctx.arc(x - s * 0.26, y - s * 1.9, s * 0.1, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + s * 0.26, y - s * 1.9, s * 0.1, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#795548'
+          ctx.beginPath()
+          ctx.arc(x - s * 0.26, y - s * 1.9, s * 0.05, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + s * 0.26, y - s * 1.9, s * 0.05, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.fillStyle = '#5D4037'
+          ctx.beginPath()
+          ctx.ellipse(x - s * 0.18, y - s * 0.3, s * 0.1, s * 0.12, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(x + s * 0.18, y - s * 0.3, s * 0.1, s * 0.12, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.strokeStyle = '#5D4037'
+          ctx.lineWidth = s * 0.18
+          ctx.lineCap = 'round'
+          ctx.beginPath()
+          ctx.moveTo(x - s * 0.35, y - s * 1.1)
+          ctx.lineTo(x - s * 0.7 + armSwing * 0.3, y - s * 1.85)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(x + s * 0.35, y - s * 1.1)
+          ctx.lineTo(x + s * 0.7 - armSwing * 0.3, y - s * 1.85)
+          ctx.stroke()
+
+          const pawColor = '#5D4037'
+          ctx.fillStyle = pawColor
+          ctx.beginPath()
+          ctx.arc(x - s * 0.7 + armSwing * 0.3, y - s * 1.85, s * 0.07, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(x + s * 0.7 - armSwing * 0.3, y - s * 1.85, s * 0.07, 0, Math.PI * 2)
+          ctx.fill()
+        }
+
+        function drawBats() {
+          for (const b of S.bats) {
+            const sz = 5 + b.size * 5
+            const flap = Math.sin(b.phase + performance.now() * b.speed * 0.004) * sz * 0.6
+            ctx.fillStyle = '#1a1a2a'
+            ctx.beginPath()
+            ctx.moveTo(b.x, b.y)
+            ctx.quadraticCurveTo(b.x - sz - flap, b.y - sz * 0.3, b.x - sz, b.y + sz * 0.25)
+            ctx.quadraticCurveTo(b.x - sz * 0.3, b.y + sz * 0.1, b.x, b.y)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.moveTo(b.x, b.y)
+            ctx.quadraticCurveTo(b.x + sz + flap, b.y - sz * 0.3, b.x + sz, b.y + sz * 0.25)
+            ctx.quadraticCurveTo(b.x + sz * 0.3, b.y + sz * 0.1, b.x, b.y)
+            ctx.fill()
+            ctx.fillStyle = '#2a2a3a'
+            ctx.beginPath()
+            ctx.arc(b.x, b.y, sz * 0.12, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        }
+
+        function drawParticles() {
+          for (const p of S.particles) {
+            ctx.globalAlpha = Math.max(0, p.life)
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.globalAlpha = 1
+        }
+
+        function drawFloatingTexts() {
+          for (const ft of S.floatingTexts) {
+            ctx.globalAlpha = ft.life
+            ctx.fillStyle = ft.color
+            ctx.font = 'bold 26px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.shadowColor = 'rgba(0,0,0,0.6)'
+            ctx.shadowBlur = 4
+            ctx.fillText(ft.text, ft.x, ft.y - (1 - ft.life) * 50)
+            ctx.shadowBlur = 0
+          }
+          ctx.globalAlpha = 1
+        }
+
+        // ===== GAME LOGIC =====
+        function spawnCat() {
+          const avail = []
+          for (let i = 0; i < S.windowPositions.length; i++) {
+            if (!S.activeCats.some((a) => a.windowIdx === i && a.active)) avail.push(i)
+          }
+          if (avail.length === 0) return
+          const idx = avail[Math.floor(Math.random() * avail.length)]
+          const golden = Math.random() < 0.1
+          const dur = catDuration(S.level) * (golden ? 0.7 : 1.0)
+          S.activeCats.push({ windowIdx: idx, time: dur, maxTime: dur, golden, active: true })
+          tone(700 + Math.random() * 300, 0.08)
+          setTimeout(() => tone(900 + Math.random() * 200, 0.06), 40)
+        }
+
+        function clickWindow(winIdx) {
+          const ci = S.activeCats.findIndex((a) => a.windowIdx === winIdx && a.active)
+          if (ci >= 0) {
+            const cat = S.activeCats[ci]
+            cat.active = false
+            const pos = S.windowPositions[winIdx]
+            const px = pos.x + pos.w / 2,
+              py = pos.y + pos.h / 2
+
+            if (cat.golden) {
+              S.score += 50
+              S.combo += 2
+              tone(600, 0.1)
+              setTimeout(() => tone(800, 0.1), 60)
+              setTimeout(() => tone(1000, 0.1), 120)
+              setTimeout(() => tone(1200, 0.12), 180)
+              spawnParticles(px, py, '#FFD700', 28, 4)
+              spawnParticles(px, py, '#FFF', 8, 2)
+              S.floatingTexts.push({ x: px, y: py - 10, text: '+50 ⭐', color: '#FFD700', life: 1 })
+            } else {
+              S.score += 10
+              S.combo++
+              tone(600, 0.12)
+              setTimeout(() => tone(900, 0.12), 70)
+              spawnParticles(px, py, '#7E8A9E', 14, 3.5)
+              S.floatingTexts.push({ x: px, y: py - 10, text: '+10', color: '#7E8A9E', life: 1 })
+            }
+            S.catsCaught++
+            updateLevel()
+            updateHUD()
+            S.activeCats.splice(ci, 1)
+          } else {
+            S.timeLeft = Math.max(0, S.timeLeft - 2)
+            S.combo = 0
+            tone(200, 0.25, 'sawtooth', 0.08)
+            S.shakeTimer = 0.2
+            updateHUD()
+          }
+        }
+
+        function spawnParticles(x, y, color, count, sz) {
+          for (let i = 0; i < count; i++) {
+            const a = Math.random() * Math.PI * 2
+            const sp = 60 + Math.random() * 220
+            S.particles.push({
+              x,
+              y,
+              vx: Math.cos(a) * sp,
+              vy: Math.sin(a) * sp - 60,
+              life: 1,
+              decay: 0.4 + Math.random() * 0.6,
+              size: (sz || 3.5) * (0.6 + Math.random() * 0.8),
+              color,
+            })
+          }
+        }
+
+        function updateLevel() {
+          const nl = Math.min(40, Math.floor(S.score / 20) + 1)
+          if (nl !== S.level) {
+            const oldGrid = gridSize(S.level)
+            S.level = nl
+            if (gridSize(S.level) !== oldGrid) initLevel()
+            S.levelUpAnim = 1.2
+            document.getElementById('levelUpText').classList.remove('show')
+            void document.getElementById('levelUpText').offsetWidth
+            document.getElementById('levelUpText').classList.add('show')
+            document.getElementById('levelUpText').textContent = '🏰 ¡NIVEL ' + S.level + '!'
+          }
+        }
+
+        function updateHUD() {
+          document.getElementById('scoreVal').textContent = S.score
+          document.getElementById('levelVal').textContent = S.level
+          document.getElementById('timeVal').textContent = Math.ceil(S.timeLeft)
+          document.getElementById('comboVal').textContent = S.combo
+        }
+
+        // ===== GAME LOOP =====
+        function gameLoop(ts) {
+          if (!S.running) return
+          const dt = Math.min((ts - S.lastTime) / 1000, 0.05)
+          S.lastTime = ts
+
+          S.timeLeft -= dt
+          S.hudTimer -= dt
+          if (S.hudTimer <= 0) {
+            S.hudTimer = 0.1
+            updateHUD()
+          }
+          if (S.timeLeft <= 0) {
+            gameOver()
+            return
+          }
+
+          for (let i = S.activeCats.length - 1; i >= 0; i--) {
+            S.activeCats[i].time -= dt
+            if (S.activeCats[i].time <= 0) {
+              S.activeCats.splice(i, 1)
+              S.combo = 0
+              updateHUD()
+            }
+          }
+
+          const maxCats = Math.min(
+            1 + Math.floor(S.level / 5),
+            Math.floor(S.windowPositions.length * 0.4),
+          )
+          const curCats = S.activeCats.filter((c) => c.active).length
+          S.spawnTimer -= dt
+          if (S.spawnTimer <= 0 && curCats < maxCats) {
+            spawnCat()
+            S.spawnTimer = Math.max(0.5, 2.0 - S.level * 0.035)
+          }
+
+          for (let i = S.particles.length - 1; i >= 0; i--) {
+            const p = S.particles[i]
+            p.x += p.vx * dt
+            p.y += p.vy * dt
+            p.vy += 350 * dt
+            p.life -= p.decay * dt
+            if (p.life <= 0) S.particles.splice(i, 1)
+          }
+
+          for (let i = S.floatingTexts.length - 1; i >= 0; i--) {
+            S.floatingTexts[i].life -= dt * 1.2
+            if (S.floatingTexts[i].life <= 0) S.floatingTexts.splice(i, 1)
+          }
+
+          for (const b of S.bats) {
+            b.x += b.vx * dt
+            b.y += b.vy * dt
+            b.y += Math.sin(ts * 0.002 + b.phase) * 0.3
+            if (b.x < -60) b.x = W + 60
+            if (b.x > W + 60) b.x = -60
+            if (b.y < -30 || b.y > H * 0.25) b.vy *= -1
+          }
+
+          if (S.shakeTimer > 0) S.shakeTimer -= dt
+          if (S.levelUpAnim > 0) S.levelUpAnim -= dt
+
+          render()
+          requestAnimationFrame(gameLoop)
+        }
+
+        function render() {
+          ctx.save()
+
+          if (S.shakeTimer > 0) {
+            const i = 6
+            ctx.translate((Math.random() - 0.5) * i, (Math.random() - 0.5) * i)
+          }
+
+          ctx.clearRect(-10, -10, W + 20, H + 20)
+          computeWindows()
+          drawSky()
+          drawBats()
+          drawCastle()
+          for (const cat of S.activeCats) {
+            if (cat.active) drawCat(cat)
+          }
+          drawGrizzy()
+          drawParticles()
+          drawFloatingTexts()
+
+          ctx.restore()
+        }
+
+        // ===== INPUT =====
+        function handleClick(e) {
+          if (e.type === 'touchstart') e.preventDefault()
+          if (!S.running) return
+
+          let cx, cy
+          if (e.touches) {
+            cx = e.touches[0].clientX
+            cy = e.touches[0].clientY
+          } else {
+            cx = e.clientX
+            cy = e.clientY
+          }
+
+          const rect = canvas.getBoundingClientRect()
+          const sx = canvas.width / rect.width,
+            sy = canvas.height / rect.height
+          const x = (cx - rect.left) * sx,
+            y = (cy - rect.top) * sy
+
+          if (S.windowPositions) {
+            for (let i = S.windowPositions.length - 1; i >= 0; i--) {
+              const w = S.windowPositions[i]
+              if (x >= w.x && x <= w.x + w.w && y >= w.y && y <= w.y + w.h) {
+                clickWindow(i)
+                return
+              }
+            }
+          }
+        }
+
+        canvas.addEventListener('mousedown', handleClick)
+        canvas.addEventListener('touchstart', handleClick, { passive: false })
+
+        // ===== BATS =====
+        function initBats() {
+          S.bats = []
+          for (let i = 0; i < 6; i++) {
+            S.bats.push({
+              x: Math.random() * W,
+              y: 30 + Math.random() * H * 0.15,
+              vx: (Math.random() - 0.5) * 50,
+              vy: (Math.random() - 0.5) * 12,
+              size: 0.4 + Math.random() * 0.6,
+              speed: 4 + Math.random() * 5,
+              phase: Math.random() * Math.PI * 2,
+            })
+          }
+        }
+
+        // ===== GAME CONTROL =====
+        window.startGame = function () {
+          initAudio()
+          document.getElementById('startScreen').classList.add('hidden')
+          document.getElementById('gameOverScreen').classList.add('hidden')
+          document.getElementById('hud').classList.remove('hidden')
+
+          S.score = 0
+          S.level = 1
+          S.timeLeft = 60
+          S.combo = 0
+          S.catsCaught = 0
+          S.running = true
+          S.activeCats = []
+          S.particles = []
+          S.floatingTexts = []
+          S.spawnTimer = 0
+          S.hudTimer = 0
+          S.shakeTimer = 0
+          S.levelUpAnim = 0
+
+          initBats()
+          initLevel()
+          computeWindows()
+          updateHUD()
+
+          S.lastTime = performance.now()
+          requestAnimationFrame(gameLoop)
+        }
+
+        function gameOver() {
+          S.running = false
+          tone(400, 0.3)
+          setTimeout(() => tone(300, 0.3), 200)
+          setTimeout(() => tone(200, 0.4), 400)
+
+          let best = {}
+          try {
+            best = JSON.parse(localStorage.getItem('grizzy_cats')) || {}
+          } catch (e) {
+            best = {}
+          }
+          const bs = Math.max(best.bestScore || 0, S.score)
+          best.bestScore = bs
+          try {
+            localStorage.setItem('grizzy_cats', JSON.stringify(best))
+          } catch (e) {}
+
+          document.getElementById('hud').classList.add('hidden')
+          document.getElementById('gameOverScreen').classList.remove('hidden')
+          document.getElementById('finalScore').textContent = S.score
+          document.getElementById('finalLevel').textContent = S.level
+          document.getElementById('finalCats').textContent = S.catsCaught
+          document.getElementById('bestScore').textContent = bs
+        }
+
+        document.addEventListener('keydown', (e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !S.running) startGame()
+        })
+      })()
+    </script>
+  </body>
+</html>

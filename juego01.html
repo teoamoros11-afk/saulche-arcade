@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Saltador de Nubes - Grizzy</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #1a1a2e;
+        touch-action: none;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <script>
+      const VIRT_W = 400,
+        VIRT_H = 600
+      const canvas = document.createElement('canvas')
+      canvas.width = VIRT_W
+      canvas.height = VIRT_H
+      const ctx = canvas.getContext('2d')
+      document.body.appendChild(canvas)
+
+      function resize() {
+        const ww = window.innerWidth,
+          wh = window.innerHeight
+        const s = Math.min(ww / VIRT_W, wh / VIRT_H)
+        canvas.style.width = Math.round(VIRT_W * s) + 'px'
+        canvas.style.height = Math.round(VIRT_H * s) + 'px'
+        canvas.width = VIRT_W
+        canvas.height = VIRT_H
+      }
+      window.addEventListener('resize', resize)
+      resize()
+
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      let actx = null
+      function initAudio() {
+        if (!actx) actx = new AudioCtx()
+      }
+      function tone(f, d, t, v) {
+        if (!actx) return
+        const o = actx.createOscillator(),
+          g = actx.createGain()
+        o.type = t || 'square'
+        o.frequency.value = f
+        g.gain.setValueAtTime(v || 0.15, actx.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + d)
+        o.connect(g)
+        g.connect(actx.destination)
+        o.start()
+        o.stop(actx.currentTime + d)
+      }
+      function sfx(seq) {
+        seq.forEach((s, i) => setTimeout(() => tone(s[0], s[1], s[2], s[3]), s[4] || 0))
+      }
+      const SOUNDS = {
+        jump: () =>
+          sfx([
+            [500, 0.1, 'square', 0.12, 0],
+            [700, 0.1, 'square', 0.1, 60],
+          ]),
+        cloud: () =>
+          sfx([
+            [880, 0.15, 'sine', 0.1, 0],
+            [1100, 0.1, 'sine', 0.08, 80],
+          ]),
+        die: () =>
+          sfx([
+            [300, 0.3, 'sawtooth', 0.15, 0],
+            [200, 0.4, 'sawtooth', 0.12, 200],
+            [100, 0.5, 'sawtooth', 0.1, 450],
+          ]),
+        record: () =>
+          sfx([
+            [660, 0.12, 'sine', 0.12, 0],
+            [880, 0.12, 'sine', 0.12, 120],
+            [1100, 0.2, 'sine', 0.15, 240],
+          ]),
+        start: () =>
+          sfx([
+            [440, 0.1, 'square', 0.1, 0],
+            [660, 0.15, 'square', 0.1, 100],
+          ]),
+      }
+
+      const KEY = { left: false, right: false }
+      document.addEventListener('keydown', (e) => {
+        const k = e.key
+        if (k === 'ArrowLeft' || k === 'a' || k === 'A') KEY.left = true
+        if (k === 'ArrowRight' || k === 'd' || k === 'D') KEY.right = true
+        if (k === ' ' || k === 'Enter') {
+          e.preventDefault()
+          handleAction()
+        }
+      })
+      document.addEventListener('keyup', (e) => {
+        const k = e.key
+        if (k === 'ArrowLeft' || k === 'a' || k === 'A') KEY.left = false
+        if (k === 'ArrowRight' || k === 'd' || k === 'D') KEY.right = false
+      })
+
+      let touchX = null
+      canvas.addEventListener(
+        'touchstart',
+        (e) => {
+          e.preventDefault()
+          initAudio()
+          touchX = e.touches[0].clientX
+          handleAction()
+        },
+        { passive: false },
+      )
+      canvas.addEventListener(
+        'touchmove',
+        (e) => {
+          e.preventDefault()
+          const t = e.touches[0],
+            dx = t.clientX - touchX
+          if (dx > 10) {
+            KEY.right = true
+            KEY.left = false
+          } else if (dx < -10) {
+            KEY.left = true
+            KEY.right = false
+          } else {
+            KEY.left = false
+            KEY.right = false
+          }
+          touchX = t.clientX
+        },
+        { passive: false },
+      )
+      canvas.addEventListener(
+        'touchend',
+        (e) => {
+          e.preventDefault()
+          touchX = null
+          KEY.left = false
+          KEY.right = false
+        },
+        { passive: false },
+      )
+      canvas.addEventListener('mousedown', (e) => {
+        initAudio()
+        handleAction()
+      })
+
+      let state = 'start'
+      let score = 0,
+        best = parseInt(localStorage.getItem('grizzy_clouds_best')) || 0
+      let cameraY = 0
+      let clouds = []
+      let particles = []
+      let flowers = []
+
+      const GRAVITY = 0.55,
+        JUMP = -10,
+        SPEED = 3.5,
+        GROUND = 540
+
+      const grizzy = {
+        x: 200,
+        y: 300,
+        w: 30,
+        h: 40,
+        vx: 0,
+        vy: 0,
+        onGround: false,
+        jumping: false,
+        armFrame: 0,
+      }
+
+      function reset() {
+        score = 0
+        cameraY = 0
+        clouds = []
+        particles = []
+        grizzy.x = 200
+        grizzy.y = 300
+        grizzy.vx = 0
+        grizzy.vy = 0
+        grizzy.onGround = false
+        grizzy.jumping = false
+        grizzy.armFrame = 0
+      }
+
+      function mkCloud(x, y) {
+        const w = 60 + Math.random() * 35
+        const moving = Math.random() < 0.35
+        const lem = Math.random() < 0.55
+        const v = moving ? (Math.random() < 0.5 ? 1 : -1) * (0.4 + Math.random() * 1.2) : 0
+        return { x, y, w, h: 24, type: moving ? 'm' : 's', vx: v, lem: lem }
+      }
+
+      function initClouds() {
+        const ys = [520, 440, 360, 280, 200, 120, 40]
+        const xs = [160, 60, 250, 100, 280, 60, 200]
+        ys.forEach((y, i) => clouds.push(mkCloud(xs[i], y)))
+      }
+
+      function spawnAbove() {
+        const top = clouds.reduce((m, c) => (c.y < m ? c.y : m), Infinity)
+        const y = Math.max(-3000, top - 70 - Math.random() * 60)
+        clouds.push(mkCloud(Math.random() * (VIRT_W - 60), y))
+      }
+
+      function handleAction() {
+        if (state === 'start') {
+          state = 'playing'
+          SOUNDS.start()
+          initClouds()
+        } else if (state === 'gameover') {
+          reset()
+          state = 'playing'
+          SOUNDS.start()
+          initClouds()
+        }
+      }
+
+      function drawGrizzy(x, y, w, h, jumping, arm) {
+        const cx = x + w / 2,
+          cy = y + h
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.15)'
+        ctx.shadowBlur = 6
+        ctx.shadowOffsetY = 3
+
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - h * 0.45, w * 0.45, h * 0.5, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - h * 0.4, w * 0.26, h * 0.28, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        const er = 5
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(cx - w * 0.35, cy - h * 0.75, er, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + w * 0.35, cy - h * 0.75, er, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#D2A679'
+        ctx.beginPath()
+        ctx.arc(cx - w * 0.35, cy - h * 0.75, er * 0.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + w * 0.35, cy - h * 0.75, er * 0.5, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(cx - w * 0.18, cy - h * 0.55, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + w * 0.18, cy - h * 0.55, 5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#111'
+        ctx.beginPath()
+        ctx.arc(cx - w * 0.16, cy - h * 0.54, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(cx + w * 0.16, cy - h * 0.54, 2.5, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#3E2723'
+        ctx.beginPath()
+        ctx.ellipse(cx, cy - h * 0.48, 3, 2, 0, 0, Math.PI * 2)
+        ctx.fill()
+
+        ctx.strokeStyle = '#8B5E3C'
+        ctx.lineWidth = 4
+        ctx.lineCap = 'round'
+        if (jumping) {
+          ctx.beginPath()
+          ctx.moveTo(cx - w * 0.45, cy - h * 0.6)
+          ctx.lineTo(cx - w * 0.85, cy - h * 0.85)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx + w * 0.45, cy - h * 0.6)
+          ctx.lineTo(cx + w * 0.85, cy - h * 0.85)
+          ctx.stroke()
+          ctx.strokeStyle = '#6B3F1A'
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.moveTo(cx - w * 0.2, cy - h * 0.15)
+          ctx.lineTo(cx - w * 0.4, cy - h * 0.05)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx + w * 0.2, cy - h * 0.15)
+          ctx.lineTo(cx + w * 0.4, cy - h * 0.05)
+          ctx.stroke()
+        } else {
+          ctx.beginPath()
+          ctx.moveTo(cx - w * 0.45, cy - h * 0.6)
+          ctx.lineTo(cx - w * 0.75, cy - h * 0.45)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx + w * 0.45, cy - h * 0.6)
+          ctx.lineTo(cx + w * 0.75, cy - h * 0.45)
+          ctx.stroke()
+          ctx.strokeStyle = '#6B3F1A'
+          ctx.lineWidth = 3
+          ctx.beginPath()
+          ctx.moveTo(cx - w * 0.15, cy - h * 0.1)
+          ctx.lineTo(cx - w * 0.3, cy + 2)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.moveTo(cx + w * 0.15, cy - h * 0.1)
+          ctx.lineTo(cx + w * 0.3, cy + 2)
+          ctx.stroke()
+        }
+
+        ctx.restore()
+      }
+
+      function drawCloud(c) {
+        const { x, y, w, h } = c
+        const mv = c.type === 'm'
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.12)'
+        ctx.shadowBlur = 8
+        ctx.shadowOffsetY = 3
+        const base = mv ? '#D3DCE6' : '#fff'
+        const shd = mv ? '#B0BEC5' : '#E0E0E0'
+        const grd = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, w * 0.6)
+        grd.addColorStop(0, base)
+        grd.addColorStop(1, shd)
+        const drawPuff = (px, py, rx, ry) => {
+          ctx.fillStyle = grd
+          ctx.beginPath()
+          ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        drawPuff(x + w * 0.25, y + h * 0.35, w * 0.3, h * 0.45)
+        drawPuff(x + w * 0.5, y + h * 0.2, w * 0.32, h * 0.4)
+        drawPuff(x + w * 0.75, y + h * 0.35, w * 0.3, h * 0.45)
+        drawPuff(x + w * 0.5, y + h * 0.45, w * 0.45, h * 0.38)
+        if (c.lem) {
+          const lx = x + w / 2,
+            ly = y + h / 2 - 1
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.arc(lx - 6, ly - 3, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(lx + 6, ly - 3, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(lx - 5, ly - 4, 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(lx + 5, ly - 4, 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#111'
+          ctx.beginPath()
+          ctx.arc(lx - 5, ly - 4, 1, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(lx + 5, ly - 4, 1, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#7E8A9E'
+          ctx.beginPath()
+          ctx.ellipse(lx, ly + 1, 2, 1.5, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.strokeStyle = '#5C6A7A'
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.arc(lx - 3, ly + 3, 4, 0, Math.PI)
+          ctx.stroke()
+          ctx.beginPath()
+          ctx.arc(lx + 3, ly + 3, 4, 0, Math.PI)
+          ctx.stroke()
+        }
+        ctx.restore()
+      }
+
+      function mkFlowers() {
+        for (let i = 0; i < 15; i++) {
+          const clr = ['#FF6B6B', '#FFD93D', '#6BCB77', '#FF8E53', '#C084FC', '#F472B6', '#60A5FA'][
+            i % 7
+          ]
+          flowers.push({
+            x: 20 + Math.random() * (VIRT_W - 40),
+            y: GROUND + 4 + Math.random() * 25,
+            color: clr,
+            size: 3 + Math.random() * 3,
+            phase: Math.random() * 6,
+          })
+        }
+      }
+      function drawGround() {
+        const g = ctx.createLinearGradient(0, GROUND, 0, VIRT_H)
+        g.addColorStop(0, '#4CAF50')
+        g.addColorStop(1, '#388E3C')
+        ctx.fillStyle = g
+        ctx.fillRect(0, GROUND, VIRT_W, VIRT_H - GROUND)
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        for (let x = 0; x < VIRT_W; x += 6) {
+          const h = 2 + Math.sin(x * 0.4) * 2
+          ctx.fillRect(x, GROUND - h, 6, h + 2)
+        }
+        flowers.forEach((f) => {
+          ctx.save()
+          ctx.fillStyle = f.color
+          ctx.translate(f.x, f.y)
+          const rot = Math.sin(Date.now() * 0.001 + f.phase) * 0.08
+          for (let i = 0; i < 5; i++) {
+            const a = i * 1.256 - 1.57 + rot
+            const r = i % 2 === 0 ? f.size : f.size * 0.4
+            ctx.beginPath()
+            ctx.arc(Math.cos(a) * r, Math.sin(a) * r, f.size * 0.3, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.fillStyle = '#FFD700'
+          ctx.beginPath()
+          ctx.arc(0, 0, f.size * 0.2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.restore()
+        })
+      }
+
+      function drawBg() {
+        const g = ctx.createLinearGradient(0, 0, 0, VIRT_H)
+        g.addColorStop(0, '#87CEEB')
+        g.addColorStop(1, '#E0F7FA')
+        ctx.fillStyle = g
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        const t = Date.now() * 0.00004
+        for (let i = 0; i < 6; i++) {
+          const cx = 50 + i * 70 + Math.sin(t + i) * 25,
+            cy = 30 + i * 85 + Math.sin(t * 0.6 + i * 2) * 15
+          ctx.beginPath()
+          ctx.ellipse(cx, cy, 35, 12, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx + 12, cy - 6, 28, 10, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(cx - 8, cy - 4, 22, 8, 0, 0, Math.PI * 2)
+          ctx.fill()
+        }
+      }
+
+      function spawnParticles(x, y, n, c, s, l) {
+        for (let i = 0; i < n; i++) {
+          const a = Math.random() * 6.28,
+            sp = s * (0.5 + Math.random())
+          particles.push({
+            x,
+            y,
+            vx: Math.cos(a) * sp,
+            vy: Math.sin(a) * sp - 1,
+            color: c || ['#FFD700', '#FFA500', '#FFF8E1', '#FF6B6B'][i % 4],
+            life: l || 40 + Math.random() * 30,
+            maxLife: l || 40 + Math.random() * 30,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+
+      function stars(n) {
+        for (let i = 0; i < n; i++) {
+          particles.push({
+            x: Math.random() * VIRT_W,
+            y: cameraY + Math.random() * VIRT_H,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: -0.3 - Math.random() * 1,
+            color: '#FFD700',
+            life: 50 + Math.random() * 40,
+            maxLife: 50 + Math.random() * 40,
+            size: 3 + Math.random() * 4,
+            star: true,
+          })
+        }
+      }
+
+      function updateParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.vx
+          p.y += p.vy
+          p.life--
+          if (p.life <= 0) {
+            particles.splice(i, 1)
+            continue
+          }
+          const a = p.life / p.maxLife
+          ctx.save()
+          ctx.globalAlpha = a
+          if (p.star) {
+            ctx.fillStyle = p.color
+            ctx.font =
+              Math.round(p.size * (0.5 + Math.sin(p.life * 0.3) * 0.5) * 3) + 'px sans-serif'
+            ctx.textAlign = 'center'
+            ctx.textBaseline = 'middle'
+            ctx.fillText('★', p.x, p.y)
+          } else {
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size * a, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+        }
+      }
+
+      function drawHUD() {
+        ctx.save()
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W - 128, 6, 122, 44, 8)
+        ctx.fill()
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.textAlign = 'right'
+        ctx.textBaseline = 'top'
+        ctx.fillText('🏔️ ' + Math.floor(score) + 'm', VIRT_W - 12, 12)
+        ctx.fillStyle = '#FFD700'
+        ctx.fillText('🏆 ' + best, VIRT_W - 12, 30)
+        ctx.restore()
+      }
+
+      function drawMenu() {
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W / 2 - 145, VIRT_H / 2 - 120, 290, 240, 18)
+        ctx.fill()
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = 'bold 26px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('🐻 Saltador de Nubes', VIRT_W / 2, VIRT_H / 2 - 75)
+        ctx.font = '15px sans-serif'
+        ctx.fillStyle = '#B0BEC5'
+        ctx.fillText('⬅️ ➡️  o  A  D', VIRT_W / 2, VIRT_H / 2 - 30)
+        ctx.fillText('¡Salta sobre nubes para subir!', VIRT_W / 2, VIRT_H / 2 + 2)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.font = 'bold 17px sans-serif'
+        ctx.fillText('TOCA PARA EMPEZAR', VIRT_W / 2, VIRT_H / 2 + 55)
+        const p = 0.5 + Math.sin(Date.now() * 0.004) * 0.5
+        ctx.globalAlpha = p
+        ctx.fillStyle = '#FFD700'
+        ctx.font = 'bold 13px sans-serif'
+        ctx.fillText('★ TOCA LA PANTALLA ★', VIRT_W / 2, VIRT_H / 2 + 95)
+        ctx.globalAlpha = 1
+        if (best > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = '13px sans-serif'
+          ctx.fillText('🏆 Récord: ' + best, VIRT_W / 2, VIRT_H / 2 + 125)
+        }
+      }
+
+      function drawGO() {
+        ctx.fillStyle = 'rgba(0,0,0,0.6)'
+        ctx.fillRect(0, 0, VIRT_W, VIRT_H)
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'
+        ctx.beginPath()
+        ctx.roundRect(VIRT_W / 2 - 135, VIRT_H / 2 - 95, 270, 190, 18)
+        ctx.fill()
+        ctx.fillStyle = '#FF6B6B'
+        ctx.font = 'bold 30px sans-serif'
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+        ctx.fillText('GAME OVER', VIRT_W / 2, VIRT_H / 2 - 55)
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = '18px sans-serif'
+        ctx.fillText('🏔️ ' + Math.floor(score) + ' m', VIRT_W / 2, VIRT_H / 2 - 10)
+        if (score >= best && score > 0) {
+          ctx.fillStyle = '#FFD700'
+          ctx.font = 'bold 14px sans-serif'
+          ctx.fillText('★ ¡NUEVO RÉCORD! ★', VIRT_W / 2, VIRT_H / 2 + 28)
+        }
+        ctx.fillStyle = '#8B5E3C'
+        ctx.font = 'bold 15px sans-serif'
+        ctx.fillText('TOCA PARA REINTENTAR', VIRT_W / 2, VIRT_H / 2 + 70)
+      }
+
+      function aabb(a, b) {
+        return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+      }
+
+      function update() {
+        if (state !== 'playing') return
+
+        const prevSc = Math.floor(score)
+
+        grizzy.vx = (KEY.left ? -SPEED : 0) + (KEY.right ? SPEED : 0)
+        if (!KEY.left && !KEY.right) grizzy.vx *= 0.8
+        grizzy.vy += GRAVITY
+        grizzy.x += grizzy.vx
+        grizzy.y += grizzy.vy
+
+        if (grizzy.x < 0) grizzy.x = 0
+        if (grizzy.x + grizzy.w > VIRT_W) grizzy.x = VIRT_W - grizzy.w
+
+        grizzy.onGround = false
+        grizzy.jumping = grizzy.vy < 0
+
+        for (const c of clouds) {
+          if (
+            grizzy.vy >= 0 &&
+            grizzy.y + grizzy.h >= c.y &&
+            grizzy.y + grizzy.h <= c.y + c.h + 10
+          ) {
+            if (aabb(grizzy, c)) {
+              grizzy.y = c.y - grizzy.h
+              grizzy.vy = JUMP
+              grizzy.onGround = true
+              grizzy.jumping = true
+              grizzy.armFrame = 8
+              SOUNDS.jump()
+              spawnParticles(grizzy.x + grizzy.w / 2, grizzy.y + grizzy.h, 5, '#fff', 2, 18)
+              break
+            }
+          }
+        }
+
+        if (grizzy.armFrame > 0) grizzy.armFrame--
+
+        if (grizzy.y < VIRT_H * 0.35) {
+          const diff = VIRT_H * 0.35 - grizzy.y
+          cameraY -= diff
+          grizzy.y += diff
+          score += diff * 0.08
+          clouds.forEach((c) => (c.y += diff))
+          particles.forEach((p) => (p.y += diff))
+          if (Math.floor(score) > prevSc && Math.floor(score) % 30 === 0) {
+            SOUNDS.cloud()
+            stars(1)
+          }
+          if (Math.floor(score) > prevSc && Math.floor(score) % 100 === 0) {
+            stars(3)
+          }
+        }
+
+        clouds.forEach((c) => {
+          if (c.type === 'm') {
+            c.x += c.vx
+            if (c.x < 0 || c.x + c.w > VIRT_W) c.vx *= -1
+          }
+        })
+
+        clouds = clouds.filter((c) => c.y < VIRT_H + 80)
+
+        if (clouds.length < 10 && Math.random() < 0.04) spawnAbove()
+        const lowest = clouds.reduce((m, c) => (c.y > m ? c.y : m), -1)
+        if (lowest < VIRT_H + 40) spawnAbove()
+
+        if (grizzy.y + grizzy.h >= GROUND) {
+          grizzy.y = GROUND - grizzy.h
+          if (grizzy.vy >= 0) {
+            grizzy.vy = JUMP
+            grizzy.onGround = true
+            grizzy.jumping = true
+            grizzy.armFrame = 8
+            SOUNDS.jump()
+            spawnParticles(grizzy.x + grizzy.w / 2, grizzy.y + grizzy.h, 4, '#66BB6A', 2.5, 15)
+          }
+        }
+
+        if (grizzy.y > VIRT_H + 60) {
+          state = 'gameover'
+          if (Math.floor(score) > best) {
+            best = Math.floor(score)
+            localStorage.setItem('grizzy_clouds_best', String(best))
+            SOUNDS.record()
+          } else SOUNDS.die()
+          spawnParticles(grizzy.x + grizzy.w / 2, Math.min(grizzy.y, GROUND), 25, '#FF6B6B', 5, 45)
+        }
+      }
+
+      function render() {
+        update()
+        ctx.clearRect(0, 0, VIRT_W, VIRT_H)
+        drawBg()
+        clouds.filter((c) => c.y > -40 && c.y < VIRT_H + 40).forEach(drawCloud)
+        drawGround()
+        if (state !== 'start')
+          drawGrizzy(grizzy.x, grizzy.y, grizzy.w, grizzy.h, grizzy.jumping, grizzy.armFrame)
+        updateParticles()
+        if (state === 'playing') drawHUD()
+        if (state === 'start') drawMenu()
+        if (state === 'gameover') {
+          drawHUD()
+          drawGO()
+        }
+        requestAnimationFrame(render)
+      }
+
+      if (!flowers.length) mkFlowers()
+      render()
+    </script>
+  </body>
+</html>

@@ -1,0 +1,844 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>El Monstruo Comefrutas - Grizzy &amp; the Lemmings</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        touch-action: none;
+        user-select: none;
+      }
+      #wrapper {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      canvas {
+        display: block;
+        background: #1b3a2d;
+        image-rendering: pixelated;
+      }
+      #ui-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+      #ui-overlay > * {
+        pointer-events: auto;
+      }
+      .hidden {
+        display: none !important;
+      }
+      .screen {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+      }
+      #start-screen {
+        background: rgba(27, 58, 45, 0.92);
+      }
+      #start-screen h1 {
+        font-size: clamp(2rem, 6vw, 4rem);
+        color: #ffd700;
+        text-shadow: 3px 3px 0 #8b4513;
+        margin-bottom: 0.5rem;
+      }
+      #start-screen h2 {
+        font-size: clamp(1rem, 3vw, 1.8rem);
+        color: #deb887;
+        margin-bottom: 1.5rem;
+      }
+      #start-screen p {
+        color: #8fbc8f;
+        font-size: clamp(0.8rem, 2vw, 1.1rem);
+        margin-bottom: 0.3rem;
+      }
+      .btn {
+        padding: 14px 48px;
+        font-size: clamp(1.2rem, 3vw, 1.8rem);
+        background: #ff6b35;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: bold;
+        box-shadow: 0 6px 0 #c04000;
+        transition: 0.08s linear;
+        margin-top: 1rem;
+      }
+      .btn:active {
+        transform: translateY(6px);
+        box-shadow: none;
+      }
+      .btn:hover {
+        background: #ff8255;
+      }
+      #game-over-screen {
+        background: rgba(0, 0, 0, 0.88);
+      }
+      #game-over-screen h1 {
+        font-size: clamp(2.5rem, 7vw, 4.5rem);
+        color: #ff4444;
+        text-shadow: 3px 3px 0 #8b0000;
+      }
+      #game-over-screen .final-score {
+        font-size: clamp(1.2rem, 3vw, 2rem);
+        color: #ffd700;
+        margin: 0.8rem 0;
+      }
+      #game-over-screen .final-level {
+        font-size: clamp(0.9rem, 2.5vw, 1.4rem);
+        color: #deb887;
+        margin-bottom: 1rem;
+      }
+    </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
+  </head>
+  <body>
+    <div id="wrapper">
+      <canvas id="game"></canvas>
+      <div id="ui-overlay">
+        <div id="start-screen" class="screen">
+          <h1>🐻 El Monstruo Comefrutas</h1>
+          <h2>Grizzy &amp; the Lemmings</h2>
+          <p>⬅⬆➡⬇ / WASD para mover a Grizzy</p>
+          <p>🍎 Frutas: +10 · 🥦 Verduras: -5</p>
+          <p>🐭 Lemmings: pierdes 1 vida</p>
+          <p style="margin-top: 0.8rem; color: #deb887">¡40 niveles de diversión!</p>
+          <button class="btn" id="start-btn">¡COMENZAR!</button>
+        </div>
+        <div id="game-over-screen" class="screen hidden">
+          <h1>GAME OVER</h1>
+          <div class="final-score" id="final-score">0</div>
+          <div class="final-level" id="final-level">Nivel 0</div>
+          <button class="btn" id="restart-btn">REINTENTAR</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      ;(function () {
+        const canvas = document.getElementById('game')
+        const ctx = canvas.getContext('2d')
+        const startScreen = document.getElementById('start-screen')
+        const gameOverScreen = document.getElementById('game-over-screen')
+        const finalScore = document.getElementById('final-score')
+        const finalLevel = document.getElementById('final-level')
+        const startBtn = document.getElementById('start-btn')
+        const restartBtn = document.getElementById('restart-btn')
+
+        const VW = 500,
+          VH = 500
+        canvas.width = VW
+        canvas.height = VH
+
+        const LS_KEY = 'grizzy_monster'
+
+        // --- Audio ---
+        const AudioCtx = window.AudioContext || window.webkitAudioContext
+        let actx = null
+        function initAudio() {
+          if (!actx) actx = new AudioCtx()
+        }
+        function playTone(freq, dur, type, vol) {
+          try {
+            initAudio()
+            const osc = actx.createOscillator()
+            const gain = actx.createGain()
+            osc.type = type || 'square'
+            osc.frequency.value = freq
+            gain.gain.value = vol || 0.15
+            gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + dur)
+            osc.connect(gain)
+            gain.connect(actx.destination)
+            osc.start()
+            osc.stop(actx.currentTime + dur)
+          } catch (e) {}
+        }
+        function sndEat() {
+          playTone(880, 0.12, 'sine', 0.12)
+          setTimeout(() => playTone(1320, 0.1, 'sine', 0.1), 60)
+        }
+        function sndBad() {
+          playTone(200, 0.25, 'sawtooth', 0.1)
+        }
+        function sndLem() {
+          playTone(140, 0.35, 'square', 0.15)
+          playTone(100, 0.4, 'sawtooth', 0.08)
+        }
+        function sndOver() {
+          ;[200, 180, 150, 120].forEach((f, i) =>
+            setTimeout(() => playTone(f, 0.3, 'sawtooth', 0.1), i * 200),
+          )
+        }
+
+        // --- Entidades ---
+        const KEY = {}
+        const V = 3.8
+        let grizzy = { x: 250, y: 430, w: 52, h: 52, vx: 0 }
+        let items = []
+        let particles = []
+        let score = 0,
+          lives = 3,
+          level = 1,
+          running = false
+        let gameOver = false
+        let spawnTimer = 0,
+          spawnInterval = 60
+        let fallSpeedBase = 1.2
+        let animFrame = 0,
+          frameCount = 0
+        let itemId = 0
+
+        const FRUITS = [
+          { name: 'apple', color: '#E53935', emoji: '🍎', faceColor: '#B71C1C' },
+          { name: 'orange', color: '#FF9800', emoji: '🍊', faceColor: '#E65100' },
+          { name: 'grape', color: '#7B1FA2', emoji: '🍇', faceColor: '#4A148C' },
+          { name: 'banana', color: '#FFC107', emoji: '🍌', faceColor: '#F57F17' },
+        ]
+        const VEGGIES = [
+          { name: 'broccoli', color: '#43A047', emoji: '🥦', faceColor: '#1B5E20' },
+          { name: 'carrot', color: '#FF6F00', emoji: '🥕', faceColor: '#BF360C' },
+          { name: 'tomato', color: '#E53935', emoji: '🍅', faceColor: '#B71C1C' },
+        ]
+        const LEMMING_COLOR = '#7E8A9E'
+
+        function resetGame() {
+          score = 0
+          lives = 3
+          level = 1
+          items = []
+          particles = []
+          grizzy.x = 250
+          grizzy.y = 430
+          grizzy.vx = 0
+          fallSpeedBase = 1.2
+          spawnInterval = 60
+          gameOver = false
+          running = true
+          itemId = 0
+          spawnTimer = 0
+        }
+
+        function spawnItem() {
+          const r = Math.random()
+          let type, sub
+          if (r < 0.5) {
+            type = 'fruit'
+            sub = FRUITS[Math.floor(Math.random() * FRUITS.length)]
+          } else if (r < 0.8) {
+            type = 'veggie'
+            sub = VEGGIES[Math.floor(Math.random() * VEGGIES.length)]
+          } else {
+            type = 'lemming'
+            sub = null
+          }
+          const x = 20 + Math.random() * (VW - 70)
+          const spd = fallSpeedBase + (level - 1) * 0.18 + Math.random() * 0.6
+          items.push({
+            id: itemId++,
+            type,
+            sub,
+            x,
+            y: -30,
+            w: 30,
+            h: 30,
+            speed: spd,
+            rot: Math.random() * 6.28,
+            rotSpeed: (Math.random() - 0.5) * 0.04,
+          })
+        }
+
+        function spawnParticles(x, y, color, count) {
+          for (let i = 0; i < count; i++) {
+            const a = Math.random() * 6.28
+            const sp = 1 + Math.random() * 3
+            particles.push({
+              x,
+              y,
+              vx: Math.cos(a) * sp,
+              vy: Math.sin(a) * sp,
+              life: 1,
+              decay: 0.015 + Math.random() * 0.025,
+              color,
+              size: 4 + Math.random() * 5,
+            })
+          }
+        }
+
+        // --- Dibujo ---
+        function drawTree(x, y, h) {
+          ctx.fillStyle = '#2D5A27'
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          ctx.lineTo(x - 18, y - h * 0.5)
+          ctx.lineTo(x + 18, y - h * 0.5)
+          ctx.closePath()
+          ctx.fill()
+          ctx.fillStyle = '#3E7A35'
+          ctx.beginPath()
+          ctx.moveTo(x, y - h * 0.25)
+          ctx.lineTo(x - 13, y - h * 0.75)
+          ctx.lineTo(x + 13, y - h * 0.75)
+          ctx.closePath()
+          ctx.fill()
+          ctx.fillStyle = '#5C4033'
+          ctx.fillRect(x - 3, y - h * 0.5, 6, h * 0.5)
+        }
+
+        function drawBackground() {
+          ctx.fillStyle = '#1B3A2D'
+          ctx.fillRect(0, 0, VW, VH)
+          for (let i = 0; i < 8; i++) {
+            const tx = 30 + i * 65 + (i % 2) * 20
+            const th = 80 + (i % 3) * 30
+            drawTree(tx, VH - 10, th)
+          }
+          const grd = ctx.createLinearGradient(0, 0, 0, VH)
+          grd.addColorStop(0, 'rgba(27,58,45,0.6)')
+          grd.addColorStop(0.5, 'rgba(27,58,45,0)')
+          ctx.fillStyle = grd
+          ctx.fillRect(0, 0, VW, VH)
+        }
+
+        function drawGrizzy() {
+          const g = grizzy
+          ctx.save()
+          ctx.translate(g.x, g.y)
+          // body
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.ellipse(0, 8, g.w * 0.48, g.h * 0.42, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.ellipse(-2, 6, g.w * 0.38, g.h * 0.34, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Head
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.arc(0, -14, g.w * 0.38, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Ears
+          ctx.fillStyle = '#5A3520'
+          ctx.beginPath()
+          ctx.arc(-19, -28, 9, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(19, -28, 9, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.arc(-19, -28, 5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(19, -28, 5, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Horns
+          ctx.fillStyle = '#8B7355'
+          ctx.beginPath()
+          ctx.moveTo(-8, -32)
+          ctx.lineTo(-14, -48)
+          ctx.lineTo(-4, -36)
+          ctx.closePath()
+          ctx.fill()
+          ctx.beginPath()
+          ctx.moveTo(8, -32)
+          ctx.lineTo(14, -48)
+          ctx.lineTo(4, -36)
+          ctx.closePath()
+          ctx.fill()
+
+          // Snout
+          ctx.fillStyle = '#A0724E'
+          ctx.beginPath()
+          ctx.ellipse(0, -6, 16, 12, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Eyes
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(-8, -18, 6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(8, -18, 6, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#2C1810'
+          ctx.beginPath()
+          ctx.arc(-7, -17, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(9, -17, 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          // eye shine
+          ctx.fillStyle = '#fff'
+          ctx.beginPath()
+          ctx.arc(-6, -19, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(10, -19, 1.5, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Nose
+          ctx.fillStyle = '#2C1810'
+          ctx.beginPath()
+          ctx.ellipse(0, -9, 4, 3, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Big open mouth
+          ctx.fillStyle = '#4A0000'
+          ctx.beginPath()
+          ctx.arc(0, 2, 13, 0, Math.PI)
+          ctx.fill()
+          // teeth
+          ctx.fillStyle = '#FFFDE7'
+          for (let i = -2; i <= 2; i += 1.3) {
+            const tw = 3,
+              th = 4
+            ctx.fillRect(i * 3.5 - 1, 1.5, tw, th)
+          }
+          // tongue
+          ctx.fillStyle = '#D32F2F'
+          ctx.beginPath()
+          ctx.ellipse(0, 6, 6, 4, 0, 0, Math.PI)
+          ctx.fill()
+
+          // Arms
+          ctx.fillStyle = '#6B4226'
+          ctx.save()
+          const armSwing = Math.sin(frameCount * 0.08) * 0.15
+          ctx.translate(-22, 8)
+          ctx.rotate(-0.4 + armSwing)
+          ctx.fillRect(-4, 0, 8, 18)
+          ctx.restore()
+          ctx.save()
+          ctx.translate(22, 8)
+          ctx.rotate(0.4 - armSwing)
+          ctx.fillRect(-4, 0, 8, 18)
+          ctx.restore()
+
+          // Feet
+          ctx.fillStyle = '#5A3520'
+          ctx.beginPath()
+          ctx.ellipse(-12, 24, 10, 6, 0, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.ellipse(12, 24, 10, 6, 0, 0, Math.PI * 2)
+          ctx.fill()
+
+          ctx.restore()
+        }
+
+        function drawFruit(item) {
+          const s = item.sub
+          const c = s.color
+          const x = item.x,
+            y = item.y,
+            w = item.w
+          ctx.save()
+          ctx.translate(x + w / 2, y + w / 2)
+          ctx.rotate(item.rot)
+          // shadow
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'
+          ctx.beginPath()
+          ctx.arc(2, 3, w / 2, 0, Math.PI * 2)
+          ctx.fill()
+          // body
+          ctx.fillStyle = c
+          ctx.beginPath()
+          ctx.arc(0, 0, w / 2, 0, Math.PI * 2)
+          ctx.fill()
+          // highlight
+          ctx.fillStyle = 'rgba(255,255,255,0.25)'
+          ctx.beginPath()
+          ctx.arc(-2, -3, w / 4, 0, Math.PI * 2)
+          ctx.fill()
+
+          // Efecto carita
+          ctx.fillStyle = s.faceColor
+          // ojos
+          ctx.fillRect(-4, -4, 3, 3)
+          ctx.fillRect(2, -4, 3, 3)
+          // sonrisa
+          ctx.beginPath()
+          ctx.strokeStyle = s.faceColor
+          ctx.lineWidth = 1.5
+          ctx.arc(0, 1, 5, 0.2, Math.PI - 0.2)
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        function drawVeggie(item) {
+          const s = item.sub
+          const c = s.color
+          const x = item.x,
+            y = item.y,
+            w = item.w
+          ctx.save()
+          ctx.translate(x + w / 2, y + w / 2)
+          ctx.rotate(item.rot)
+          ctx.fillStyle = 'rgba(0,0,0,0.2)'
+          ctx.beginPath()
+          ctx.arc(2, 3, w / 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = c
+          ctx.beginPath()
+          ctx.arc(0, 0, w / 2, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = 'rgba(255,255,255,0.2)'
+          ctx.beginPath()
+          ctx.arc(-2, -3, w / 4, 0, Math.PI * 2)
+          ctx.fill()
+          // carita triste
+          ctx.fillStyle = s.faceColor
+          ctx.fillRect(-4, -4, 3, 3)
+          ctx.fillRect(2, -4, 3, 3)
+          ctx.beginPath()
+          ctx.strokeStyle = s.faceColor
+          ctx.lineWidth = 1.5
+          ctx.arc(0, 5, 4, Math.PI + 0.4, -0.4)
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        function drawLemming(item) {
+          const x = item.x,
+            y = item.y,
+            w = item.w
+          ctx.save()
+          ctx.translate(x + w / 2, y + w / 2)
+          ctx.rotate(item.rot)
+          // body
+          ctx.fillStyle = LEMMING_COLOR
+          ctx.beginPath()
+          ctx.ellipse(0, 2, w / 2, w / 2.7, 0, 0, Math.PI * 2)
+          ctx.fill()
+          // head
+          ctx.fillStyle = '#8A9BAE'
+          ctx.beginPath()
+          ctx.arc(0, -7, w / 3.5, 0, Math.PI * 2)
+          ctx.fill()
+          // ears
+          ctx.fillStyle = '#9AABB5'
+          ctx.beginPath()
+          ctx.arc(-6, -13, 4, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(6, -13, 4, 0, Math.PI * 2)
+          ctx.fill()
+          // eyes
+          ctx.fillStyle = '#000'
+          ctx.fillRect(-4, -9, 3, 3)
+          ctx.fillRect(2, -9, 3, 3)
+          // nose
+          ctx.fillStyle = '#FFB6C1'
+          ctx.beginPath()
+          ctx.arc(0, -5, 2, 0, Math.PI * 2)
+          ctx.fill()
+          // tail
+          ctx.fillStyle = LEMMING_COLOR
+          ctx.beginPath()
+          ctx.moveTo(-w / 2 + 4, 4)
+          ctx.quadraticCurveTo(-w / 2 - 4, -2, -w / 2 + 2, -6)
+          ctx.lineWidth = 3
+          ctx.strokeStyle = LEMMING_COLOR
+          ctx.stroke()
+          ctx.restore()
+        }
+
+        function drawParticles() {
+          for (const p of particles) {
+            ctx.globalAlpha = p.life
+            ctx.fillStyle = p.color
+            ctx.beginPath()
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.globalAlpha = 1
+        }
+
+        function drawHUD() {
+          ctx.fillStyle = 'rgba(0,0,0,0.55)'
+          ctx.fillRect(4, 4, 145, 52)
+          ctx.strokeStyle = 'rgba(255,215,0,0.4)'
+          ctx.lineWidth = 1
+          ctx.strokeRect(4, 4, 145, 52)
+
+          ctx.font = 'bold 16px Arial'
+          ctx.fillStyle = '#FFD700'
+          ctx.textAlign = 'left'
+          ctx.fillText('⭐ ' + score, 12, 27)
+
+          ctx.font = '13px Arial'
+          ctx.fillStyle = '#DEB887'
+          ctx.fillText('Nivel ' + level + '/40', 12, 47)
+
+          // lives
+          for (let i = 0; i < lives; i++) {
+            ctx.fillStyle = '#FF6B6B'
+            ctx.beginPath()
+            ctx.arc(VW - 28 - i * 30, 22, 8, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.fillStyle = '#FF4444'
+            ctx.beginPath()
+            ctx.arc(VW - 28 - i * 30, 22, 5, 0, Math.PI * 2)
+            ctx.fill()
+          }
+        }
+
+        // --- Colisiones ---
+        function rectCollide(a, b) {
+          return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
+        }
+
+        // --- Update ---
+        function update() {
+          if (!running || gameOver) return
+          frameCount++
+
+          // Grizzy movement
+          let dx = 0
+          if (KEY['ArrowLeft'] || KEY['KeyA']) dx = -V
+          if (KEY['ArrowRight'] || KEY['KeyD']) dx = V
+          if (KEY['ArrowUp'] || KEY['KeyW']) {
+            grizzy.y = Math.max(380, grizzy.y - 0.5)
+          }
+          if (KEY['ArrowDown'] || KEY['KeyS']) {
+            grizzy.y = Math.min(460, grizzy.y + 0.5)
+          }
+          grizzy.x = Math.max(26, Math.min(VW - 26, grizzy.x + dx))
+
+          // Spawn
+          spawnTimer++
+          const spI = Math.max(12, spawnInterval - (level - 1) * 1.2)
+          if (spawnTimer >= spI) {
+            spawnTimer = 0
+            const count = 1 + Math.min(Math.floor(level / 6), 3)
+            for (let i = 0; i < count; i++) spawnItem()
+          }
+
+          // Update items
+          const toRemove = []
+          for (let i = 0; i < items.length; i++) {
+            const it = items[i]
+            it.y += it.speed
+            it.rot += it.rotSpeed
+
+            const gb = { x: grizzy.x - 20, y: grizzy.y - 16, w: 40, h: 38 }
+            const ib = { x: it.x, y: it.y, w: it.w, h: it.h }
+            if (rectCollide(gb, ib)) {
+              if (it.type === 'fruit') {
+                score += 10
+                spawnParticles(it.x + 15, it.y + 15, it.sub.color, 14)
+                sndEat()
+              } else if (it.type === 'veggie') {
+                score = Math.max(0, score - 5)
+                spawnParticles(it.x + 15, it.y + 15, '#8B0000', 10)
+                sndBad()
+              } else if (it.type === 'lemming') {
+                lives--
+                sndLem()
+                spawnParticles(it.x + 15, it.y + 15, '#555', 10)
+                if (lives <= 0) {
+                  gameOver = true
+                  running = false
+                  sndOver()
+                  finalScore.textContent = 'Puntuación: ' + score
+                  finalLevel.textContent = 'Nivel ' + level + ' / 40'
+                  gameOverScreen.classList.remove('hidden')
+                  try {
+                    localStorage.setItem(LS_KEY, JSON.stringify({ score, level, date: Date.now() }))
+                  } catch (e) {}
+                  return
+                }
+              }
+              toRemove.push(i)
+              continue
+            }
+
+            if (it.y > VH + 10) {
+              toRemove.push(i)
+            }
+          }
+          for (let i = toRemove.length - 1; i >= 0; i--) {
+            items.splice(toRemove[i], 1)
+          }
+
+          // Level up
+          const target = Math.min(level * 5 + 15, 200)
+          if (score >= target && level < 40) {
+            level++
+            spawnInterval = Math.max(12, 60 - (level - 1) * 1.2)
+            fallSpeedBase = 1.2 + (level - 1) * 0.18
+            // spawn 3 items inmediatos al subir nivel
+            for (let i = 0; i < 3; i++) spawnItem()
+          }
+
+          // Update particles
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i]
+            p.x += p.vx
+            p.y += p.vy
+            p.vy += 0.08
+            p.life -= p.decay
+            if (p.life <= 0) particles.splice(i, 1)
+          }
+
+          // Save
+          try {
+            localStorage.setItem(LS_KEY, JSON.stringify({ score, level, lives, date: Date.now() }))
+          } catch (e) {}
+        }
+
+        function draw() {
+          drawBackground()
+          for (const it of items) {
+            if (it.type === 'fruit') drawFruit(it)
+            else if (it.type === 'veggie') drawVeggie(it)
+            else drawLemming(it)
+          }
+          drawParticles()
+          drawGrizzy()
+          drawHUD()
+        }
+
+        function gameLoop() {
+          update()
+          draw()
+          requestAnimationFrame(gameLoop)
+        }
+
+        // --- Resize ---
+        function resize() {
+          const w = window.innerWidth
+          const h = window.innerHeight
+          const scale = Math.min(w / VW, h / VH)
+          const cw = VW * scale
+          const ch = VH * scale
+          canvas.style.width = cw + 'px'
+          canvas.style.height = ch + 'px'
+        }
+        window.addEventListener('resize', resize)
+
+        // --- Input ---
+        window.addEventListener('keydown', (e) => {
+          KEY[e.code] = true
+          if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code))
+            e.preventDefault()
+        })
+        window.addEventListener('keyup', (e) => {
+          KEY[e.code] = false
+        })
+
+        // Touch controls
+        let touchX = null,
+          touchY = null
+        canvas.addEventListener(
+          'touchstart',
+          (e) => {
+            e.preventDefault()
+            const t = e.touches[0]
+            touchX = t.clientX
+            touchY = t.clientY
+          },
+          { passive: false },
+        )
+        canvas.addEventListener(
+          'touchmove',
+          (e) => {
+            e.preventDefault()
+            const t = e.touches[0]
+            const dx = ((t.clientX - touchX) / canvas.getBoundingClientRect().width) * VW
+            const dy = ((t.clientY - touchY) / canvas.getBoundingClientRect().height) * VH
+            if (Math.abs(dx) > 3) {
+              if (dx > 0) {
+                KEY['ArrowRight'] = true
+                KEY['ArrowLeft'] = false
+              } else {
+                KEY['ArrowLeft'] = true
+                KEY['ArrowRight'] = false
+              }
+            }
+            if (Math.abs(dy) > 3) {
+              if (dy > 0) {
+                KEY['ArrowDown'] = true
+                KEY['ArrowUp'] = false
+              } else {
+                KEY['ArrowUp'] = true
+                KEY['ArrowDown'] = false
+              }
+            }
+            touchX = t.clientX
+            touchY = t.clientY
+          },
+          { passive: false },
+        )
+        canvas.addEventListener(
+          'touchend',
+          (e) => {
+            e.preventDefault()
+            KEY['ArrowLeft'] = false
+            KEY['ArrowRight'] = false
+            KEY['ArrowUp'] = false
+            KEY['ArrowDown'] = false
+            touchX = null
+            touchY = null
+          },
+          { passive: false },
+        )
+
+        // Inicio
+        startBtn.addEventListener('click', () => {
+          initAudio()
+          resetGame()
+          startScreen.classList.add('hidden')
+          gameOverScreen.classList.add('hidden')
+          running = true
+        })
+        restartBtn.addEventListener('click', () => {
+          initAudio()
+          resetGame()
+          startScreen.classList.add('hidden')
+          gameOverScreen.classList.add('hidden')
+          running = true
+        })
+
+        resize()
+        gameLoop()
+      })()
+    </script>
+  </body>
+</html>

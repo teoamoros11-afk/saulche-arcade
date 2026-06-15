@@ -1,0 +1,18 @@
+{"timestamp":1781379876936,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tetris","rule":"score_non_negative","passed":false}
+{"timestamp":1781379876954,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tetris","rule":"level_valid","passed":false}
+{"timestamp":1781379876969,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tetris","rule":"grid_valid","passed":false}
+{"timestamp":1781379876989,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tetris","rule":"lines_valid","passed":false}
+{"timestamp":1781379886254,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"snake","rule":"score_non_negative","passed":true}
+{"timestamp":1781379886261,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"snake","rule":"snake_defined","passed":false}
+{"timestamp":1781379886264,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"snake","rule":"food_defined","passed":false}
+{"timestamp":1781379894412,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"pong","rule":"score_non_negative","passed":true}
+{"timestamp":1781379894414,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"pong","rule":"level_in_range","passed":true}
+{"timestamp":1781379903232,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"breakout","rule":"level_in_range","passed":true}
+{"timestamp":1781379912032,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tictactoe","rule":"board_valid","passed":false}
+{"timestamp":1781379912035,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tictactoe","rule":"current_player_valid","passed":false}
+{"timestamp":1781379912040,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"tictactoe","rule":"score_non_negative","passed":false}
+{"timestamp":1781379913706,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"invariant-violation","gameId":"tictactoe","invariant":"board_cells_valid","description":"Board cells must be X, O, or null"}
+{"timestamp":1781379920449,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"simon","rule":"sequence_exists","passed":false}
+{"timestamp":1781379920453,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"simon","rule":"level_valid","passed":false}
+{"timestamp":1781379928742,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"minesweeper","rule":"grid_exists","passed":true}
+{"timestamp":1781379928745,"sessionId":"2026-06-13T19-43-53-588Z","eventType":"rule","gameId":"minesweeper","rule":"level_valid","passed":true}

@@ -1,0 +1,15 @@
+{"timestamp":1781374054499,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego01","rule":"canvas_exists","passed":true}
+{"timestamp":1781374054501,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego01","rule":"score_non_negative","passed":true}
+{"timestamp":1781374054503,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego01","rule":"level_in_range","passed":true}
+{"timestamp":1781374062419,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego10","rule":"canvas_exists","passed":true}
+{"timestamp":1781374062424,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego10","rule":"score_non_negative","passed":true}
+{"timestamp":1781374062429,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"juego10","rule":"level_in_range","passed":true}
+{"timestamp":1781374070426,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"snake","rule":"score_non_negative","passed":true}
+{"timestamp":1781374070428,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"snake","rule":"snake_defined","passed":false}
+{"timestamp":1781374070430,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"snake","rule":"food_defined","passed":false}
+{"timestamp":1781374078330,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"pong","rule":"score_non_negative","passed":true}
+{"timestamp":1781374078332,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"pong","rule":"level_in_range","passed":true}
+{"timestamp":1781374086248,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"tictactoe","rule":"board_valid","passed":false}
+{"timestamp":1781374086249,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"tictactoe","rule":"current_player_valid","passed":false}
+{"timestamp":1781374086252,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"rule","gameId":"tictactoe","rule":"score_non_negative","passed":false}
+{"timestamp":1781374087838,"sessionId":"2026-06-13T18-06-40-861Z","eventType":"invariant-violation","gameId":"tictactoe","invariant":"board_cells_valid","description":"Board cells must be X, O, or null"}
