@@ -1,7 +1,7 @@
 export default class GameLoop {
   constructor({ update, render, fps = 60 } = {}) {
-    this._update = update
-    this._render = render
+    this._updateFn = update
+    this._renderFn = render
     this._fps = fps
     this._interval = 1000 / fps
     this._running = false
@@ -10,6 +10,10 @@ export default class GameLoop {
     this._frame = 0
     this._raf = null
   }
+  get update() { return this._updateFn }
+  set update(fn) { this._updateFn = fn }
+  get render() { return this._renderFn }
+  set render(fn) { this._renderFn = fn }
   start() {
     if (this._running) return
     this._running = true
@@ -32,9 +36,9 @@ export default class GameLoop {
     this._frame++
     while (this._accum >= this._interval) {
       this._accum -= this._interval
-      this._update?.(this._interval / 1000, this._frame)
+      this._updateFn?.(this._interval / 1000, this._frame)
     }
-    this._render?.(this._accum / this._interval, this._frame)
+    this._renderFn?.(this._accum / this._interval, this._frame)
   }
   setFps(fps) {
     this._fps = fps
