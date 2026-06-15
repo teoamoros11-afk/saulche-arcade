@@ -750,6 +750,7 @@ canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect()
   const nx = ((e.clientX - rect.left) / rect.width) * VW
   const ny = ((e.clientY - rect.top) / rect.height) * VH
+  console.log('[MENTIS-CLICK]', { nx, ny, screen: screens.getCurrent() })
   handleInput(nx, ny)
 })
 
@@ -759,6 +760,7 @@ canvas.addEventListener('touchstart', (e) => {
   const rect = canvas.getBoundingClientRect()
   const nx = ((t.clientX - rect.left) / rect.width) * VW
   const ny = ((t.clientY - rect.top) / rect.height) * VH
+  console.log('[MENTIS-TOUCH]', { nx, ny, screen: screens.getCurrent() })
   handleInput(nx, ny)
 }, { passive: false })
 
@@ -786,3 +788,4 @@ loop.render = () => {
 loadSave()
 tower.init()
 loop.start()
+console.log('[MENTIS] Game initialized. Current screen:', screens.getCurrent())
