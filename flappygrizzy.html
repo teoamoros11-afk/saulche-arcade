@@ -138,7 +138,7 @@
       const canvas = document.getElementById('c'),
         ctx = canvas.getContext('2d')
       let W, H, SCALE
-      let bird, pipes, score, best, level, gameOver, started, loop
+      let bird, pipes, score, best, level, gameOver, started, loop, lastGapCenter
       const G = 0.45,
         FLAP = -7.5
       const SAVE = 'flappy_grizzy'
@@ -225,6 +225,7 @@
       function resetGame() {
         bird = { x: 60, y: H / 2, w: 28, h: 26, vy: 0, rot: 0, flap: 0 }
         pipes = []
+        lastGapCenter = H / 2
         score = 0
         gameOver = false
         started = false
@@ -333,9 +334,13 @@
         const gap = t.gap
         const minH = 40,
           maxH = H - gap - 40
-        const hBot = minH + Math.random() * (maxH - minH)
-        const topY = 0,
-          botY = hBot + gap
+        const gapRange = maxH - minH
+        const maxShift = Math.min(gapRange * 0.5, 150)
+        const minCenter = Math.max(minH + gap / 2, lastGapCenter - maxShift)
+        const maxCenter = Math.min(maxH - gap / 2, lastGapCenter + maxShift)
+        const hBot = minCenter + Math.random() * (maxCenter - minCenter)
+        lastGapCenter = hBot
+        const botY = hBot + gap
         pipes.push({ x: W, w: 38, hTop: hBot, hBot: H - botY, gap: gap, passed: false })
       }
 
