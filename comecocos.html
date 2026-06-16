@@ -3,345 +3,1217 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Come Cocos - Grizzy</title>
+    <title>Come Cocos - Grizzy & the Lemmings</title>
     <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
-      #wrap {
-        width: 100vw; height: 100vh;
-        display: flex; align-items: center; justify-content: center;
-        background: #111;
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
       }
-      canvas { display: block; }
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #000;
+      }
+      #wrapper {
+        width: 100vw;
+        height: 100vh;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #1a0e05;
+      }
+      canvas {
+        display: block;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+      }
       #ui {
-        position: absolute; top: 10px; right: 10px;
-        display: flex; gap: 8px; z-index: 10;
+        position: absolute;
+        top: 12px;
+        right: 16px;
+        display: flex;
+        gap: 10px;
+        z-index: 10;
       }
-      #ui a, #ui button {
-        color: #fff; background: rgba(0,0,0,0.5);
-        border: 1px solid #555; border-radius: 6px;
-        padding: 5px 10px; font: bold 14px sans-serif;
-        cursor: pointer; text-decoration: none;
+      #ui a,
+      #ui button {
+        color: #fff8e1;
+        background: rgba(93, 64, 55, 0.7);
+        border: 2px solid #8d6e63;
+        border-radius: 8px;
+        padding: 6px 12px;
+        font: bold 18px sans-serif;
+        cursor: pointer;
+        text-decoration: none;
+        backdrop-filter: blur(4px);
+        transition: 0.2s;
       }
-      #ui a:hover, #ui button:hover { background: rgba(0,0,0,0.8); }
+      #ui a:hover,
+      #ui button:hover {
+        background: rgba(93, 64, 55, 0.95);
+        transform: scale(1.05);
+      }
+      #hud {
+        position: absolute;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: #fff8e1;
+        font: bold 16px monospace;
+        text-align: center;
+        background: rgba(45, 27, 14, 0.85);
+        padding: 8px 20px;
+        border-radius: 12px;
+        border: 2px solid #8d6e63;
+        backdrop-filter: blur(4px);
+        white-space: nowrap;
+        z-index: 10;
+      }
+      #hud span {
+        margin: 0 12px;
+      }
       #overlay {
-        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        background: rgba(0,0,0,0.75); z-index: 20; cursor: pointer;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 20;
+        cursor: pointer;
+        backdrop-filter: blur(3px);
       }
-      #overlay h1 { color: #ffc107; font: bold 48px sans-serif; }
-      #overlay p { color: #eee; font: 18px sans-serif; margin-top: 14px; }
-      .blink { animation: pulse 1s infinite; }
-      @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      #overlay h1 {
+        color: #ffc107;
+        font: bold 52px sans-serif;
+        text-shadow:
+          3px 3px 0 #5d4037,
+          0 0 30px rgba(255, 193, 7, 0.4);
+      }
+      #overlay h2 {
+        color: #ffb74d;
+        font: bold 32px sans-serif;
+        margin-top: 8px;
+        text-shadow: 2px 2px 0 #5d4037;
+      }
+      #overlay p {
+        color: #fff8e1;
+        font: 20px sans-serif;
+        margin-top: 16px;
+        opacity: 0.9;
+      }
+      #overlay .sub {
+        color: #a67c52;
+        font: 16px sans-serif;
+        margin-top: 6px;
+      }
+      #overlay .score {
+        color: #ff9800;
+        font: bold 28px sans-serif;
+        margin-top: 20px;
+      }
+      #overlay .lives {
+        color: #ffb74d;
+        font: 22px sans-serif;
+        margin-top: 8px;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.4;
+        }
+      }
+      .blink {
+        animation: pulse 1s infinite;
+      }
+      canvas {
+        image-rendering: pixelated;
+      }
     </style>
+
+    <script src="js/audio.js"></script>
+    <script src="js/save.js"></script>
+    <script src="js/canvas.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/grizzy.js"></script>
+    <script src="js/back.js"></script>
   </head>
   <body>
-    <div id="wrap">
-      <canvas id="c"></canvas>
-      <div id="ui">
-        <button id="restartBtn">Reiniciar</button>
-        <a href="index.html">Salir</a>
+    <div id="wrapper">
+      <canvas id="game"></canvas>
+      <div id="hud">
+        <span id="scoreDisplay">PUNTOS: 0</span><span id="levelDisplay">NIVEL: 1</span
+        ><span id="livesDisplay">VIDAS: 3</span>
       </div>
+      <div id="ui"><button id="restartBtn">Reiniciar</button><a href="index.html">Salir</a></div>
       <div id="overlay">
         <h1>COME COCOS</h1>
+        <h2>Grizzy &bull; Los Lemmings</h2>
         <p class="blink">Presiona ENTER para empezar</p>
-        <p style="color:#999;font-size:14px">Flechas / WASD</p>
+        <p class="sub">WASD / Flechas para moverte</p>
       </div>
     </div>
     <script>
-    ;(function(){
-      const canvas = document.getElementById('c')
-      const ctx = canvas.getContext('2d')
-
-      const CELL = 24
-      const COLS = 28
-      const ROWS = 31
-      const W = 1, E = 0
-
-      const MAP = [
-        '1111111111111111111111111111',
-        '1000000000001100000000000001',
-        '1011110111101101111011110101',
-        '1011110111101101111011110101',
-        '1011110111101101111011110101',
-        '1000000000000000000000000001',
-        '1011110110111111011011110101',
-        '1011110110111111011011110101',
-        '1000000110001100011000000001',
-        '1111110111101101111011111101',
-        '1111110111101101111011111101',
-        '1111110110000000011011111101',
-        '1111110110111111011011111101',
-        '1111110110111111011011111101',
-        '111111110011    110011111111',
-        '1111110110111111011011111101',
-        '1111110110100001011011111101',
-        '1111110110100001011011111101',
-        '1111110110100001011011111101',
-        '1111110110000000011011111101',
-        '1000000000000000000000000001',
-        '1011110111101101111011110101',
-        '1011110111101101111011110101',
-        '1000110000000000000000110001',
-        '1110110110111111011011011101',
-        '1110110110111111011011011101',
-        '1000000110001100011000000001',
-        '1011111110110011011111110101',
-        '1011111110110011011111110101',
-        '1000000000000000000000000001',
-        '1111111111111111111111111111',
+      const CELL = 28,
+        COLS = 28,
+        ROWS = 31
+      const W = 1,
+        E = 0,
+        P = 2,
+        PP = 3,
+        GH = 4,
+        GD = 5
+      const MAP_DATA = [
+        'WWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+        'W............WW............W',
+        'W.WWWW.WWWWW.WW.WWWWW.WWWW.W',
+        'WOWWWW.WWWWW.WW.WWWWW.WWWWOW',
+        'W.WWWW.WWWWW.WW.WWWWW.WWWW.W',
+        'W..........................W',
+        'W.WWWW.WW.WWWWWWWW.WW.WWWW.W',
+        'W.WWWW.WW.WWWWWWWW.WW.WWWW.W',
+        'W......WW....WW....WW......W',
+        'WWWWWW.WWWWW.WW.WWWWW.WWWWWW',
+        'WWWWWW.WWWWW.WW.WWWWW.WWWWWW',
+        'WWWWWW.WW..........WW.WWWWWW',
+        'WWWWWW.WW.WWWWWWWW.WW.WWWWWW',
+        'WWWWWW.WW.WWWWWWWW.WW.WWWWWW',
+        'WWWWWWWW..WW    WW..WWWWWWWW',
+        'WWWWWW.WW.WWWWWWWW.WW.WWWWWW',
+        'WWWWWW.WW.WWGGGGWW.WW.WWWWWW',
+        'WWWWWW.WW.WWGGGGWW.WW.WWWWWW',
+        'WWWWWW.WW.WWGGGGWW.WW.WWWWWW',
+        'WWWWWW.WW...DD.....WW.WWWWWW',
+        'W..........................W',
+        'W.WWWW.WWWWW.WW.WWWWW.WWWW.W',
+        'W.WWWW.WWWWW.WW.WWWWW.WWWW.W',
+        'WO..WW.......  .......WW..OW',
+        'WWW.WW.WW.WWWWWWWW.WW.WW.WWW',
+        'WWW.WW.WW.WWWWWWWW.WW.WW.WWW',
+        'W......WW....WW....WW......W',
+        'W.WWWWWWWW.WW.WW.WWWWWWWW.WW',
+        'W.WWWWWWWW.WW.WW.WWWWWWWW.WW',
+        'W..........................W',
+        'WWWWWWWWWWWWWWWWWWWWWWWWWWWW',
+      ]
+      const CHAR_MAP = { W: W, ' ': E, '.': P, O: PP, G: GH, D: GD }
+      const LEVEL_THEMES = [
+        { n: 'El Bosque', bg: '#1B3A2D', desc: 'Bosque Encantado', ghosts: 3, spd: 0.9, fTime: 8 },
+        {
+          n: 'La Cabaña',
+          bg: '#2D1B0E',
+          desc: 'Cabaña del Guardabosques',
+          ghosts: 4,
+          spd: 1.1,
+          fTime: 7,
+        },
+        {
+          n: 'El Árbol Hueco',
+          bg: '#1a0e05',
+          desc: 'Tronco Milenario',
+          ghosts: 4,
+          spd: 1.35,
+          fTime: 6,
+        },
+        {
+          n: 'La Cueva Oscura',
+          bg: '#0a0500',
+          desc: 'Caverna del Trol',
+          ghosts: 4,
+          spd: 1.6,
+          fTime: 5,
+        },
       ]
 
-      let map = []
-      let player = {}
-      let score = 0
-      let lives = 3
-      let state = 'start'
-      let lastTime = 0
-      let cellSize = 1
-      let offsetX = 0, offsetY = 0
+      let canvas, ctx, W_, H_, cellSize, offsetX, offsetY
+      let map = [],
+        pelletCount = 0,
+        pelletsEaten = 0
+      let player = {},
+        ghosts = []
+      let score = 0,
+        highScore = 0,
+        lives = 3,
+        level = 1,
+        gameState = 'start'
+      let frightenedTimer = 0,
+        levelDelay = 0,
+        deathAnim = 0
+      let fps = 60,
+        delta = 0,
+        lastTime = 0
+      let particles = []
+      let keys = {}
+      let saveKey = 'comecocos_grizzy_save'
+
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+
+      function playTone(freq, dur, type = 'square', vol = 0.12) {
+        const o = audioCtx.createOscillator(),
+          g = audioCtx.createGain()
+        o.type = type
+        o.frequency.value = freq
+        g.gain.setValueAtTime(vol, audioCtx.currentTime)
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur)
+        o.connect(g)
+        g.connect(audioCtx.destination)
+        o.start()
+        o.stop(audioCtx.currentTime + dur)
+      }
+      function sndChomp() {
+        playTone(260, 0.08, 'square', 0.1)
+      }
+      function sndPower() {
+        playTone(200, 0.06, 'square')
+        setTimeout(() => playTone(400, 0.06, 'square'), 60)
+      }
+      function sndGhostEat() {
+        playTone(600, 0.1, 'sine', 0.15)
+        setTimeout(() => playTone(900, 0.1, 'sine', 0.1), 80)
+      }
+      function sndDeath() {
+        playTone(400, 0.15, 'sawtooth', 0.12)
+        setTimeout(() => playTone(250, 0.2, 'sawtooth', 0.1), 120)
+        setTimeout(() => playTone(150, 0.3, 'sawtooth', 0.08), 280)
+      }
+      function sndLevelUp() {
+        playTone(523, 0.1, 'sine', 0.1)
+        setTimeout(() => playTone(659, 0.1, 'sine', 0.1), 100)
+        setTimeout(() => playTone(784, 0.15, 'sine', 0.1), 200)
+      }
+      function sndLife() {
+        playTone(440, 0.12, 'sine', 0.12)
+      }
+
+      function emit(x, y, color, count = 8, speed = 70, life = 0.6) {
+        for (let i = 0; i < count; i++) {
+          const a = Math.random() * Math.PI * 2,
+            v = speed * (0.5 + Math.random() * 0.8)
+          particles.push({
+            x,
+            y,
+            dx: Math.cos(a) * v,
+            dy: Math.sin(a) * v,
+            life: life + (Math.random() * life) / 2,
+            maxLife: life + (Math.random() * life) / 2,
+            color,
+            size: 2 + Math.random() * 3,
+          })
+        }
+      }
+
+      function initAudio() {
+        if (audioCtx.state === 'suspended') audioCtx.resume()
+      }
 
       function buildMap() {
         map = []
+        pelletCount = 0
+        pelletsEaten = 0
         for (let r = 0; r < ROWS; r++) {
           map[r] = []
           for (let c = 0; c < COLS; c++) {
-            map[r][c] = MAP[r][c] === '1' ? W : E
+            const ch = MAP_DATA[r][c]
+            let val = CHAR_MAP[ch] !== void 0 ? CHAR_MAP[ch] : E
+            if (ch === ' ' && r === 14) val = E
+            map[r][c] = val
+            if (val === P || val === PP) pelletCount++
           }
         }
       }
 
-      function isWall(c, r) {
-        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return true
-        return map[r][c] === W
+      function getCell(x, y) {
+        const c = Math.floor(x / CELL),
+          r = Math.floor(y / CELL)
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return W
+        return map[r][c]
+      }
+      function isWalkable(x, y, isGhost = false) {
+        const c = Math.floor((x + CELL / 2) / CELL),
+          r = Math.floor((y + CELL / 2) / CELL)
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return false
+        const v = map[r][c]
+        if (v === W) return false
+        if (v === GD) return isGhost
+        if (v === GH) return isGhost
+        return true
       }
 
-      function initPlayer() {
-        player = {
-          col: 1, row: 1,
+      function playerInit() {
+        player.x = 14 * CELL
+        player.y = 23 * CELL
+        player.dir = -1
+        player.nextDir = 3
+        player.speed = 1.8
+        player.moving = false
+        player.anim = 0
+        player.mouth = 0
+        player.alive = true
+        player.smoothX = player.x
+        player.smoothY = player.y
+      }
+
+      function ghostInit(idx) {
+        const pos = [
+          [17, 12],
+          [17, 15],
+          [18, 12],
+          [18, 15],
+        ]
+        const g = {
+          idx,
+          type: idx,
+          x: pos[idx][1] * CELL + CELL / 2,
+          y: pos[idx][0] * CELL + CELL / 2,
+          smoothX: 0,
+          smoothY: 0,
           dir: -1,
           nextDir: -1,
-          speed: 5,
-          moving: false,
-          progress: 0,
-          fromX: 1, fromY: 1,
-          toX: 1, toY: 1,
-          alive: true,
+          speed: 1,
+          mode: 'house',
+          frightened: false,
+          eaten: false,
+          scatterTarget: [
+            { r: 1, c: 1 },
+            { r: 1, c: 26 },
+            { r: 29, c: 1 },
+            { r: 29, c: 26 },
+          ][idx],
+          releaseTimer: idx * 60 * 3,
+          inHouse: true,
+        }
+        g.smoothX = g.x
+        g.smoothY = g.y
+        return g
+      }
+
+      function setDifficulty() {
+        const t = Math.min(3, Math.floor((level - 1) / 10))
+        const theme = LEVEL_THEMES[t]
+        const lvlInTheme = (level - 1) % 10
+        const speedMult = 1 + lvlInTheme * 0.06
+        player.speed = 1.8
+        const targetGhostCount = theme.ghosts
+        ghosts.forEach((g, i) => {
+          if (i < targetGhostCount) {
+            g.speed = theme.spd * speedMult
+            g.active = true
+          } else {
+            g.active = false
+          }
+        })
+        return theme
+      }
+
+      function resetGame() {
+        buildMap()
+        playerInit()
+        player.alive = true
+        ghosts = []
+        for (let i = 0; i < 4; i++) ghosts.push(ghostInit(i))
+        const theme = setDifficulty()
+        frightenedTimer = 0
+        particles = []
+        deathAnim = 0
+        levelDelay = 0
+        ghosts.forEach((g, i) => {
+          g.smoothX = g.x
+          g.smoothY = g.y
+        })
+        gameState = 'playing'
+      }
+
+      function nextLevel() {
+        level++
+        levelDelay = 120
+        const ls = localStorage.getItem(saveKey)
+        if (ls) {
+          try {
+            const d = JSON.parse(ls)
+            if (level > d.level) d.level = level
+            localStorage.setItem(saveKey, JSON.stringify(d))
+          } catch (e) {}
+        }
+        sndLevelUp()
+        resetGame()
+        document.getElementById('levelDisplay').textContent = 'NIVEL: ' + level
+        updateHUD()
+      }
+
+      function die() {
+        if (!player.alive) return
+        player.alive = false
+        deathAnim = 90
+        sndDeath()
+        lives--
+        emit(player.smoothX, player.smoothY, '#8B5E3C', 20, 120, 1)
+        updateHUD()
+        setTimeout(() => {
+          if (lives <= 0) {
+            gameState = 'gameover'
+            showOverlay('gameover')
+            return
+          }
+          resetGame()
+        }, 1200)
+      }
+
+      function showOverlay(type) {
+        const o = document.getElementById('overlay')
+        if (type === 'start') {
+          o.innerHTML =
+            '<h1>COME COCOS</h1><h2>Grizzy &bull; Los Lemmings</h2><p class="blink">Presiona ENTER para empezar</p><p class="sub">WASD / Flechas para moverte</p>'
+          o.style.display = 'flex'
+        } else if (type === 'gameover') {
+          const hs = localStorage.getItem(saveKey)
+          let best = 0
+          if (hs) {
+            try {
+              const d = JSON.parse(hs)
+              best = d.highScore || 0
+            } catch (e) {}
+          }
+          o.innerHTML =
+            '<h1 style="color:#E53935">¡GAME OVER!</h1><p class="score">PUNTOS: ' +
+            score +
+            '</p><p class="lives">MEJOR: ' +
+            Math.max(score, best) +
+            '</p><p class="blink" style="margin-top:24px;color:#FFF8E1">Presiona ENTER para reintentar</p>'
+          o.style.display = 'flex'
+        } else if (type === 'levelup') {
+          const t = LEVEL_THEMES[Math.min(3, Math.floor((level - 1) / 10))]
+          o.innerHTML =
+            '<h1 style="color:#4CAF50">¡NIVEL ' +
+            level +
+            '!</h1><h2>' +
+            t.n +
+            '</h2><p style="color:#A67C52">' +
+            t.desc +
+            '</p><p class="blink" style="margin-top:16px">Preparando...</p>'
+          o.style.display = 'flex'
+        } else {
+          o.style.display = 'none'
         }
       }
 
-      function resize() {
-        const w = window.innerWidth
-        const h = window.innerHeight
-        const aspect = COLS / ROWS
-        let cw, ch
-        if (w / h > aspect) {
-          ch = h * 0.9
-          cw = ch * aspect
-        } else {
-          cw = w * 0.95
-          ch = cw / aspect
+      function updateHUD() {
+        document.getElementById('scoreDisplay').textContent = 'PUNTOS: ' + score
+        document.getElementById('levelDisplay').textContent = 'NIVEL: ' + level
+        let h = ''
+        for (let i = 0; i < lives; i++) h += '🧸'
+        document.getElementById('livesDisplay').textContent = 'VIDAS: ' + lives
+      }
+
+      function saveProgress() {
+        try {
+          const data = { level, score, highScore: Math.max(score, highScore), lives }
+          localStorage.setItem(saveKey, JSON.stringify(data))
+        } catch (e) {}
+      }
+
+      function loadProgress() {
+        try {
+          const d = JSON.parse(localStorage.getItem(saveKey))
+          if (d && d.level) {
+            level = d.level || 1
+            score = d.score || 0
+            highScore = d.highScore || 0
+            lives = d.lives || 3
+          }
+        } catch (e) {}
+      }
+
+      function getGhostTarget(g) {
+        if (g.frightened) return null
+        if (g.eaten) return { row: 17, col: 13 }
+        const dirs = [
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]
+        const dr = dirs[player.dir] || [0, 0]
+        switch (g.idx) {
+          case 0:
+            return { row: Math.floor(player.y / CELL), col: Math.floor(player.x / CELL) }
+          case 1:
+            return {
+              row: Math.floor(player.y / CELL) + 2 * dr[0],
+              col: Math.floor(player.x / CELL) + 2 * dr[1],
+            }
+          case 2: {
+            const b = ghosts[0]
+            const pR = Math.floor(player.y / CELL),
+              pC = Math.floor(player.x / CELL)
+            const bR = b ? Math.floor(b.y / CELL) : pR,
+              bC = b ? Math.floor(b.x / CELL) : pC
+            return { row: pR + 2 * dr[0] + (pR - bR), col: pC + 2 * dr[1] + (pC - bC) }
+          }
+          case 3: {
+            const pR = Math.floor(player.y / CELL),
+              pC = Math.floor(player.x / CELL)
+            const d = Math.sqrt((g.x - pC * CELL) ** 2 + (g.y - pR * CELL) ** 2)
+            return d > 8 * CELL ? { row: pR, col: pC } : g.scatterTarget
+          }
+          default:
+            return { row: Math.floor(player.y / CELL), col: Math.floor(player.x / CELL) }
         }
-        canvas.width = Math.floor(cw)
-        canvas.height = Math.floor(ch)
-        cellSize = canvas.width / COLS
-        offsetX = 0
-        offsetY = 0
+      }
+
+      function moveGhost(g, dt) {
+        if (!g.active) return
+        if (g.inHouse) {
+          if (g.releaseTimer > 0) {
+            g.releaseTimer -= dt * 60
+            g.y += Math.sin(Date.now() * 0.005) * 0.3
+            return
+          }
+          g.inHouse = false
+          g.mode = 'chase'
+          g.x = 12 * CELL + CELL / 2
+          g.y = 20 * CELL + CELL / 2
+          g.smoothX = g.x
+          g.smoothY = g.y
+          g.dir = -1
+          return
+        }
+        if (g.eaten) {
+          g.speed = 4
+          const target = { row: 17, col: 13 }
+          const dx = target.col * CELL + CELL / 2 - g.x,
+            dy = target.row * CELL + CELL / 2 - g.y
+          if (Math.abs(dx) < CELL / 2 && Math.abs(dy) < CELL / 2) {
+            g.eaten = false
+            g.frightened = false
+            g.mode = 'chase'
+            g.speed = setDifficulty().spd * (1 + ((level - 1) % 10) * 0.06)
+            g.x = 13 * CELL + CELL / 2
+            g.y = 17 * CELL + CELL / 2
+            g.smoothX = g.x
+            g.smoothY = g.y
+            g.inHouse = true
+            g.releaseTimer = 60
+            return
+          }
+        }
+        const s = g.speed * CELL * dt * 2
+        const cx = Math.floor(g.x / CELL),
+          cy = Math.floor(g.y / CELL)
+        const inCenter =
+          Math.abs(g.x - (cx * CELL + CELL / 2)) < 3 && Math.abs(g.y - (cy * CELL + CELL / 2)) < 3
+        if (inCenter) {
+          const dirs = [
+            [0, -1],
+            [0, 1],
+            [-1, 0],
+            [1, 0],
+          ]
+          const revDir = [1, 0, 3, 2]
+          let moves = []
+          for (let i = 0; i < 4; i++) {
+            if (i === revDir[g.dir] && !g.eaten) continue
+            const nx = cx + dirs[i][1],
+              ny = cy + dirs[i][0]
+            if (ny >= 0 && ny < ROWS && nx >= 0 && nx < COLS) {
+              const v = map[ny][nx]
+              if (v !== W && (v !== GD || true)) {
+                moves.push(i)
+              }
+            }
+          }
+          const target = getGhostTarget(g)
+          if (g.frightened && !g.eaten && moves.length > 1) {
+            g.dir = moves[Math.floor(Math.random() * moves.length)]
+          } else if (moves.length > 0) {
+            if (target && moves.length > 1) {
+              let best = moves[0],
+                bestD = Infinity
+              const dirs2 = [
+                [0, -1],
+                [0, 1],
+                [-1, 0],
+                [1, 0],
+              ]
+              for (const d of moves) {
+                const nx = cx + dirs2[d][1],
+                  ny = cy + dirs2[d][0]
+                const dist = Math.abs(ny - target.row) + Math.abs(nx - target.col)
+                if (dist < bestD) {
+                  bestD = dist
+                  best = d
+                }
+              }
+              g.dir = best
+            } else {
+              g.dir = moves[0]
+            }
+          }
+          g.x = cx * CELL + CELL / 2
+          g.y = cy * CELL + CELL / 2
+        }
+        const dirs = [
+          [0, 0],
+          [0, -1],
+          [0, 1],
+          [-1, 0],
+          [1, 0],
+        ]
+        const dr = dirs[g.dir + 1] || [0, 0]
+        const nx = g.x + dr[1] * s,
+          ny = g.y + dr[0] * s
+        const nc = Math.floor(nx / CELL),
+          nr = Math.floor(ny / CELL)
+        if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+          const v = map[nr][nc]
+          if (v !== W && (v !== GD || true)) {
+            g.x = nx
+            g.y = ny
+          } else {
+            g.x = cx * CELL + CELL / 2
+            g.y = cy * CELL + CELL / 2
+            g.dir = -1
+          }
+        }
+        g.smoothX += (g.x - g.smoothX) * 0.35
+        g.smoothY += (g.y - g.smoothY) * 0.35
+      }
+
+      function canMoveTo(c, r) {
+        if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return false
+        const v = map[r][c]
+        return v !== W && v !== GD && v !== GH
+      }
+
+      function movePlayer(dt) {
+        if (!player.alive) return
+        const s = player.speed * CELL * dt * 2.2
+
+        if (player.moving) {
+          const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+          const dr = dirs[player.dir]
+          player.smoothX += dr[1] * s
+          player.smoothY += dr[0] * s
+
+          const destC = Math.floor((player.smoothX + dr[1] * CELL * 0.4) / CELL)
+          const destR = Math.floor((player.smoothY + dr[0] * CELL * 0.4) / CELL)
+          const curC = Math.floor(player.smoothX / CELL)
+          const curR = Math.floor(player.smoothY / CELL)
+
+          const reachedCenter =
+            (dr[1] > 0 && player.smoothX >= destC * CELL) ||
+            (dr[1] < 0 && player.smoothX <= destC * CELL) ||
+            (dr[0] > 0 && player.smoothY >= destR * CELL) ||
+            (dr[0] < 0 && player.smoothY <= destR * CELL)
+
+          if (reachedCenter || !canMoveTo(destC, destR)) {
+            player.smoothX = curC * CELL
+            player.smoothY = curR * CELL
+            if (canMoveTo(curC + dr[1], curR + dr[0])) {
+              player.x = player.smoothX
+              player.y = player.smoothY
+              player.anim += dt * 8
+              checkPellet()
+              return
+            } else {
+              player.moving = false
+              player.dir = -1
+            }
+          }
+        } else {
+          const dirs = [[-1, 0], [1, 0], [0, -1], [0, 1]]
+          const c = Math.round(player.smoothX / CELL)
+          const r = Math.round(player.smoothY / CELL)
+
+          if (player.nextDir >= 0 && player.nextDir <= 3) {
+            const nd = dirs[player.nextDir]
+            if (canMoveTo(c + nd[1], r + nd[0])) {
+              player.dir = player.nextDir
+              player.moving = true
+              player.smoothX = c * CELL
+              player.smoothY = r * CELL
+              player.x = player.smoothX
+              player.y = player.smoothY
+              player.anim += dt * 8
+              checkPellet()
+              return
+            }
+          }
+          if (player.dir >= 0 && player.dir <= 3) {
+            const cd = dirs[player.dir]
+            if (canMoveTo(c + cd[1], r + cd[0])) {
+              player.moving = true
+              player.smoothX = c * CELL
+              player.smoothY = r * CELL
+            }
+          }
+        }
+
+        player.x = player.smoothX
+        player.y = player.smoothY
+        player.anim += dt * 8
+        checkPellet()
+      }
+
+      function checkPellet() {
+        const c = Math.floor((player.smoothX + CELL / 2) / CELL),
+          r = Math.floor((player.smoothY + CELL / 2) / CELL)
+        if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return
+        const v = map[r][c]
+        if (v === P) {
+          map[r][c] = E
+          score += 10
+          pelletCount--
+          pelletsEaten++
+          sndChomp()
+          emit(c * CELL + CELL / 2, r * CELL + CELL / 2, '#FF9800', 3, 50, 0.3)
+          updateHUD()
+          saveProgress()
+          if (pelletCount <= 0) {
+            sndLevelUp()
+            nextLevel()
+          }
+        } else if (v === PP) {
+          map[r][c] = E
+          score += 50
+          pelletCount--
+          pelletsEaten++
+          sndPower()
+          frightenedTimer = 480
+          emit(c * CELL + CELL / 2, r * CELL + CELL / 2, '#FFC107', 12, 100, 0.6)
+          ghosts.forEach((g) => {
+            if (!g.eaten && !g.inHouse) {
+              g.frightened = true
+              g.dir = g.dir % 2 === 0 ? g.dir + 1 : g.dir - 1
+            }
+          })
+          updateHUD()
+          saveProgress()
+          if (pelletCount <= 0) {
+            sndLevelUp()
+            nextLevel()
+          }
+        }
+      }
+
+      function checkGhostCollisions() {
+        if (!player.alive) return
+        const px = player.smoothX,
+          py = player.smoothY
+        for (const g of ghosts) {
+          if (!g.active || g.inHouse || g.eaten) continue
+          const dx = px - g.smoothX,
+            dy = py - g.smoothY
+          if (Math.sqrt(dx * dx + dy * dy) < CELL * 0.7) {
+            if (g.frightened) {
+              g.eaten = true
+              score += 200
+              sndGhostEat()
+              emit(g.smoothX, g.smoothY, '#B0D4F1', 15, 120, 0.8)
+              updateHUD()
+              saveProgress()
+            } else {
+              die()
+              return
+            }
+          }
+        }
       }
 
       function drawMaze() {
         for (let r = 0; r < ROWS; r++) {
           for (let c = 0; c < COLS; c++) {
-            const x = offsetX + c * cellSize
-            const y = offsetY + r * cellSize
-            if (map[r][c] === W) {
-              ctx.fillStyle = '#333'
+            const x = offsetX + c * cellSize,
+              y = offsetY + r * cellSize
+            const v = map[r][c]
+            if (v === W) {
+              ctx.fillStyle = '#5D4037'
+              ctx.strokeStyle = '#8D6E63'
+              ctx.lineWidth = 2
               ctx.fillRect(x, y, cellSize, cellSize)
-              ctx.strokeStyle = '#555'
-              ctx.lineWidth = 0.5
               ctx.strokeRect(x, y, cellSize, cellSize)
+              ctx.fillStyle = 'rgba(141,110,99,.15)'
+              ctx.fillRect(x + 3, y + 3, cellSize - 6, cellSize - 6)
+            } else if (v === GH || v === GD) {
+              ctx.fillStyle = '#1B3A2D'
+              ctx.fillRect(x, y, cellSize, cellSize)
+              if (v === GD) {
+                ctx.fillStyle = '#5D4037'
+                ctx.fillRect(x, y, cellSize, cellSize * 0.25)
+                ctx.fillStyle = 'rgba(141,110,99,.3)'
+                ctx.fillRect(x + 1, y + cellSize * 0.25 - 1, cellSize - 2, 3)
+              }
             } else {
-              ctx.fillStyle = '#000'
+              ctx.fillStyle = '#1B3A2D'
               ctx.fillRect(x, y, cellSize, cellSize)
             }
-          }
-        }
-      }
-
-      function drawPlayer() {
-        if (!player.alive) return
-        let px, py
-        if (player.moving) {
-          px = player.fromX + (player.toX - player.fromX) * player.progress
-          py = player.fromY + (player.toY - player.fromY) * player.progress
-        } else {
-          px = player.col
-          py = player.row
-        }
-        const cx = offsetX + px * cellSize + cellSize / 2
-        const cy = offsetY + py * cellSize + cellSize / 2
-        const r = cellSize * 0.42
-
-        ctx.fillStyle = '#FFD54F'
-        ctx.beginPath()
-        ctx.arc(cx, cy, r, 0, Math.PI * 2)
-        ctx.fill()
-
-        let mouthAngle = 0
-        if (player.moving) {
-          mouthAngle = Math.abs(Math.sin(Date.now() * 0.01)) * 0.8
-        }
-        const dirs = [[0,-1],[0,1],[-1,0],[1,0]]
-        let angle = 0
-        if (player.dir >= 0 && player.dir <= 3) {
-          const d = dirs[player.dir]
-          angle = Math.atan2(d[1], d[0])
-        }
-        ctx.fillStyle = '#000'
-        ctx.beginPath()
-        ctx.moveTo(cx, cy)
-        ctx.arc(cx, cy, r, angle - mouthAngle, angle + mouthAngle)
-        ctx.closePath()
-        ctx.fill()
-
-        const eyeOff = 0.25
-        const perpX = -Math.sin(angle) * r * eyeOff
-        const perpY = Math.cos(angle) * r * eyeOff
-        const fwdX = Math.cos(angle) * r * 0.15
-        const fwdY = Math.sin(angle) * r * 0.15
-        ctx.fillStyle = '#000'
-        ctx.beginPath()
-        ctx.arc(cx + perpX + fwdX, cy + perpY + fwdY, r * 0.08, 0, Math.PI * 2)
-        ctx.fill()
-        ctx.beginPath()
-        ctx.arc(cx - perpX + fwdX, cy - perpY + fwdY, r * 0.08, 0, Math.PI * 2)
-        ctx.fill()
-      }
-
-      function drawHUD() {
-        ctx.fillStyle = '#fff'
-        ctx.font = 'bold ' + Math.max(14, cellSize * 0.7) + 'px monospace'
-        ctx.textAlign = 'left'
-        ctx.textBaseline = 'top'
-        ctx.fillText('PTS: ' + score, 10, canvas.height - 30)
-        ctx.textAlign = 'right'
-        let h = ''
-        for (let i = 0; i < lives; i++) h += '● '
-        ctx.fillText(h, canvas.width - 10, canvas.height - 30)
-      }
-
-      function drawOverlay(title, sub) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        ctx.fillStyle = '#ffc107'
-        ctx.font = 'bold ' + Math.max(28, cellSize * 1.5) + 'px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 20)
-        if (sub) {
-          ctx.fillStyle = '#aaa'
-          ctx.font = Math.max(14, cellSize * 0.7) + 'px sans-serif'
-          ctx.fillText(sub, canvas.width / 2, canvas.height / 2 + 20)
-        }
-      }
-
-      function update() {
-        if (state !== 'playing' || !player.alive) return
-
-        if (player.moving) {
-          player.progress += player.speed * 0.016
-          if (player.progress >= 1) {
-            player.col = player.toX
-            player.row = player.toY
-            player.fromX = player.toX
-            player.fromY = player.toY
-            player.progress = 0
-            player.moving = false
-          }
-        }
-
-        if (!player.moving) {
-          const dirs = [[0,-1],[0,1],[-1,0],[1,0]]
-          if (player.nextDir >= 0 && player.nextDir <= 3) {
-            const d = dirs[player.nextDir]
-            const nc = player.col + d[0]
-            const nr = player.row + d[1]
-            if (!isWall(nc, nr)) {
-              player.dir = player.nextDir
-              player.moving = true
-              player.fromX = player.col
-              player.fromY = player.row
-              player.toX = nc
-              player.toY = nr
-              player.progress = 0
-              player.nextDir = -1
-            }
-          }
-          if (!player.moving && player.dir >= 0 && player.dir <= 3) {
-            const d = dirs[player.dir]
-            const nc = player.col + d[0]
-            const nr = player.row + d[1]
-            if (!isWall(nc, nr)) {
-              player.moving = true
-              player.fromX = player.col
-              player.fromY = player.row
-              player.toX = nc
-              player.toY = nr
-              player.progress = 0
+            if (v === P) {
+              ctx.fillStyle = '#FF9800'
+              ctx.beginPath()
+              ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.15, 0, Math.PI * 2)
+              ctx.fill()
+            } else if (v === PP) {
+              ctx.fillStyle = '#FFC107'
+              ctx.shadowColor = '#FFC107'
+              ctx.shadowBlur = cellSize * 0.4
+              ctx.beginPath()
+              ctx.arc(x + cellSize / 2, y + cellSize / 2, cellSize * 0.3, 0, Math.PI * 2)
+              ctx.fill()
+              ctx.shadowBlur = 0
+              ctx.fillStyle = 'rgba(255,255,200,.4)'
+              ctx.beginPath()
+              ctx.arc(
+                x + cellSize / 2 - cellSize * 0.08,
+                y + cellSize / 2 - cellSize * 0.08,
+                cellSize * 0.12,
+                0,
+                Math.PI * 2,
+              )
+              ctx.fill()
             }
           }
         }
       }
 
-      function render() {
-        ctx.fillStyle = '#000'
-        ctx.fillRect(0, 0, canvas.width, canvas.height)
-        drawMaze()
-        drawPlayer()
-        drawHUD()
-        if (state === 'start') drawOverlay('COME COCOS', 'Presiona ENTER')
-        else if (state === 'gameover') drawOverlay('GAME OVER', 'Puntos: ' + score + '  ENTER para reiniciar')
-      }
-
-      function loop(time) {
-        const dt = Math.min(0.05, (time - lastTime) / 1000)
-        lastTime = time
-        update()
-        render()
-        requestAnimationFrame(loop)
-      }
-
-      function startGame() {
-        buildMap()
-        initPlayer()
-        score = 0
-        lives = 3
-        state = 'playing'
-        document.getElementById('overlay').style.display = 'none'
-      }
-
-      document.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          if (state === 'start' || state === 'gameover') startGame()
+      function drawGrizzy() {
+        if (!player.alive && deathAnim > 0) {
+          const p = 1 - deathAnim / 90
+          ctx.globalAlpha = 1 - p
+          const s = 1 - p * 0.5
+          ctx.save()
+          ctx.translate(
+            offsetX + (player.smoothX / CELL) * cellSize + cellSize / 2,
+            offsetY + (player.smoothY / CELL) * cellSize + cellSize / 2,
+          )
+          ctx.scale(s, s)
+          ctx.rotate(p * Math.PI * 2)
+          const r = cellSize * 0.4
+          ctx.fillStyle = '#8B5E3C'
+          ctx.beginPath()
+          ctx.arc(0, 0, r, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.fillStyle = '#6B4226'
+          ctx.beginPath()
+          ctx.arc(-r * 0.6, -r * 0.7, r * 0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(r * 0.6, -r * 0.7, r * 0.3, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.globalAlpha = 1
+          for (let i = 0; i < 10; i++) {
+            const a = Math.random() * Math.PI * 2,
+              d = Math.random() * r * 0.8
+            ctx.fillStyle = '#FFB74D'
+            ctx.beginPath()
+            ctx.arc(Math.cos(a) * d, Math.sin(a) * d, 1 + Math.random() * 2, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.restore()
+          ctx.globalAlpha = 1
           return
         }
-        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') player.nextDir = 0
-        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') player.nextDir = 1
-        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') player.nextDir = 2
-        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') player.nextDir = 3
-      })
+        if (!player.alive) return
+        const cx = offsetX + (player.smoothX / CELL) * cellSize + cellSize / 2,
+          cy = offsetY + (player.smoothY / CELL) * cellSize + cellSize / 2
+        const r = cellSize * 0.42
+        const mouth = Math.abs(Math.sin(player.anim)) * cellSize * 0.12
+        ctx.save()
+        ctx.translate(cx, cy)
+        const dirs = [
+          [0, 0],
+          [-1, 0],
+          [1, 0],
+          [0, -1],
+          [0, 1],
+        ]
+        const dr = dirs[player.dir + 1] || [0, 0]
+        const angle = Math.atan2(dr[0], dr[1])
+        ctx.rotate(angle)
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(0, 0, r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#A67C52'
+        ctx.beginPath()
+        ctx.arc(0, 2, r * 0.55, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#6B4226'
+        ctx.beginPath()
+        ctx.arc(-r * 0.55, -r * 0.65, r * 0.25, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(r * 0.55, -r * 0.65, r * 0.25, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.beginPath()
+        ctx.arc(-r * 0.3, -r * 0.15, r * 0.18, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(r * 0.3, -r * 0.15, r * 0.18, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(-r * 0.3, -r * 0.15, r * 0.09, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.beginPath()
+        ctx.arc(r * 0.3, -r * 0.15, r * 0.09, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#222'
+        ctx.beginPath()
+        ctx.arc(0, r * 0.1, r * 0.12, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.fillStyle = '#8B5E3C'
+        ctx.beginPath()
+        ctx.arc(0, r * 0.08, r * 0.08, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.restore()
+      }
 
-      document.getElementById('restartBtn').addEventListener('click', startGame)
-      document.getElementById('overlay').addEventListener('click', () => {
-        if (state === 'start' || state === 'gameover') startGame()
-      })
+      function drawLemming(g) {
+        const cx = offsetX + (g.smoothX / CELL) * cellSize + cellSize / 2,
+          cy = offsetY + (g.smoothY / CELL) * cellSize + cellSize / 2
+        const r = cellSize * 0.38
+        if (g.eaten && !g.inHouse) {
+          ctx.globalAlpha = 0.4
+          const s = 0.5
+          ctx.save()
+          ctx.translate(cx, cy)
+          ctx.scale(s, s)
+        } else {
+          ctx.save()
+          ctx.translate(cx, cy)
+        }
+        const col = g.frightened ? '#90CAF9' : g.eaten ? '#7E8A9E' : '#7E8A9E'
+        ctx.fillStyle = col
+        ctx.beginPath()
+        ctx.arc(0, 0, r, 0, Math.PI * 2)
+        ctx.fill()
+        if (g.frightened) {
+          const flick = Math.sin(Date.now() * 0.02) * 0.15 + 0.5
+          ctx.fillStyle = `rgba(255,255,255,${flick})`
+          ctx.beginPath()
+          ctx.arc(0, 0, r + 1, 0, Math.PI * 2)
+          ctx.fill()
+        }
+        if (!g.eaten) {
+          ctx.fillStyle = '#222'
+          ctx.beginPath()
+          ctx.arc(-r * 0.3, -r * 0.1, r * 0.17, 0, Math.PI * 2)
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(r * 0.3, -r * 0.1, r * 0.17, 0, Math.PI * 2)
+          ctx.fill()
+          if (g.frightened) {
+            ctx.fillStyle = '#fff'
+            ctx.beginPath()
+            ctx.arc(-r * 0.25, -r * 0.12, r * 0.28, 0, Math.PI * 2)
+            ctx.fill()
+            ctx.beginPath()
+            ctx.arc(r * 0.25, -r * 0.12, r * 0.28, 0, Math.PI * 2)
+            ctx.fill()
+          }
+          ctx.fillStyle = '#FFB74D'
+          ctx.beginPath()
+          ctx.arc(0, r * 0.05, r * 0.1, 0, Math.PI * 2)
+          ctx.fill()
+          const tw = r * 0.13,
+            th = r * 0.16
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(-r * 0.13, r * 0.2, tw, th)
+          ctx.fillRect(r * 0.03, r * 0.2, tw, th)
+          ctx.strokeStyle = '#ccc'
+          ctx.lineWidth = 1
+          ctx.strokeRect(-r * 0.13, r * 0.2, tw, th)
+          ctx.strokeRect(r * 0.03, r * 0.2, tw, th)
+        }
+        ctx.restore()
+        ctx.globalAlpha = 1
+      }
 
-      window.addEventListener('resize', resize)
-      resize()
-      buildMap()
-      initPlayer()
-      requestAnimationFrame(loop)
-    })()
+      function drawParticles() {
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i]
+          p.x += p.dx * delta
+          p.y += p.dy * delta
+          p.dy += 80 * delta
+          p.life -= delta
+          if (p.life <= 0) {
+            particles.splice(i, 1)
+            continue
+          }
+          ctx.globalAlpha = p.life / p.maxLife
+          ctx.fillStyle = p.color
+          ctx.beginPath()
+          ctx.arc(
+            offsetX + (p.x / CELL) * cellSize,
+            offsetY + (p.y / CELL) * cellSize,
+            p.size * (p.life / p.maxLife),
+            0,
+            Math.PI * 2,
+          )
+          ctx.fill()
+        }
+        ctx.globalAlpha = 1
+      }
+
+      function draw() {
+        ctx.fillStyle = '#2D1B0E'
+        ctx.fillRect(0, 0, W_, H_)
+        drawMaze()
+        ghosts.forEach((g) => {
+          if (g.active) drawLemming(g)
+        })
+        drawGrizzy()
+        drawParticles()
+        if (frightenedTimer > 0) {
+          const p = Math.min(1, frightenedTimer / 480)
+          ctx.fillStyle = `rgba(144,202,249,${p * 0.05})`
+          ctx.fillRect(0, 0, W_, H_)
+        }
+        ctx.fillStyle = '#FFF8E1'
+        ctx.font = `bold ${Math.max(12, cellSize * 0.6)}px monospace`
+        ctx.textAlign = 'left'
+        ctx.textBaseline = 'top'
+        const lvlTheme = LEVEL_THEMES[Math.min(3, Math.floor((level - 1) / 10))]
+        ctx.fillStyle = 'rgba(255,248,225,.5)'
+        ctx.fillText(lvlTheme.n, 8, 8)
+      }
+
+      function gameLoop(time) {
+        delta = Math.min(0.05, (time - lastTime) / 1000)
+        lastTime = time
+        if (gameState === 'playing') {
+          if (levelDelay > 0) {
+            levelDelay--
+          } else {
+            movePlayer(delta)
+            if (frightenedTimer > 0) {
+              frightenedTimer--
+              if (frightenedTimer <= 0) ghosts.forEach((g) => (g.frightened = false))
+            }
+            ghosts.forEach((g) => moveGhost(g, delta))
+            checkGhostCollisions()
+          }
+        }
+        draw()
+        updateHUD()
+        requestAnimationFrame(gameLoop)
+      }
+
+      function resize() {
+        const w = window.innerWidth,
+          h = window.innerHeight
+        const aspect = COLS / ROWS
+        let cw, ch
+        if (w / h > aspect) {
+          ch = h * 0.88
+          cw = ch * aspect
+        } else {
+          cw = w * 0.92
+          ch = cw / aspect
+        }
+        canvas.width = cw
+        canvas.height = ch
+        W_ = cw
+        H_ = ch
+        cellSize = cw / COLS
+        offsetX = 0
+        offsetY = 0
+      }
+
+      function init() {
+        canvas = document.getElementById('game')
+        ctx = canvas.getContext('2d')
+        resize()
+        window.addEventListener('resize', resize)
+        loadProgress()
+        buildMap()
+        playerInit()
+        ghosts = []
+        for (let i = 0; i < 4; i++) ghosts.push(ghostInit(i))
+        const theme = setDifficulty()
+        score = 0
+        lives = 3
+        level = 1
+        gameState = 'start'
+        updateHUD()
+        showOverlay('start')
+        document.addEventListener('keydown', (e) => {
+          keys[e.key] = true
+          initAudio()
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (gameState === 'start' || gameState === 'gameover') {
+              if (gameState === 'gameover') {
+                score = 0
+                lives = 3
+                level = 1
+              }
+              document.getElementById('overlay').style.display = 'none'
+              resetGame()
+              gameState = 'playing'
+              sndChomp()
+            }
+          }
+          if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') player.nextDir = 0
+          if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') player.nextDir = 1
+          if (e.key === 'a' || e.key === 'A' || e.key === 'ArrowLeft') player.nextDir = 2
+          if (e.key === 'd' || e.key === 'D' || e.key === 'ArrowRight') player.nextDir = 3
+          if (e.key === 'p' || e.key === 'P') {
+            if (gameState === 'playing') {
+              gameState = 'paused'
+              document.getElementById('overlay').style.display = 'flex'
+              document.getElementById('overlay').innerHTML =
+                '<h1 style="color:#FFC107">PAUSA</h1><p class="blink" style="margin-top:16px">Presiona P para continuar</p>'
+            } else if (gameState === 'paused') {
+              gameState = 'playing'
+              document.getElementById('overlay').style.display = 'none'
+            }
+          }
+        })
+        document.addEventListener('keyup', (e) => {
+          keys[e.key] = false
+        })
+        document.getElementById('restartBtn').addEventListener('click', () => {
+          if (gameState === 'playing' || gameState === 'paused' || gameState === 'gameover') {
+            score = 0
+            lives = 3
+            level = 1
+            resetGame()
+            gameState = 'playing'
+            document.getElementById('overlay').style.display = 'none'
+            sndChomp()
+          }
+        })
+        document.getElementById('overlay').addEventListener('click', () => {
+          initAudio()
+          if (gameState === 'start' || gameState === 'gameover') {
+            if (gameState === 'gameover') {
+              score = 0
+              lives = 3
+              level = 1
+            }
+            document.getElementById('overlay').style.display = 'none'
+            resetGame()
+            gameState = 'playing'
+            sndChomp()
+          }
+        })
+        requestAnimationFrame(gameLoop)
+      }
+
+      document.addEventListener('DOMContentLoaded', init)
     </script>
   </body>
 </html>
