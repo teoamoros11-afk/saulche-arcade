@@ -164,21 +164,38 @@
         for (let i = 0; i < enemyCount(); i++) spawnEnemy()
       }
 
-      function getBestDir(e) {
-        let bestDir = e.dir
-        let bestDist = Infinity
-        for (let i = 0; i < 4; i++) {
-          const d = DIRS[i]
-          const nc = e.col + d[0]
-          const nr = e.row + d[1]
-          if (isWall(nc, nr)) continue
-          const dist = Math.abs(nc - player.col) + Math.abs(nr - player.row)
-          if (dist < bestDist) {
-            bestDist = dist
-            bestDir = i
+      function bfs(sr, sc, tr, tc) {
+        if (sr === tr && sc === tc) return -1
+        const visited = Array.from({ length: ROWS }, () => Array(COLS).fill(false))
+        const parent = Array.from({ length: ROWS }, () => Array(COLS).fill(null))
+        const queue = [[sr, sc]]
+        visited[sr][sc] = true
+        while (queue.length > 0) {
+          const [r, c] = queue.shift()
+          for (let i = 0; i < 4; i++) {
+            const nr = r + DIRS[i][1]
+            const nc = c + DIRS[i][0]
+            if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue
+            if (visited[nr][nc] || isWall(nc, nr)) continue
+            visited[nr][nc] = true
+            parent[nr][nc] = [r, c, i]
+            if (nr === tr && nc === tc) {
+              let cr = tr, cc = tc
+              while (parent[cr][cc][0] !== sr || parent[cr][cc][1] !== sc) {
+                const p = parent[cr][cc]
+                cr = p[0]
+                cc = p[1]
+              }
+              return parent[cr][cc][2]
+            }
+            queue.push([nr, nc])
           }
         }
-        return bestDir
+        return -1
+      }
+
+      function getBestDir(e) {
+        return bfs(e.row, e.col, player.row, player.col)
       }
 
       function moveEntity(e, dt, isPlayer) {
