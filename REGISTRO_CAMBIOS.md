@@ -48,6 +48,28 @@
 
 ---
 
+## 🧩 MENTIS (Puzzle Game) — 8 Bugs Críticos Corregidos
+
+### Bugs Corregidos
+1. **Pantalla negra** al abrir desde menú Saulche — eliminado `sw.js` que causaba conflicto
+2. **Click no funcionaba** ("TOCA PARA COMENZAR" no respondía) — handlers corruptos
+3. **COLORS undefined** — variable referenciada pero no declarada
+4. **Eventos duplicados** — listeners se registraban múltiples veces
+5. **Stats perfectFloor** — contaba pisos perfectos incorrectamente
+6. **HUD XP_TABLE** — import faltante
+7. **Canvas z-index** — cubierto por otros elementos
+8. **Screen null** — pantalla principal no se inicializaba
+
+### GitHub Pages
+- Creado repo `saulche-arcade` (no se pudo push workflows por limitación OAuth)
+- Activado GitHub Pages vía API (`gh api`)
+
+### Menú Saulche
+- Añadida sección MENTIS en `index.html` con estilo especial púrpura/dorado
+- Actualizado conteo de juegos: 54→55
+
+---
+
 ## 🔧 Análisis de Errores (7 bugs, 12 mejoras de estilo)
 
 ### Bugs Críticos Corregidos
@@ -70,7 +92,7 @@
 ---
 
 ## 📁 Archivos Modificados
-- `index.html` — Memory leak fix, localStorage, CSS
+- `index.html` — Memory leak fix, localStorage, CSS, menú MENTIS
 - `snake.html` — Lemmings loop fix
 - `tetris.html` — roundRect polyfill, variable init
 - `donkey.html` — Escalado fix + mapas temáticos
@@ -78,6 +100,13 @@
 - `flappygrizzy.html` — Escalado fix
 - `submarino.html` — Dificultad, combo, munición
 - `comecocos.html` — Reescritura completa
+- `mentis/index.html` — CSS fixes, z-index
+- `mentis/js/app.js` — Handlers, eventos, COLORS
+- `mentis/js/core/GameLoop.js` — Update/render getters
+- `mentis/js/core/Store.js` — Nested update notifications
+- `mentis/js/systems/Stats.js` — PerfectFloor counting
+- `mentis/js/ui/HUD.js` — XP_TABLE import
+- `mentis/css/layout.css` — z-index for canvas
 
 ---
 
@@ -90,3 +119,6 @@
 6. `Rewrite Comecocos from scratch: minimal maze + Grizzy only`
 7. `Fix 7 bugs found in codebase analysis`
 8. `Add roundRect polyfill and initialize global variables in tetris.html`
+9. MENTIS: 8 critical bugs fixed (handlers, events, COLORS, stats, HUD, canvas)
+10. MENTIS: Enabled GitHub Pages via API
+11. Saulche menu: Added MENTIS section + updated game count to 55
