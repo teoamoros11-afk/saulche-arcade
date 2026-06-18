@@ -48,6 +48,32 @@
 
 ---
 
+## 🐻 Nuevas Correcciones (16 Junio 2026)
+
+### 6. Flappy Grizzy - Bug de Generación de Tuberías
+- **Bug:** Las tuberías podían aparecer fuera de los límites válidos de la pantalla
+- **Causa:** Cuando `lastGapCenter` estaba cerca del borde inferior, `minCenter` podía ser mayor que `maxCenter`
+- **Fix:** Añadido mecanismo de respaldo para restablecer el rango completo válido
+- **Verificación:** Tests automatizados confirman que todas las posiciones están dentro de límites
+
+### 7. Come Cocos - Bug de Colocación de Power Pellets
+- **Bug:** Menos power pellets de los previstos (3 en lugar de 4)
+- **Causa:** La lógica de inicialización excluía la posición inicial del jugador antes de colocar power pellets
+- **Fix:** Modificada la lógica para colocar power pellets primero, luego rellenar con pellets normales
+- **Verificación:** Tests automatizados confirman 4 power pellets correctamente colocados
+
+### 8. Come Cocos - Sistema de Pellets Añadido
+- **Características:**
+  - Pellets normales (+10 puntos) llenan celdas vacías
+  - Power pellets (+50 puntos) en 4 esquinas, cantidad disminuye por nivel (4→3→2→1)
+  - Modo asustado: enemigos se azul durante 5 segundos al comer power pellet
+  - Comer enemigos asustados: +200 puntos, reaparecen en centro después de 3s
+  - Efecto de parpadeo en últimos 2 segundos del modo asustado
+  - Progresión: limpiar todos los pellets → siguiente nivel
+  - Condición de victoria: completar nivel 40
+
+---
+
 ## 🧩 MENTIS (Puzzle Game) — 8 Bugs Críticos Corregidos
 
 ### Bugs Corregidos
