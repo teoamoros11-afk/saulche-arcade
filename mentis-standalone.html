@@ -1,0 +1,3222 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+  <title>🧠 MENTIS — El Desafío del Saber</title>
+  <meta name="description" content="100 pisos de puzzles matemáticos, lógica, estrategia y memoria.">
+  <meta name="theme-color" content="#0a0a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="MENTIS">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧠</text></svg>">
+  <style>
+:root {
+  --bg-primary: #0a0a1a;
+  --bg-secondary: #12122a;
+  --bg-tertiary: #1a1a3e;
+  --bg-card: rgba(20, 20, 50, 0.7);
+  --bg-glass: rgba(255, 255, 255, 0.04);
+  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-active: rgba(255, 255, 255, 0.15);
+  --text-primary: #f0e8d0;
+  --text-secondary: #a090b0;
+  --text-muted: #605070;
+  --gold: #ffd700;
+  --gold-dim: #b8960a;
+  --gold-glow: rgba(255, 215, 0, 0.3);
+  --purple: #7c4dff;
+  --purple-dim: #5a36cc;
+  --purple-glow: rgba(124, 77, 255, 0.3);
+  --blue: #448aff;
+  --blue-dim: #2a5fc4;
+  --blue-glow: rgba(68, 138, 255, 0.3);
+  --green: #4caf50;
+  --green-dim: #388e3c;
+  --green-glow: rgba(76, 175, 80, 0.3);
+  --red: #ef5350;
+  --red-dim: #c62828;
+  --red-glow: rgba(239, 83, 80, 0.3);
+  --cyan: #00bcd4;
+  --orange: #ff9800;
+  --pink: #e91e63;
+  --success: #4caf50;
+  --error: #ef5350;
+  --warning: #ff9800;
+  --info: #448aff;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 20px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+  --shadow-gold: 0 0 20px var(--gold-glow);
+  --font-main: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-display: 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Cascadia Code', 'Fira Code', monospace;
+  --transition-fast: 0.15s ease;
+  --transition-normal: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  --z-base: 1;
+  --z-hud: 100;
+  --z-modal: 200;
+  --z-toast: 300;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-primary);color:var(--text-primary);font-family:var(--font-main);-webkit-font-smoothing:antialiased;touch-action:none;-webkit-user-select:none;user-select:none}
+a{color:var(--gold);text-decoration:none}
+button{cursor:pointer;border:none;outline:none;font-family:inherit;background:none;color:inherit}
+input,textarea{font-family:inherit;outline:none;border:none}
+canvas{display:block}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--purple-dim);border-radius:2px}
+::selection{background:var(--purple);color:#fff}
+@font-face{font-family:'Segoe UI';src:local('Segoe UI'),local('-apple-system'),local('system-ui')}
+
+#app{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;overflow:hidden;z-index:10}
+#game-canvas{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1}
+.screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:opacity var(--transition-slow),visibility var(--transition-slow);z-index:var(--z-base)}
+.screen.active{opacity:1;visibility:visible}
+.container{width:100%;max-width:520px;padding:20px;margin:0 auto}
+.row{display:flex;gap:12px}
+.row.center{justify-content:center}
+.col{display:flex;flex-direction:column;gap:12px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.flex-center{display:flex;align-items:center;justify-content:center}
+.gap-sm{gap:6px}
+.gap-md{gap:12px}
+.gap-lg{gap:20px}
+.mt-sm{margin-top:8px}
+.mt-md{margin-top:16px}
+.mt-lg{margin-top:24px}
+.mb-sm{margin-bottom:8px}
+.mb-md{margin-bottom:16px}
+.text-center{text-align:center}
+.text-gold{color:var(--gold)}
+.text-muted{color:var(--text-muted)}
+.text-success{color:var(--success)}
+.text-error{color:var(--error)}
+.font-bold{font-weight:700}
+.font-mono{font-family:var(--font-mono)}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 28px;border-radius:var(--radius-md);font-size:15px;font-weight:600;transition:all var(--transition-fast);position:relative;overflow:hidden}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:linear-gradient(135deg,var(--purple),var(--purple-dim));color:#fff;box-shadow:0 4px 15px var(--purple-glow)}
+.btn-primary:hover{box-shadow:0 6px 25px var(--purple-glow);transform:translateY(-1px)}
+.btn-gold{background:linear-gradient(135deg,var(--gold),var(--gold-dim));color:#1a1a2e;box-shadow:0 4px 15px var(--gold-glow)}
+.btn-gold:hover{box-shadow:0 6px 25px var(--gold-glow);transform:translateY(-1px)}
+.btn-ghost{background:var(--bg-glass);border:1px solid var(--border-glass);color:var(--text-primary)}
+.btn-ghost:hover{background:var(--bg-glass-hover);border-color:var(--border-active)}
+.btn-sm{padding:8px 18px;font-size:13px}
+.btn-lg{padding:16px 36px;font-size:17px}
+.btn-icon{padding:10px;border-radius:50%;width:40px;height:40px}
+.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+.card{background:var(--bg-card);border:1px solid var(--border-glass);border-radius:var(--radius-lg);padding:20px;backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+.card-hover:hover{border-color:var(--border-active);background:var(--bg-glass-hover);transform:translateY(-2px);transition:all var(--transition-normal)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-gold{background:var(--gold-glow);color:var(--gold)}
+.badge-purple{background:var(--purple-glow);color:var(--purple)}
+.badge-green{background:var(--green-glow);color:var(--green)}
+.badge-red{background:var(--red-glow);color:var(--red)}
+.progress-bar{height:6px;border-radius:3px;background:var(--bg-glass);overflow:hidden}
+.progress-fill{height:100%;border-radius:3px;transition:width var(--transition-normal);background:linear-gradient(90deg,var(--purple),var(--gold))}
+.progress-fill.gold{background:linear-gradient(90deg,var(--gold-dim),var(--gold))}
+.progress-fill.green{background:var(--green)}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;z-index:var(--z-modal);opacity:0;visibility:hidden;transition:all var(--transition-normal);backdrop-filter:blur(4px)}
+.modal-overlay.active{opacity:1;visibility:visible}
+.modal{background:var(--bg-secondary);border:1px solid var(--border-glass);border-radius:var(--radius-xl);padding:30px;max-width:420px;width:90%;transform:scale(0.9);transition:transform var(--transition-normal);box-shadow:var(--shadow-lg)}
+.modal-overlay.active .modal{transform:scale(1)}
+.toast-container{position:fixed;top:20px;right:20px;z-index:var(--z-toast);display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{background:var(--bg-tertiary);border:1px solid var(--border-glass);border-radius:var(--radius-md);padding:12px 18px;font-size:13px;box-shadow:var(--shadow-md);transform:translateX(120%);opacity:0;transition:all var(--transition-normal);pointer-events:auto;max-width:320px}
+.toast.show{transform:translateX(0);opacity:1}
+.toast-success{border-color:var(--green-dim);box-shadow:0 4px 15px var(--green-glow)}
+.toast-error{border-color:var(--red-dim);box-shadow:0 4px 15px var(--red-glow)}
+.toast-info{border-color:var(--blue-dim);box-shadow:0 4px 15px var(--blue-glow)}
+.tooltip{position:relative}
+.tooltip::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%) scale(0.8);background:var(--bg-tertiary);color:var(--text-primary);padding:4px 10px;border-radius:var(--radius-sm);font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:all var(--transition-fast);border:1px solid var(--border-glass)}
+.tooltip:hover::after{opacity:1;transform:translateX(-50%) scale(1)}
+
+.tower-scroll{position:relative;width:100%;max-width:400px;height:420px;overflow:hidden;mask-image:linear-gradient(to bottom,transparent,black 5%,black 95%,transparent);-webkit-mask-image:linear-gradient(to bottom,transparent,black 5%,black 95%,transparent)}
+.tower-list{display:flex;flex-direction:column;gap:4px;padding:60px 10px;transition:transform var(--transition-slow)}
+.floor-btn{display:flex;align-items:center;gap:12px;padding:10px 16px;border-radius:var(--radius-md);background:var(--bg-glass);border:1px solid var(--border-glass);transition:all var(--transition-fast);font-size:13px;width:100%;text-align:left}
+.floor-btn:hover{background:var(--bg-glass-hover);border-color:var(--border-active)}
+.floor-btn.current{border-color:var(--gold);background:var(--gold-glow);box-shadow:0 0 15px var(--gold-glow)}
+.floor-btn.locked{opacity:0.4}
+.floor-btn.completed{border-color:var(--green-dim);background:var(--green-glow)}
+.floor-num{font-weight:700;color:var(--text-muted);min-width:40px}
+.floor-btn.current .floor-num{color:var(--gold)}
+.floor-btn.completed .floor-num{color:var(--green)}
+.floor-zone{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-left:auto}
+.zone-badge{padding:2px 10px;border-radius:12px;font-size:10px;font-weight:600}
+.zone-logic{background:rgba(124,77,255,0.2);color:var(--purple)}
+.zone-math{background:rgba(68,138,255,0.2);color:var(--blue)}
+.zone-visual{background:rgba(0,188,212,0.2);color:var(--cyan)}
+.zone-strategy{background:rgba(255,152,0,0.2);color:var(--orange)}
+.zone-memory{background:rgba(233,30,99,0.2);color:var(--pink)}
+.zone-mixed{background:rgba(255,215,0,0.2);color:var(--gold)}
+.stars{display:flex;gap:2px;margin-left:auto}
+.star{font-size:12px;color:var(--text-muted)}
+.star.filled{color:var(--gold);text-shadow:0 0 6px var(--gold-glow)}
+.floor-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.floor-dot.locked{background:var(--text-muted)}
+.floor-dot.current{background:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+.floor-dot.completed{background:var(--green)}
+
+.puzzle-area{width:100%;min-height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:10px 0}
+.puzzle-question{font-size:18px;line-height:1.6;text-align:center;max-width:480px;color:var(--text-primary);margin-bottom:8px}
+.puzzle-question .highlight{color:var(--gold);font-weight:700}
+.puzzle-question .emoji{font-size:24px}
+.puzzle-canvas-wrap{position:relative;border-radius:var(--radius-md);overflow:hidden;background:var(--bg-primary);border:1px solid var(--border-glass)}
+.puzzle-options{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;max-width:480px}
+.puzzle-option{display:flex;align-items:center;justify-content:center;padding:14px 8px;border-radius:var(--radius-md);background:var(--bg-glass);border:1px solid var(--border-glass);font-size:15px;font-weight:600;transition:all var(--transition-fast);cursor:pointer;text-align:center;min-height:52px}
+.puzzle-option:hover{background:var(--bg-glass-hover);border-color:var(--border-active);transform:translateY(-1px)}
+.puzzle-option.selected{background:var(--blue-glow);border-color:var(--blue)}
+.puzzle-option.correct{background:var(--green-glow);border-color:var(--green);animation:pulse 0.4s ease}
+.puzzle-option.wrong{background:var(--red-glow);border-color:var(--red);animation:shake 0.4s ease}
+.puzzle-option:active{transform:scale(0.97)}
+.puzzle-option .label{color:var(--text-muted);margin-right:8px;font-size:12px}
+.puzzle-hint{font-size:13px;color:var(--text-muted);text-align:center;padding:10px 16px;border-radius:var(--radius-md);background:var(--bg-glass);max-width:480px;width:100%;margin-top:8px}
+.puzzle-hint .hint-number{display:inline-block;padding:1px 8px;border-radius:10px;background:var(--purple-glow);color:var(--purple);font-size:11px;margin-right:6px}
+.puzzle-maze{display:grid;gap:1px;background:var(--text-muted);border-radius:var(--radius-sm);overflow:hidden}
+.maze-cell{width:100%;aspect-ratio:1;transition:background var(--transition-fast)}
+.maze-wall{background:var(--bg-primary)}
+.maze-path{background:var(--bg-tertiary)}
+.maze-player{background:var(--gold);box-shadow:0 0 8px var(--gold-glow)}
+.maze-goal{background:var(--green);box-shadow:0 0 8px var(--green-glow)}
+.maze-visited{background:rgba(124,77,255,0.3)}
+.grid-puzzle{display:grid;gap:2px;border-radius:var(--radius-sm);overflow:hidden}
+.grid-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600;border-radius:2px;transition:all var(--transition-fast);cursor:pointer}
+.grid-cell:hover{transform:scale(1.05)}
+.grid-cell.selected{box-shadow:0 0 0 2px var(--gold);z-index:1}
+.grid-cell.flipped{background:var(--bg-tertiary);border:1px solid var(--border-glass)}
+.grid-cell.matched{background:var(--green-glow);border-color:var(--green);opacity:0.6}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.puzzle-enter{animation:fadeIn 0.4s ease forwards}
+.puzzle-enter:nth-child(2){animation-delay:0.1s}
+.puzzle-enter:nth-child(3){animation-delay:0.2s}
+
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+@keyframes glow{0%,100%{box-shadow:0 0 5px var(--gold-glow)}50%{box-shadow:0 0 20px var(--gold-glow)}}
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes scaleIn{from{transform:scale(0.8);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes slideUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes slideDown{from{transform:translateY(-30px);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes particleFloat{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(-100px) rotate(720deg);opacity:0}}
+@keyframes confetti{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(200px) rotate(720deg);opacity:0}}
+@keyframes rainbow{0%{color:var(--red)}20%{color:var(--gold)}40%{color:var(--green)}60%{color:var(--blue)}80%{color:var(--purple)}100%{color:var(--red)}}
+.anim-float{animation:float 3s ease-in-out infinite}
+.anim-glow{animation:glow 2s ease-in-out infinite}
+.anim-shimmer{background:linear-gradient(90deg,transparent,rgba(255,255,255,0.06),transparent);background-size:200% 100%;animation:shimmer 3s infinite}
+.anim-scale-in{animation:scaleIn 0.4s ease forwards}
+.anim-slide-up{animation:slideUp 0.5s ease forwards}
+.anim-slide-down{animation:slideDown 0.3s ease forwards}
+.anim-delay-1{animation-delay:0.1s}
+.anim-delay-2{animation-delay:0.2s}
+.anim-delay-3{animation-delay:0.3s}
+.anim-delay-4{animation-delay:0.4s}
+.anim-delay-5{animation-delay:0.5s}
+
+
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <canvas id="game-canvas"></canvas>
+  <script>
+
+// ========== js/core/EventBus.js ==========
+(function() {
+class EventBus {
+  constructor() {
+    this._handlers = new Map()
+    this._once = new Map()
+  }
+  on(event, fn) {
+    if (!this._handlers.has(event)) this._handlers.set(event, new Set())
+    this._handlers.get(event).add(fn)
+    return () => this.off(event, fn)
+  }
+  once(event, fn) {
+    if (!this._once.has(event)) this._once.set(event, new Set())
+    this._once.get(event).add(fn)
+  }
+  off(event, fn) {
+    this._handlers.get(event)?.delete(fn)
+  }
+  emit(event, ...args) {
+    this._handlers.get(event)?.forEach(fn => { try { fn(...args) } catch (e) { console.warn(`[EventBus] ${event}:`, e) } })
+    this._once.get(event)?.forEach(fn => { try { fn(...args) } catch (e) { console.warn(`[EventBus] ${event}:`, e) } })
+    this._once.delete(event)
+  }
+  clear(event) {
+    if (event) { this._handlers.delete(event); this._once.delete(event) }
+    else { this._handlers.clear(); this._once.clear() }
+  }
+}
+
+const events = new EventBus()
+
+window.__module_core_EventBus = window.__module_core_EventBus || {};
+window.__module_core_EventBus.EventBus = class EventBus;
+window.__module_core_EventBus = window.__module_core_EventBus || {};
+window.__module_core_EventBus.events = events;
+})();
+
+// ========== js/core/Store.js ==========
+(function() {
+function safeClone(obj) {
+  if (obj === undefined || obj === null) return obj
+  if (typeof obj === 'function') return obj
+  if (typeof obj !== 'object') return obj
+  if (obj instanceof Date) return new Date(obj)
+  if (Array.isArray(obj)) return obj.map(safeClone)
+  try { return JSON.parse(JSON.stringify(obj)) }
+  catch { return Object.keys(obj).reduce((acc, k) => { acc[k] = safeClone(obj[k]); return acc }, {}) }
+}
+
+class Store {
+  constructor(initial = {}) {
+    this._state = {}
+    this._listeners = new Map()
+    this._frozen = false
+    Object.keys(initial).forEach(k => this._state[k] = safeClone(initial[k]))
+  }
+  get(key) {
+    if (!key) return safeClone(this._state)
+    const parts = key.split('.')
+    let val = this._state
+    for (const p of parts) {
+      if (val === undefined || val === null) return undefined
+      val = val[p]
+    }
+    return val !== undefined ? safeClone(val) : undefined
+  }
+  set(key, val) {
+    if (this._frozen) return
+    const parts = key.split('.')
+    const last = parts.pop()
+    let target = this._state
+    for (const p of parts) {
+      if (!target[p] || typeof target[p] !== 'object') target[p] = {}
+      target = target[p]
+    }
+    const prev = target[last]
+    target[last] = safeClone(val)
+    this._notify(key, val, prev)
+  }
+  update(key, fn) {
+    const curr = this.get(key)
+    const newVal = fn(curr)
+    this._state[key] = safeClone(newVal)
+    this._notify(key, newVal, curr)
+  }
+  observe(key, fn) {
+    if (!this._listeners.has(key)) this._listeners.set(key, new Set())
+    this._listeners.get(key).add(fn)
+    return () => { this._listeners.get(key)?.delete(fn) }
+  }
+  _notify(key, val, prev) {
+    const parts = key.split('.')
+    while (parts.length) {
+      const k = parts.join('.')
+      this._listeners.get(k)?.forEach(fn => fn(val, prev))
+      parts.pop()
+    }
+    this._listeners.get('*')?.forEach(fn => fn(key, val, prev))
+  }
+  snapshot() { return safeClone(this._state) }
+  freeze() { this._frozen = true }
+  unfreeze() { this._frozen = false }
+  reset(initial = {}) {
+    this._state = {}
+    Object.keys(initial).forEach(k => this._state[k] = safeClone(initial[k]))
+    this._notify('*', this._state, null)
+  }
+}
+
+const store = new Store({
+  screen: 'title',
+  player: { xp: 0, level: 1, streak: 0, lastPlayed: null },
+  tower: { currentFloor: 1, maxUnlocked: 1, floors: {} },
+  puzzle: { current: null, stars: 0, hintsUsed: 0 },
+  settings: { sound: true, music: true, particles: true, theme: 'dark' },
+  achievements: [],
+  stats: {
+    puzzlesSolved: 0, totalXP: 0, perfectFloors: 0,
+    byCategory: { math: 0, logic: 0, visual: 0, strategy: 0, memory: 0 },
+    totalTime: 0, bestStreak: 0, hintsUsed: 0
+  }
+})
+
+window.__module_core_Store = window.__module_core_Store || {};
+window.__module_core_Store.Store = class Store;
+window.__module_core_Store = window.__module_core_Store || {};
+window.__module_core_Store.store = store;
+})();
+
+// ========== js/core/GameLoop.js ==========
+(function() {
+class GameLoop {
+  constructor({ update, render, fps = 60 } = {}) {
+    this._updateFn = update
+    this._renderFn = render
+    this._fps = fps
+    this._interval = 1000 / fps
+    this._running = false
+    this._last = 0
+    this._accum = 0
+    this._frame = 0
+    this._raf = null
+  }
+  get update() { return this._updateFn }
+  set update(fn) { this._updateFn = fn }
+  get render() { return this._renderFn }
+  set render(fn) { this._renderFn = fn }
+  start() {
+    if (this._running) return
+    this._running = true
+    this._last = performance.now()
+    this._accum = 0
+    this._frame = 0
+    this._tick(this._last)
+  }
+  stop() {
+    this._running = false
+    if (this._raf) cancelAnimationFrame(this._raf)
+    this._raf = null
+  }
+  _tick(now) {
+    if (!this._running) return
+    this._raf = requestAnimationFrame(t => this._tick(t))
+    const delta = Math.min(now - this._last, 100)
+    this._last = now
+    this._accum += delta
+    this._frame++
+    while (this._accum >= this._interval) {
+      this._accum -= this._interval
+      this._updateFn?.(this._interval / 1000, this._frame)
+    }
+    this._renderFn?.(this._accum / this._interval, this._frame)
+  }
+  setFps(fps) {
+    this._fps = fps
+    this._interval = 1000 / fps
+  }
+  get fps() { return this._fps }
+  get running() { return this._running }
+}
+
+window.__module_core_GameLoop = window.__module_core_GameLoop || {};
+window.__module_core_GameLoop.GameLoop = class GameLoop;
+})();
+
+// ========== js/core/Input.js ==========
+(function() {
+
+class InputManager {
+  constructor(element = document) {
+    this._keys = new Set()
+    this._justPressed = new Set()
+    this._mouse = { x: 0, y: 0, down: false, justClicked: false }
+    this._touches = new Map()
+    this._bound = {}
+    this._element = element
+    this._pressed = null
+    this._bind()
+  }
+  _bind() {
+    const el = this._element
+    this._bound.keydown = e => {
+      const k = e.key
+      if (!this._keys.has(k)) this._justPressed.add(k)
+      this._keys.add(k)
+      this._pressed = k
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(k)) e.preventDefault()
+      __module_EventBus.events.emit('input:keydown', k, e)
+    }
+    this._bound.keyup = e => {
+      this._keys.delete(e.key)
+      __module_EventBus.events.emit('input:keyup', e.key, e)
+    }
+    this._bound.mousedown = e => {
+      this._mouse.down = true
+      this._mouse.justClicked = true
+      this._mouse.x = e.clientX; this._mouse.y = e.clientY
+      __module_EventBus.events.emit('input:mousedown', this._mouse, e)
+    }
+    this._bound.mousemove = e => {
+      const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { left: 0, top: 0 }
+      this._mouse.x = (e.clientX - rect.left) / (rect.width || 1)
+      this._mouse.y = (e.clientY - rect.top) / (rect.height || 1)
+    }
+    this._bound.mouseup = e => {
+      this._mouse.down = false
+      __module_EventBus.events.emit('input:mouseup', this._mouse, e)
+    }
+    this._bound.touchstart = e => {
+      e.preventDefault()
+      for (const t of e.changedTouches) this._touches.set(t.identifier, { x: t.clientX, y: t.clientY })
+      const touch = e.changedTouches[0]
+      const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : { left: 0, top: 0, width: 1, height: 1 }
+      this._mouse.x = (touch.clientX - rect.left) / (rect.width || 1)
+      this._mouse.y = (touch.clientY - rect.top) / (rect.height || 1)
+      this._mouse.justClicked = true
+      __module_EventBus.events.emit('input:touchstart', touch, e)
+    }
+    this._bound.touchend = e => {
+      for (const t of e.changedTouches) this._touches.delete(t.identifier)
+    }
+    el.addEventListener('keydown', this._bound.keydown)
+    el.addEventListener('keyup', this._bound.keyup)
+    el.addEventListener('mousedown', this._bound.mousedown)
+    el.addEventListener('mousemove', this._bound.mousemove)
+    el.addEventListener('mouseup', this._bound.mouseup)
+    el.addEventListener('touchstart', this._bound.touchstart, { passive: false })
+    el.addEventListener('touchend', this._bound.touchend)
+    el.addEventListener('contextmenu', e => e.preventDefault())
+  }
+  isDown(key) { return this._keys.has(key) }
+  justPressed(key) { return this._justPressed.has(key) }
+  anyJustPressed() { return this._justPressed.size > 0 || this._mouse.justClicked }
+  anyKey() { return this._pressed }
+  mouse() { return { ...this._mouse } }
+  clear() {
+    this._justPressed.clear()
+    this._mouse.justClicked = false
+    this._pressed = null
+  }
+  destroy() {
+    const el = this._element
+    el.removeEventListener('keydown', this._bound.keydown)
+    el.removeEventListener('keyup', this._bound.keyup)
+    el.removeEventListener('mousedown', this._bound.mousedown)
+    el.removeEventListener('mousemove', this._bound.mousemove)
+    el.removeEventListener('mouseup', this._bound.mouseup)
+    el.removeEventListener('touchstart', this._bound.touchstart)
+    el.removeEventListener('touchend', this._bound.touchend)
+    el.removeEventListener('contextmenu', e => e.preventDefault())
+  }
+}
+
+window.__module_core_Input = window.__module_core_Input || {};
+window.__module_core_Input.InputManager = class InputManager;
+})();
+
+// ========== js/core/Audio.js ==========
+(function() {
+class AudioManager {
+  constructor() {
+    this._ctx = null
+    this._enabled = true
+    this._masterGain = null
+    this._musicGain = null
+    this._sfxGain = null
+    this._musicOsc = null
+    this._musicPlaying = false
+  }
+  _init() {
+    if (this._ctx) return
+    try {
+      this._ctx = new (window.AudioContext || window.webkitAudioContext)()
+      this._masterGain = this._ctx.createGain()
+      this._masterGain.gain.value = 0.5
+      this._masterGain.connect(this._ctx.destination)
+      this._musicGain = this._ctx.createGain()
+      this._musicGain.gain.value = 0.08
+      this._musicGain.connect(this._masterGain)
+      this._sfxGain = this._ctx.createGain()
+      this._sfxGain.gain.value = 0.15
+      this._sfxGain.connect(this._masterGain)
+    } catch (e) { this._enabled = false }
+  }
+  enable(v = true) { this._enabled = v; if (!v) this.stopMusic() }
+  sfx(freq, dur = 0.1, type = 'triangle', vol = 0.12) {
+    if (!this._enabled || !this._ctx) return
+    this._init()
+    const o = this._ctx.createOscillator(), g = this._ctx.createGain()
+    o.type = type; o.frequency.value = freq
+    g.gain.setValueAtTime(vol, this._ctx.currentTime)
+    g.gain.exponentialRampToValueAtTime(0.001, this._ctx.currentTime + dur)
+    o.connect(g); g.connect(this._sfxGain)
+    o.start(); o.stop(this._ctx.currentTime + dur)
+  }
+  sfxMelody(notes) {
+    notes.forEach((n, i) => setTimeout(() => this.sfx(n[0], n[1], n[2], n[3]), n[4] || i * 80))
+  }
+  correct() { this.sfxMelody([[660, 0.08, 'sine', 0.1],[880, 0.1, 'sine', 0.1],[1100, 0.12, 'sine', 0.12]]) }
+  wrong() { this.sfx(200, 0.3, 'sawtooth', 0.08) }
+  click() { this.sfx(440, 0.04, 'sine', 0.06) }
+  levelUp() { this.sfxMelody([[523, 0.1, 'sine', 0.1],[659, 0.1, 'sine', 0.1],[784, 0.1, 'sine', 0.1],[1047, 0.2, 'sine', 0.15]]) }
+  achieve() { this.sfxMelody([[880, 0.08, 'sine', 0.12],[1100, 0.08, 'sine', 0.12],[1320, 0.15, 'sine', 0.15]]) }
+  complete() {
+    this.sfxMelody([[523, 0.1, 'sine', 0.1],[659, 0.1, 'sine', 0.1],[784, 0.15, 'sine', 0.12],[1047, 0.25, 'triangle', 0.15],[1319, 0.4, 'triangle', 0.12]])
+  }
+  startMusic() {
+    if (!this._enabled || this._musicPlaying) return
+    this._init()
+    this._musicPlaying = true
+    this._playAmbient()
+  }
+  stopMusic() {
+    this._musicPlaying = false
+    if (this._musicOsc) try { this._musicOsc.forEach(o => o.stop()) } catch {}
+    this._musicOsc = null
+  }
+  _playAmbient() {
+    if (!this._musicPlaying || !this._ctx) return
+    const notes = [220, 247, 262, 294, 330, 349, 392]
+    const oscs = []
+    for (let i = 0; i < 3; i++) {
+      const o = this._ctx.createOscillator()
+      const g = this._ctx.createGain()
+      o.type = 'sine'; o.frequency.value = notes[Math.floor(Math.random() * notes.length)] * (0.5 + Math.random() * 0.5)
+      g.gain.setValueAtTime(0, this._ctx.currentTime)
+      g.gain.linearRampToValueAtTime(0.02 + Math.random() * 0.03, this._ctx.currentTime + 2)
+      g.gain.linearRampToValueAtTime(0, this._ctx.currentTime + 4 + Math.random() * 3)
+      o.connect(g); g.connect(this._musicGain)
+      o.start(); o.stop(this._ctx.currentTime + 5 + Math.random() * 3)
+      oscs.push(o)
+    }
+    this._musicOsc = oscs
+    setTimeout(() => this._playAmbient(), 2000 + Math.random() * 3000)
+  }
+  setVolume(v) { if (this._masterGain) this._masterGain.gain.value = Math.max(0, Math.min(1, v)) }
+}
+
+window.__module_core_Audio = window.__module_core_Audio || {};
+window.__module_core_Audio.AudioManager = class AudioManager;
+})();
+
+// ========== js/core/Save.js ==========
+(function() {
+const KEY = 'mentis_save'
+class SaveManager {
+  static save(data) {
+    try {
+      const str = JSON.stringify(data)
+      localStorage.setItem(KEY, str)
+      return true
+    } catch (e) { return false }
+  }
+  static load() {
+    try {
+      const str = localStorage.getItem(KEY)
+      return str ? JSON.parse(str) : null
+    } catch (e) { return null }
+  }
+  static clear() {
+    localStorage.removeItem(KEY)
+  }
+  static backup() {
+    const data = this.load()
+    if (data) {
+      try {
+        localStorage.setItem(KEY + '_backup_' + Date.now(), JSON.stringify(data))
+      } catch {}
+    }
+  }
+  static exportJSON() {
+    return JSON.stringify(this.load(), null, 2)
+  }
+  static importJSON(str) {
+    try {
+      const data = JSON.parse(str)
+      if (data && data.player) {
+        this.save(data)
+        return true
+      }
+    } catch {}
+    return false
+  }
+}
+
+window.__module_core_Save = window.__module_core_Save || {};
+window.__module_core_Save.SaveManager = class SaveManager;
+})();
+
+// ========== js/puzzles/Engine.js ==========
+(function() {
+class PuzzleResult {
+  constructor({ correct, xp, stars, time }) {
+    this.correct = correct
+    this.xp = xp || (correct ? Math.max(10, 50 - Math.floor(time || 0)) : 0)
+    this.stars = stars ?? (correct ? 1 : 0)
+    this.time = time || 0
+  }
+}
+
+class PuzzleEngine {
+  constructor(config = {}) {
+    this.category = config.category || 'generic'
+    this.difficulty = config.difficulty || 1
+    this._generators = []
+    this._current = null
+    this._startTime = 0
+    this._solved = false
+  }
+  register(generator) { this._generators.push(generator) }
+  generate(difficulty) {
+    this.difficulty = difficulty || this.difficulty
+    const gen = this._generators[Math.floor(Math.random() * this._generators.length)]
+    this._current = gen(this.difficulty)
+    this._solved = false
+    this._startTime = Date.now()
+    return this._current
+  }
+  get current() { return this._current }
+  get elapsed() { return (Date.now() - this._startTime) / 1000 }
+  check(answer) {
+    if (this._solved) return null
+    const correct = this._current?.check?.(answer) ?? false
+    const time = this.elapsed
+    if (correct) {
+      this._solved = true
+      const timeBonus = Math.max(0, Math.floor(15 - time) * 2)
+      const stars = time < 5 ? 3 : time < 12 ? 2 : 1
+      return new PuzzleResult({ correct: true, xp: 25 + timeBonus, stars, time })
+    }
+    return new PuzzleResult({ correct: false, xp: 0, stars: 0, time })
+  }
+  reset() {
+    this._current = null
+    this._solved = false
+    this._startTime = 0
+  }
+}
+
+class PuzzleQuestion {
+  constructor({ text, options, answer, renderer, check, data }) {
+    this.text = text
+    this.options = options || []
+    this.answer = answer ?? 0
+    this.renderer = renderer || null
+    this.check = check || ((a) => a === this.answer)
+    this.data = data || {}
+    this.id = Math.random().toString(36).slice(2, 8)
+  }
+}
+
+window.__module_puzzles_Engine = window.__module_puzzles_Engine || {};
+window.__module_puzzles_Engine.PuzzleEngine = class PuzzleEngine;
+window.__module_puzzles_Engine = window.__module_puzzles_Engine || {};
+window.__module_puzzles_Engine.PuzzleResult = class PuzzleResult;
+window.__module_puzzles_Engine = window.__module_puzzles_Engine || {};
+window.__module_puzzles_Engine.PuzzleQuestion = class PuzzleQuestion;
+})();
+
+// ========== js/puzzles/MathPuzzle.js ==========
+(function() {
+import PuzzleEngine, { PuzzleQuestion } from './Engine.js'
+
+function shuffle(arr) {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function genOptions(correct, count = 4, spread = 5) {
+  const opts = new Set([correct])
+  let attempts = 0
+  while (opts.size < count && attempts < 50) {
+    const d = correct + Math.floor(Math.random() * spread * 2 - spread)
+    if (d >= 0 && d !== correct) opts.add(d)
+    attempts++
+  }
+  while (opts.size < count) opts.add(Math.floor(Math.random() * 20))
+  const arr = shuffle([...opts])
+  return { options: arr, answer: arr.indexOf(correct) }
+}
+
+function genEquationVisual(diff) {
+  const emojis = ['🐻', '⭐', '🌙', '🍎', '🐟', '🌸', '🎈', '🧊']
+  const e1 = emojis[Math.floor(Math.random() * emojis.length)]
+  let e2;
+  do { e2 = emojis[Math.floor(Math.random() * emojis.length)] } while (e2 === e1)
+  const v1 = 2 + Math.floor(Math.random() * (4 + diff * 2))
+  const v2 = 2 + Math.floor(Math.random() * (4 + diff * 2))
+  const ops = ['+', '×', '−']
+  const op = ops[Math.floor(Math.random() * (diff < 3 ? 2 : 3))]
+  let r1, r2, display
+  switch (op) {
+    case '+':
+      r1 = v1 + v2;
+      display = `${e1} + ${e1} = ${r1}\n${e1} + ${e2} = ${r1 + v2}\n${e2} = ?`
+      break
+    case '×':
+      r1 = v1 * v2;
+      display = `${e1} × ${e2} = ${r1}\n${e1} × ${e1} = ${v1 * v1}\n${e2} = ?`
+      break
+    case '−':
+      r1 = v1 + v2;
+      display = `${e1} + ${e2} = ${r1}\n${e1} = ${v1}\n${e2} = ?`
+      break
+  }
+  const { options, answer } = genOptions(v2, 4, 3 + diff)
+  return new PuzzleQuestion({
+    text: display,
+    options: options.map(o => String(o)),
+    answer,
+    data: { category: 'math', subType: 'equation', value: v2 }
+  })
+}
+
+function genSequence(diff) {
+  const step = 1 + Math.floor(Math.random() * (2 + diff))
+  const start = 1 + Math.floor(Math.random() * (5 + diff * 2))
+  const len = 3 + Math.floor(Math.random() * 2)
+  const seq = []
+  for (let i = 0; i < len; i++) seq.push(start + i * step)
+  const next = start + len * step
+  const seqDisplay = seq.join(', ')
+  const { options, answer } = genOptions(next, 4, Math.max(3, step * 2))
+  return new PuzzleQuestion({
+    text: `🔢 ¿Qué número sigue?\n\n${seqDisplay}, ?`,
+    options: options.map(o => String(o)),
+    answer,
+    data: { category: 'math', subType: 'sequence', value: next }
+  })
+}
+
+function genWordProblem(diff) {
+  const names = ['Ana', 'Luis', 'Sara', 'Pablo', 'Marta', 'Carlos', 'Elena', 'Diego', 'Lucía', 'Miguel', 'Valeria', 'Jorge']
+  const n1 = names[Math.floor(Math.random() * names.length)]
+  let n2; do { n2 = names[Math.floor(Math.random() * names.length)] } while (n2 === n1)
+  const items = ['canicas', 'manzanas', 'galletas', 'lápices', 'caramelos', 'monedas', 'fichas', 'cromos', 'bolígrafos', 'pegatinas', 'canicas']
+  const item = items[Math.floor(Math.random() * items.length)]
+  const q1 = 5 + Math.floor(Math.random() * (10 + diff * 3))
+  const q2 = 3 + Math.floor(Math.random() * (8 + diff * 2))
+  const scenarios = [
+    { text: `${n1} tiene ${q1} ${item}. ${n2} le da ${q2} más. ¿Cuántos tiene ahora?`, answer: q1 + q2 },
+    { text: `${n1} tiene ${q1 + q2} ${item}. Le da ${q2} a ${n2}. ¿Cuántos le quedan?`, answer: q1 },
+    { text: `${n1} tiene ${q1} ${item}. ${n2} tiene ${q2} ${item}. ¿Cuántos tienen entre los dos?`, answer: q1 + q2 },
+    { text: `${n1} tiene ${q1 + q2} ${item} y los reparte en partes iguales entre ${q2} amigos. ¿Cuántos le tocan a cada uno?`, answer: Math.round((q1 + q2) / q2) },
+  ]
+  if (diff >= 3) {
+    scenarios.push(
+      { text: `${n1} ${['camina', 'corre', 'nada'][Math.floor(Math.random() * 3)]} ${q1} metros por minuto durante ${q2} minutos. ¿Qué distancia recorre en total?`, answer: q1 * q2 },
+      { text: `${n1} compra ${q1} ${item === 'canicas' ? 'bolsas de canicas' : item} por ${q2} ${['euros', 'pesos'][Math.floor(Math.random() * 2)]} cada ${item === 'canicas' ? 'bolsa' : 'uno'}. ¿Cuánto gasta en total?`, answer: q1 * q2 },
+    )
+  }
+  const sc = scenarios[Math.floor(Math.random() * scenarios.length)]
+  const { options, answer } = genOptions(sc.answer, 4, 3 + diff)
+  return new PuzzleQuestion({
+    text: `📝 ${sc.text}`,
+    options: options.map(o => String(o)),
+    answer,
+    data: { category: 'math', subType: 'word', value: sc.answer }
+  })
+}
+
+function genFractionVisual(diff) {
+  const total = 4 + Math.floor(Math.random() * (2 + diff)) * 2
+  const shaded = 1 + Math.floor(Math.random() * (total - 1))
+  const { options, answer } = genOptions(shaded, 4, Math.max(1, Math.floor(total / 2)))
+  return new PuzzleQuestion({
+    text: `🥧 La torta tiene ${total} partes iguales y ${shaded} están coloreadas.\n¿Qué fracción representa la parte coloreada?`,
+    options: options.map(o => `${o}/${total}`),
+    answer,
+    data: { category: 'math', subType: 'fraction', total, shaded }
+  })
+}
+
+function genAreaVisual(diff) {
+  const w = 2 + Math.floor(Math.random() * (2 + diff))
+  const h = 2 + Math.floor(Math.random() * (2 + diff))
+  const area = w * h
+  const { options, answer } = genOptions(area, 4, Math.max(2, Math.floor(area / 2)))
+  return new PuzzleQuestion({
+    text: `📐 Un rectángulo mide ${w} × ${h} unidades.\n¿Cuál es su área (en unidades cuadradas)?`,
+    options: options.map(o => String(o)),
+    answer,
+    data: { category: 'math', subType: 'area', w, h }
+  })
+}
+
+class createMathPuzzleEngine() {
+  const engine = new PuzzleEngine({ category: 'math' })
+  const generators = [genEquationVisual, genSequence, genWordProblem, genFractionVisual, genAreaVisual]
+  generators.forEach(g => engine.register(g))
+  return engine
+}
+
+window.__module_puzzles_MathPuzzle = window.__module_puzzles_MathPuzzle || {};
+window.__module_puzzles_MathPuzzle.createMathPuzzleEngine = class createMathPuzzleEngine;
+})();
+
+// ========== js/puzzles/LogicPuzzle.js ==========
+(function() {
+import PuzzleEngine, { PuzzleQuestion } from './Engine.js'
+
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }; return a }
+
+function genOptions(correct, count = 4) {
+  const opts = new Set([correct])
+  let attempts = 0
+  while (opts.size < count && attempts < 50) {
+    const r = Math.floor(Math.random() * count * 3)
+    if (r !== correct) opts.add(r)
+    attempts++
+  }
+  while (opts.size < count) opts.add(opts.size)
+  const arr = shuffle([...opts])
+  return { options: arr.map(i => String.fromCharCode(65 + i)), answer: arr.indexOf(correct) }
+}
+
+function guessAnArray(len, options) {
+  const res = []
+  for (let i = 0; i < len; i++) {
+    res.push(options[Math.floor(Math.random() * options.length)])
+  }
+  return res
+}
+function arrayShuffleEqual(a, b) {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+function genTruthLie(diff) {
+  const scenarios = [
+    { statements: ['"El cielo es rojo"', '"El agua moja"'], truth: [false, true], answer: 1 },
+    { statements: ['"2 + 2 = 5"', '"3 + 3 = 6"', '"1 + 1 = 3"'], truth: [false, true, false], answer: 1 },
+    { statements: ['"Los perros vuelan"', '"Los peces nadan"', '"Los gatos maúllan"'], truth: [false, true, true], answer: 1 },
+  ]
+  const sc = diff >= 3 ? scenarios[Math.floor(Math.random() * scenarios.length)] : scenarios[Math.floor(Math.random() * 2)]
+  const q = `¿Cuál de estas afirmaciones es VERDADERA?\n\n${sc.statements.join('\n')}`
+  const { options, answer } = genOptions(sc.answer, sc.statements.length)
+  const texts = sc.statements.map(s => s.replace(/"/g, ''))
+  return new PuzzleQuestion({ text: q, options: texts, answer, data: { category: 'logic', subType: 'truth' } })
+}
+
+function genLogicGrid(diff) {
+  const items = ['Casa Roja', 'Casa Azul', 'Casa Verde', 'Casa Amarilla']
+  const count = 3 + Math.floor(Math.min(diff, 2))
+  const selected = items.slice(0, count)
+  const correct = Math.floor(Math.random() * count)
+  const shuffled = shuffle([...Array(count).keys()])
+  const correctIdx = shuffled.indexOf(correct)
+  const clues = []
+  if (count >= 3) {
+    clues.push(`La ${selected[shuffled[0]]} está a la izquierda de la ${selected[shuffled[1]]}.`)
+    clues.push(`La ${selected[shuffled[2]]} no está al principio.`)
+  }
+  if (count >= 4) clues.push(`La ${selected[shuffled[3]]} está al final.`)
+  const q = `🧩 Ordena las casas según las pistas:\n\n${clues.join('\n')}\n\n¿Qué casa va al PRINCIPIO?`
+  const { options, answer } = genOptions(correctIdx, count)
+  return new PuzzleQuestion({ text: q, options: selected, answer, data: { category: 'logic', subType: 'grid', correct: selected[correct] } })
+}
+
+function genSequence(diff) {
+  const symbols = ['○', '●', '△', '▲', '□', '■', '◇', '◆']
+  const sy = symbols.slice(0, 4 + Math.floor(Math.min(diff, 2)))
+  const pat = []
+  const len = 3 + Math.floor(Math.random() * 2)
+  for (let i = 0; i < len; i++) {
+    pat.push(sy[Math.floor(Math.random() * sy.length)])
+  }
+  const next = sy[Math.floor(Math.random() * sy.length)]
+  const allOptions = shuffle([...sy]).slice(0, 4)
+  const answer = allOptions.indexOf(next)
+  return new PuzzleQuestion({
+    text: `🔍 ¿Qué símbolo completa la secuencia?\n\n${pat.join(' ')}  ?`,
+    options: allOptions,
+    answer,
+    data: { category: 'logic', subType: 'sequence' }
+  })
+}
+
+function genAnalogy(diff) {
+  const pairs = [
+    { a: 'Mano', b: 'Guante', c: 'Pie', d: 'Calcetín' },
+    { a: 'Día', b: 'Noche', c: 'Sol', d: 'Luna' },
+    { a: 'Perro', b: 'Ladrar', c: 'Gato', d: 'Maullar' },
+    { a: 'Ojo', b: 'Ver', c: 'Oído', d: 'Oír' },
+    { a: 'Fuego', b: 'Calor', c: 'Hielo', d: 'Frío' },
+    { a: 'Cocinar', b: 'Cocina', c: 'Dormir', d: 'Dormitorio' },
+    { a: 'Lluvia', b: 'Paraguas', c: 'Sol', d: 'Gafas de sol' },
+    { a: 'Pez', b: 'Agua', c: 'Ave', d: 'Aire' },
+    { a: 'Libro', b: 'Leer', c: 'Canción', d: 'Cantar' },
+    { a: 'Semilla', b: 'Árbol', c: 'Huevo', d: 'Pájaro' },
+    { a: 'Lápiz', b: 'Dibujar', c: 'Piano', d: 'Tocar' },
+    { a: 'Norte', b: 'Sur', c: 'Este', d: 'Oeste' },
+  ]
+  const pair = pairs[Math.floor(Math.random() * pairs.length)]
+  const wrongs = pairs.filter(p => p !== pair).map(p => p.d)
+  const wrong = wrongs[Math.floor(Math.random() * wrongs.length)]
+  const opts = shuffle([pair.d, wrong, ...wrongs.slice(1, 3)])
+  const answer = opts.indexOf(pair.d)
+  return new PuzzleQuestion({
+    text: `🧠 ${pair.a} es a ${pair.b} como ${pair.c} es a...`,
+    options: opts,
+    answer,
+    data: { category: 'logic', subType: 'analogy' }
+  })
+}
+
+function genDeduction(diff) {
+  const items = ['🐻', '🦊', '🐰', '🐱', '🐶', '🐭', '🐸', '🦁']
+  const animals = shuffle(items).slice(0, 3 + Math.floor(Math.min(diff, 2)))
+  const correct = animals[Math.floor(Math.random() * animals.length)]
+  const clues = []
+  if (animals.length >= 3) {
+    clues.push(`${animals[0]} no es de color marrón.`)
+    clues.push(`${animals[1]} ${['tiene manchas', 'es muy rápido', 'vive en el bosque', 'tiene orejas largas', 'nada muy bien'][Math.floor(Math.random() * 5)]}.`)
+    clues.push(`${animals[2]} ${['es el más pequeño', 'tiene cola larga', 'come frutas', 'salta muy alto', 'tiene rayas'][Math.floor(Math.random() * 5)]}.`)
+  }
+  if (animals.length >= 4) clues.push(`${animals[3]} es ${['el único que vuela', 'el que tiene más amigos', 'el más viejo', 'el más joven'][Math.floor(Math.random() * 4)]}.`)
+  const q = `🔎 Deducción:\n\n${clues.join('\n')}\n\n¿Cuál es ${animals[Math.floor(Math.random() * animals.length)]}?`
+  const opts = shuffle(animals)
+  const answer = opts.indexOf(correct)
+  return new PuzzleQuestion({ text: q, options: opts, answer, data: { category: 'logic', subType: 'deduction' } })
+}
+
+class createLogicPuzzleEngine() {
+  const engine = new PuzzleEngine({ category: 'logic' })
+  const generators = [genTruthLie, genSequence, genAnalogy, genDeduction]
+  if (Math.random() > 0.5) generators.push(genLogicGrid)
+  generators.forEach(g => engine.register(g))
+  return engine
+}
+
+window.__module_puzzles_LogicPuzzle = window.__module_puzzles_LogicPuzzle || {};
+window.__module_puzzles_LogicPuzzle.createLogicPuzzleEngine = class createLogicPuzzleEngine;
+})();
+
+// ========== js/puzzles/VisualPuzzle.js ==========
+(function() {
+import PuzzleEngine, { PuzzleQuestion } from './Engine.js'
+
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }; return a }
+
+function genMaze(diff) {
+  const size = 5 + Math.floor(Math.min(diff, 5)) * 2
+  const grid = Array.from({ length: size }, () => Array.from({ length: size }, () => ({ n: true, s: true, e: true, w: true, visited: false })))
+  function carve(cx, cy) {
+    grid[cy][cx].visited = true
+    const dirs = shuffle([[0, -1, 'n', 's'], [0, 1, 's', 'n'], [1, 0, 'e', 'w'], [-1, 0, 'w', 'e']])
+    for (const [dx, dy, dir, opp] of dirs) {
+      const nx = cx + dx, ny = cy + dy
+      if (nx < 0 || nx >= size || ny < 0 || ny >= size) continue
+      if (!grid[ny][nx].visited) {
+        grid[cy][cx][dir] = false
+        grid[ny][nx][opp] = false
+        carve(nx, ny)
+      }
+    }
+  }
+  carve(0, 0)
+  const endX = size - 1, endY = size - 1
+  let solution = []
+  function solve(x, y, path) {
+    if (x === endX && y === endY) { solution = [...path, { x, y }]; return true }
+    if (grid[y][x]._solved) return false
+    grid[y][x]._solved = true
+    const dirs = [[0, -1, 'n'], [0, 1, 's'], [1, 0, 'e'], [-1, 0, 'w']]
+    for (const [dx, dy, dir] of shuffle(dirs)) {
+      if (!grid[y][x][dir]) {
+        const nx = x + dx, ny = y + dy
+        if (nx >= 0 && nx < size && ny >= 0 && ny < size && !grid[ny][nx]._solved) {
+          if (solve(nx, ny, [...path, { x, y }])) return true
+        }
+      }
+    }
+    return false
+  }
+  solve(0, 0, [])
+  const solutionLen = solution.length - 1
+  const answer = solutionLen
+  const options = shuffle([answer, answer - 1, answer + 1, answer - 2].filter(v => v > 0))
+  const optAnswer = options.indexOf(answer)
+  return new PuzzleQuestion({
+    text: `🌀 Laberinto ${size}×${size}\nEncuentra la salida.\n¿Cuál es la longitud del camino más corto (en pasos)?`,
+    options: options.map(o => String(o) + ' pasos'),
+    answer: optAnswer,
+    data: { category: 'visual', subType: 'maze', size, solution: solutionLen, grid }
+  })
+}
+
+const ROT_SHAPES = ['◢', '◣', '◤', '◥', '⬒', '⬔', '⭓', '⭔']
+const ROT_PATTERNS = [
+  { s: '◢', rots: [0, 1, 2, 3] },
+  { s: '◣', rots: [1, 2, 3, 0] },
+  { s: '⬒', rots: [0, 1, 2, 3] },
+]
+
+function genRotation(diff) {
+  const pat = ROT_PATTERNS[Math.floor(Math.random() * ROT_PATTERNS.length)]
+  const deg = (Math.floor(Math.random() * 3) + 1) * 90
+  const steps = deg / 90
+  const answer = steps % 4
+  const options = shuffle([0, 1, 2, 3])
+  return new PuzzleQuestion({
+    text: `🔄 La figura ${pat.s} rota ${deg}°.\n¿Qué posición final tiene?`,
+    options: [pat.s, ...ROT_SHAPES.filter(s => s !== pat.s).slice(0, 3)],
+    answer: options.indexOf(answer),
+    data: { category: 'visual', subType: 'rotation' }
+  })
+}
+
+function genPattern(diff) {
+  const shapes = ['●', '■', '▲', '◆', '★', '⬟']
+  const s = shuffle(shapes).slice(0, 3)
+  const grid = []
+  for (let r = 0; r < 3; r++) {
+    grid.push([])
+    for (let c = 0; c < 3; c++) {
+      grid[r].push(s[Math.floor(Math.random() * s.length)])
+    }
+  }
+  const missingR = Math.floor(Math.random() * 3)
+  const missingC = Math.floor(Math.random() * 3)
+  const correct = grid[missingR][missingC]
+  grid[missingR][missingC] = '❓'
+  const opts = shuffle([correct, ...s.filter(x => x !== correct)])
+  const display = grid.map(r => r.join(' ')).join('\n')
+  return new PuzzleQuestion({
+    text: `🔲 ¿Qué figura falta?\n\n${display}`,
+    options: opts,
+    answer: opts.indexOf(correct),
+    data: { category: 'visual', subType: 'pattern' }
+  })
+}
+
+function genSymmetry(diff) {
+  const pairs = [
+    { left: '🐱', right: '🐱', axis: 'vertical' },
+    { left: '▶', right: '◀', axis: 'vertical' },
+    { left: '⬆', right: '⬆', axis: 'vertical' },
+  ]
+  const p = pairs[Math.floor(Math.random() * pairs.length)]
+  const wrongs = ['🐶', '🐰', '🐸']
+  const opts = shuffle([p.right, ...wrongs.slice(0, 3)])
+  return new PuzzleQuestion({
+    text: `🪞 Eje de simetría vertical.\nLado izquierdo: ${p.left}\n¿Qué va al lado derecho?`,
+    options: opts,
+    answer: opts.indexOf(p.right),
+    data: { category: 'visual', subType: 'symmetry' }
+  })
+}
+
+class createVisualPuzzleEngine() {
+  const engine = new PuzzleEngine({ category: 'visual' })
+  const generators = [genMaze, genRotation, genPattern, genSymmetry]
+  generators.forEach(g => engine.register(g))
+  return engine
+}
+
+window.__module_puzzles_VisualPuzzle = window.__module_puzzles_VisualPuzzle || {};
+window.__module_puzzles_VisualPuzzle.createVisualPuzzleEngine = class createVisualPuzzleEngine;
+})();
+
+// ========== js/puzzles/StrategyPuzzle.js ==========
+(function() {
+import PuzzleEngine, { PuzzleQuestion } from './Engine.js'
+
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }; return a }
+
+function genOptions(correct, count = 4) {
+  const opts = new Set([correct])
+  let attempts = 0
+  while (opts.size < count && attempts < 50) {
+    const d = correct + Math.floor(Math.random() * 8 - 4)
+    if (d >= 1 && d !== correct) opts.add(d)
+    attempts++
+  }
+  while (opts.size < count) opts.add(opts.size + 1)
+  const arr = shuffle([...opts])
+  return { options: arr.map(o => String(o)), answer: arr.indexOf(correct) }
+}
+
+function genTowersOfHanoi(diff) {
+  const disks = 3 + Math.floor(Math.min(diff, 3))
+  const minMoves = Math.pow(2, disks) - 1
+  const { options, answer } = genOptions(minMoves, 4)
+  return new PuzzleQuestion({
+    text: `🗼 Torres de Hanoi\n${disks} discos.\nPásalos todos al tercer poste.\nSolo puedes mover un disco a la vez y no puedes poner un disco grande sobre uno pequeño.\n\n¿Cuál es el número MÍNIMO de movimientos?`,
+    options,
+    answer,
+    data: { category: 'strategy', subType: 'hanoi', disks, minMoves }
+  })
+}
+
+function genBridgeCrossing(diff) {
+  const times = shuffle([1, 2, 5, 8, 10, 13].slice(0, 4 + Math.floor(Math.min(diff, 2))))
+  const sorted = [...times].sort((a, b) => a - b)
+  const n = times.length
+  let optimal = 0
+  if (n <= 2) optimal = Math.max(...sorted)
+  else if (n === 3) optimal = sorted[0] + sorted[1] + sorted[2]
+  else {
+    const a = sorted[0], b = sorted[1]
+    for (let i = n - 1; i >= 0; i -= 2) {
+      if (i === 1) { optimal += b; break }
+      if (i === 2) { optimal += a + sorted[1] + sorted[2]; break }
+      optimal += Math.min(2 * a + sorted[i] + sorted[i - 1], a + 2 * b + sorted[i])
+    }
+  }
+  const { options, answer } = genOptions(optimal, 4)
+  return new PuzzleQuestion({
+    text: `🌉 ${n} personas cruzan un puente. Llevan una linterna.\nTiempos: ${times.join(', ')} segundos.\nEl puente solo soporta a 2 personas a la vez.\nSin linterna no pueden cruzar.\n\n¿Cuál es el tiempo MÍNIMO total (en segundos)?`,
+    options: options.map(o => o + 's'),
+    answer,
+    data: { category: 'strategy', subType: 'bridge', optimal }
+  })
+}
+
+function genWaterJug(diff) {
+  const cap1 = 5 + Math.floor(Math.random() * (3 + diff * 2))
+  const cap2 = 3 + Math.floor(Math.random() * (3 + diff))
+  const target = 2 + Math.floor(Math.random() * Math.min(cap1, cap2) - 1)
+  if (target < 1) target = 1
+  const answer = target
+  const { options: opts, answer: optAns } = genOptions(target, 4)
+  return new PuzzleQuestion({
+    text: `🫗 Jarras de agua.\nJarra A: ${cap1} litros\nJarra B: ${cap2} litros\nTienes un grifo que llena las jarras.\nPuedes llenar, vaciar, o verter de una a otra.\n\n¿Cuántos litros puedes medir EXACTAMENTE?`,
+    options: opts.map(o => o + 'L'),
+    answer: optAns,
+    data: { category: 'strategy', subType: 'water', target }
+  })
+}
+
+function genOptimization(diff) {
+  const items = [
+    { name: 'Manzanas', value: 3, weight: 2 },
+    { name: 'Pan', value: 5, weight: 3 },
+    { name: 'Agua', value: 4, weight: 2 },
+    { name: 'Libro', value: 6, weight: 4 },
+    { name: 'Linterna', value: 2, weight: 1 },
+    { name: 'Manta', value: 3, weight: 3 },
+    { name: 'Comida', value: 7, weight: 5 },
+    { name: 'Botiquín', value: 8, weight: 3 },
+  ]
+  const selected = shuffle(items).slice(0, 4 + Math.floor(Math.min(diff, 2)))
+  const capacity = selected.reduce((s, i) => s + i.weight, 0) / 2 + Math.floor(Math.random() * 2)
+  const cap = Math.floor(capacity)
+  const dp = Array(cap + 1).fill(0)
+  for (const item of selected) {
+    for (let w = cap; w >= item.weight; w--) {
+      dp[w] = Math.max(dp[w], dp[w - item.weight] + item.value)
+    }
+  }
+  const optimal = Math.max(...dp)
+  const { options, answer } = genOptions(optimal, 4)
+  const listStr = selected.map(i => `${i.name}: ${i.value}pts, ${i.weight}kg`).join('\n')
+  return new PuzzleQuestion({
+    text: `🎒 Mochila (capacidad: ${cap}kg)\n\n${listStr}\n\n¿Cuál es el valor MÁXIMO que puedes llevar?`,
+    options: options.map(o => o + ' pts'),
+    answer,
+    data: { category: 'strategy', subType: 'optimize', optimal }
+  })
+}
+
+function genRiverCrossing(diff) {
+  const animals = ['🐺 Lobo', '🐑 Oveja', '🥬 Lechuga', '🐔 Gallina', '🌾 Trigo']
+  const sel = animals.slice(0, 3 + Math.floor(Math.min(diff, 1)))
+  const n = sel.length
+  let boatTrips = n + (n - 1)
+  const { options, answer } = genOptions(boatTrips, 4)
+  return new PuzzleQuestion({
+    text: `🚣 Cruce del río.\n${sel.join(', ')}.\nEl bote solo lleva 1 cosa además de ti.\nNo puedes dejar solos a: Lobo+Oveja, Oveja+Lechuga, Gallina+Trigo.\n\n¿Cuál es el número MÍNIMO de viajes?`,
+    options: options.map(o => o + ' viajes'),
+    answer,
+    data: { category: 'strategy', subType: 'river', trips: boatTrips }
+  })
+}
+
+class createStrategyPuzzleEngine() {
+  const engine = new PuzzleEngine({ category: 'strategy' })
+  const generators = [genTowersOfHanoi, genOptimization, genWaterJug, genRiverCrossing]
+  if (Math.random() > 0.5) generators.push(genBridgeCrossing)
+  generators.forEach(g => engine.register(g))
+  return engine
+}
+
+window.__module_puzzles_StrategyPuzzle = window.__module_puzzles_StrategyPuzzle || {};
+window.__module_puzzles_StrategyPuzzle.createStrategyPuzzleEngine = class createStrategyPuzzleEngine;
+})();
+
+// ========== js/puzzles/MemoryPuzzle.js ==========
+(function() {
+import PuzzleEngine, { PuzzleQuestion } from './Engine.js'
+
+function shuffle(arr) { const a = [...arr]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]] }; return a }
+
+function genSequence(diff) {
+  const symbols = ['●', '■', '▲', '★', '♦', '♥', '♣', '◆', '⬟', '⬢']
+  const len = 3 + Math.floor(Math.min(diff, 5))
+  const seq = []
+  let pool = [...symbols]
+  for (let i = 0; i < len; i++) {
+    const idx = Math.floor(Math.random() * pool.length)
+    seq.push(pool[idx])
+    if (pool.length > 2) pool.splice(idx, 1)
+    else pool = [...symbols]
+  }
+  const shown = seq.slice(0, -1)
+  const correct = seq[seq.length - 1]
+  const opts = shuffle([correct, ...symbols.filter(s => s !== correct).slice(0, 3)])
+  return new PuzzleQuestion({
+    text: `🧠 Memoriza la secuencia:\n\n${shown.join(' ')}\n\n¿Qué símbolo sigue?`,
+    options: opts,
+    answer: opts.indexOf(correct),
+    data: { category: 'memory', subType: 'sequence', len }
+  })
+}
+
+const CARD_SYMBOLS = ['🐱', '🐶', '🐰', '🐸', '🦊', '🐻', '🐭', '🐹', '🐨', '🐼', '🦁', '🐯']
+function genPairs(diff) {
+  const pairCount = 3 + Math.floor(Math.min(diff, 3))
+  const selected = shuffle(CARD_SYMBOLS).slice(0, pairCount)
+  const deck = shuffle([...selected, ...selected])
+  const positions = deck.map((s, i) => ({ s, i }))
+  let moves = 0
+  const revealed = new Set()
+  for (let i = 0; i < deck.length; i++) {
+    if (revealed.has(i)) continue
+    for (let j = i + 1; j < deck.length; j++) {
+      if (revealed.has(j)) continue
+      if (deck[i] === deck[j]) { revealed.add(i); revealed.add(j); moves++; break }
+    }
+  }
+  const optimalMoves = pairCount
+  const answer = optimalMoves
+  const opts = shuffle([answer, answer + 1, answer + 2, answer + 3])
+  return new PuzzleQuestion({
+    text: `🃏 Encuentra los ${pairCount} pares iguales.\nCartas boca abajo: ${pairCount * 2}\n\n¿Cuál es el número MÍNIMO de movimientos para encontrar todos los pares?`,
+    options: opts.map(o => String(o)),
+    answer: opts.indexOf(answer),
+    data: { category: 'memory', subType: 'pairs', pairCount }
+  })
+}
+
+function genMemoryGrid(diff) {
+  const size = 3 + Math.floor(Math.min(diff, 2))
+  const total = size * size
+  const nums = shuffle(Array.from({ length: total }, (_, i) => i + 1))
+  const display = []
+  for (let r = 0; r < size; r++) {
+    display.push(nums.slice(r * size, (r + 1) * size).join(' '))
+  }
+  const toRemove = Math.floor(Math.random() * total)
+  const correct = nums[toRemove]
+  const opts = shuffle([correct, ...Array.from({ length: 3 }, () => Math.floor(Math.random() * total) + 1).filter(v => v !== correct)])
+  return new PuzzleQuestion({
+    text: `🔢 Memoria visual. Grid ${size}×${size}:\n\n${display.join('\n')}\n\nSi quitamos el número en posición ${toRemove + 1},\n¿qué número falta?`,
+    options: opts.map(o => String(o)),
+    answer: opts.indexOf(correct),
+    data: { category: 'memory', subType: 'grid', size }
+  })
+}
+
+function genChangeBlind(diff) {
+  const scene = shuffle(['🌞', '🌳', '🏠', '☁️', '🚗', '🌸', '🦋', '⭐', '🌙', '🏔️', '🌊', '🏖️']).slice(0, 5 + Math.floor(Math.min(diff, 3)))
+  const changeIdx = Math.floor(Math.random() * scene.length)
+  const origItem = scene[changeIdx]
+  const replacements = shuffle(['🌞', '🌳', '🏠', '☁️', '🚗', '🌸', '🦋', '⭐', '🌙', '🏔️', '🌊', '🏖️'].filter(s => s !== origItem))
+  const newItem = replacements[0]
+  const before = scene.join(' ')
+  const after = [...scene]; after[changeIdx] = newItem
+  const opts = shuffle([origItem, newItem, ...replacements.slice(1, 3)])
+  return new PuzzleQuestion({
+    text: `👀 Escena original:\n${before}\n\nEscena nueva:\n${after.join(' ')}\n\n¿Qué elemento CAMBIÓ?`,
+    options: opts.map(o => `«${o}»`),
+    answer: opts.indexOf(origItem),
+    data: { category: 'memory', subType: 'change', origItem, newItem }
+  })
+}
+
+class createMemoryPuzzleEngine() {
+  const engine = new PuzzleEngine({ category: 'memory' })
+  const generators = [genSequence, genPairs, genMemoryGrid, genChangeBlind]
+  generators.forEach(g => engine.register(g))
+  return engine
+}
+
+window.__module_puzzles_MemoryPuzzle = window.__module_puzzles_MemoryPuzzle || {};
+window.__module_puzzles_MemoryPuzzle.createMemoryPuzzleEngine = class createMemoryPuzzleEngine;
+})();
+
+// ========== js/puzzles/Registry.js ==========
+(function() {
+
+
+
+
+
+
+const CATEGORIES = {
+  math: { id: 'math', name: 'Matemáticas', icon: '🧮', color: '#448aff', desc: 'Números, operaciones y problemas' },
+  logic: { id: 'logic', name: 'Lógica', icon: '🧠', color: '#7c4dff', desc: 'Razonamiento, deducción y patrones' },
+  visual: { id: 'visual', name: 'Visual', icon: '👁️', color: '#00bcd4', desc: 'Laberintos, rotaciones y simetría' },
+  strategy: { id: 'strategy', name: 'Estrategia', icon: '♟️', color: '#ff9800', desc: 'Planificación, optimización y recursos' },
+  memory: { id: 'memory', name: 'Memoria', icon: '🔄', color: '#e91e63', desc: 'Secuencias, pares y retención' },
+}
+
+const _engines = {}
+
+class getEngine(category) {
+  if (!_engines[category]) {
+    switch (category) {
+      case 'math': _engines[category] = __module_MathPuzzle.createMathPuzzleEngine(); break
+      case 'logic': _engines[category] = __module_LogicPuzzle.createLogicPuzzleEngine(); break
+      case 'visual': _engines[category] = __module_VisualPuzzle.createVisualPuzzleEngine(); break
+      case 'strategy': _engines[category] = __module_StrategyPuzzle.createStrategyPuzzleEngine(); break
+      case 'memory': _engines[category] = __module_MemoryPuzzle.createMemoryPuzzleEngine(); break
+      default: _engines[category] = __module_MathPuzzle.createMathPuzzleEngine(); break
+    }
+  }
+  return _engines[category]
+}
+
+class getRandomCategory() {
+  const keys = Object.keys(CATEGORIES)
+  return keys[Math.floor(Math.random() * keys.length)]
+}
+
+window.__module_puzzles_Registry = window.__module_puzzles_Registry || {};
+window.__module_puzzles_Registry.getEngine = class getEngine;
+window.__module_puzzles_Registry = window.__module_puzzles_Registry || {};
+window.__module_puzzles_Registry.getRandomCategory = class getRandomCategory;
+window.__module_puzzles_Registry = window.__module_puzzles_Registry || {};
+window.__module_puzzles_Registry.CATEGORIES = CATEGORIES;
+})();
+
+// ========== js/tower/Floor.js ==========
+(function() {
+
+
+class FloorGenerator {
+  generate(floorNum) {
+    const difficulty = this._calcDifficulty(floorNum)
+    const category = this._pickCategory(floorNum)
+    const puzzleCount = 3
+    const puzzles = []
+
+    const engine = __module_.puzzles_Registry.getEngine(category)
+    for (let i = 0; i < puzzleCount; i++) {
+      const puzzle = engine.generate(difficulty)
+      puzzles.push({
+        id: `${floorNum}-${i}`,
+        category,
+        difficulty,
+        solved: false,
+        stars: 0,
+        hintsUsed: 0,
+        data: puzzle,
+      })
+    }
+
+    return {
+      num: floorNum,
+      zone: this._getZoneId(floorNum),
+      difficulty,
+      category,
+      puzzles,
+      completed: false,
+      stars: 0,
+    }
+  }
+
+  _calcDifficulty(floorNum) {
+    if (floorNum <= 10) return 1
+    if (floorNum <= 20) return 2
+    if (floorNum <= 30) return 3
+    if (floorNum <= 40) return 4
+    if (floorNum <= 50) return 5
+    if (floorNum <= 60) return 6
+    if (floorNum <= 70) return 7
+    if (floorNum <= 80) return 8
+    if (floorNum <= 90) return 9
+    return 10
+  }
+
+  _getZoneId(floorNum) {
+    if (floorNum <= 15) return 'logic'
+    if (floorNum <= 35) return 'math'
+    if (floorNum <= 50) return 'visual'
+    if (floorNum <= 70) return 'strategy'
+    if (floorNum <= 85) return 'memory'
+    return 'mixed'
+  }
+
+  _pickCategory(floorNum) {
+    const zone = this._getZoneId(floorNum)
+    if (zone === 'mixed') return __module_.puzzles_Registry.getRandomCategory()
+    return zone
+  }
+}
+
+window.__module_tower_Floor = window.__module_tower_Floor || {};
+window.__module_tower_Floor.FloorGenerator = class FloorGenerator;
+})();
+
+// ========== js/tower/Tower.js ==========
+(function() {
+
+
+
+
+
+const ZONES = [
+  { id: 'logic', name: 'Jardines de la Lógica', floors: [1, 15], icon: '🧠', color: '#7c4dff' },
+  { id: 'math', name: 'Cámaras Matemáticas', floors: [16, 35], icon: '🧮', color: '#448aff' },
+  { id: 'visual', name: 'Laberinto Espacial', floors: [36, 50], icon: '👁️', color: '#00bcd4' },
+  { id: 'strategy', name: 'Fortaleza de la Estrategia', floors: [51, 70], icon: '♟️', color: '#ff9800' },
+  { id: 'memory', name: 'Santuario de la Memoria', floors: [71, 85], icon: '🔄', color: '#e91e63' },
+  { id: 'mixed', name: 'La Cima del Genio', floors: [86, 100], icon: '🏆', color: '#ffd700' },
+]
+
+class TowerManager {
+  constructor() {
+    this._floorGen = new __module_Floor.FloorGenerator()
+    this._initialized = false
+    __module_.core_EventBus.events.on('puzzle:solved', ({ stars, floor }) => this._onPuzzleSolved(stars, floor))
+  }
+
+  init() {
+    if (this._initialized) return
+    this._initialized = true
+    const tower = __module_.core_Store.store.get('tower')
+    if (!tower || !tower.floors || Object.keys(tower.floors).length === 0) {
+      this._generateInitial()
+    }
+  }
+
+  _generateInitial() {
+    const floors = {}
+    for (let f = 1; f <= 5; f++) {
+      floors[f] = this._floorGen.generate(f)
+    }
+    __module_.core_Store.store.set('tower.floors', floors)
+    __module_.core_Store.store.set('tower.maxUnlocked', 5)
+  }
+
+  getZone(floor) {
+    return ZONES.find(z => floor >= z.floors[0] && floor <= z.floors[1]) || ZONES[ZONES.length - 1]
+  }
+
+  getFloor(num) {
+    const floors = __module_.core_Store.store.get('tower.floors')
+    if (floors[num]) return floors[num]
+    const gen = this._floorGen.generate(num)
+    __module_.core_Store.store.set(`tower.floors.${num}`, gen)
+    __module_.core_Store.store.set('tower.maxUnlocked', Math.max(num, __module_.core_Store.store.get('tower.maxUnlocked')))
+    return gen
+  }
+
+  getCurrentFloor() {
+    const num = __module_.core_Store.store.get('tower.currentFloor')
+    return this.getFloor(num)
+  }
+
+  getTotalStars() {
+    const floors = __module_.core_Store.store.get('tower.floors')
+    return Object.values(floors).reduce((sum, f) => sum + (f.stars || 0), 0)
+  }
+
+  getCompletedFloors() {
+    const floors = __module_.core_Store.store.get('tower.floors')
+    return Object.values(floors).filter(f => f.completed).length
+  }
+
+  advance() {
+    const current = __module_.core_Store.store.get('tower.currentFloor')
+    if (current < 100) {
+      __module_.core_Store.store.set('tower.currentFloor', current + 1)
+      this.getFloor(current + 1)
+      __module_.core_EventBus.events.emit('tower:advance', { floor: current + 1, zone: this.getZone(current + 1) })
+    }
+  }
+
+  canAdvance() {
+    const floor = this.getCurrentFloor()
+    return floor && floor.stars > 0
+  }
+
+  _onPuzzleSolved(stars, floorNum) {
+    const floors = __module_.core_Store.store.get('tower.floors')
+    const floor = floors[floorNum] || this.getFloor(floorNum)
+    if (floor) {
+      floor.stars = Math.max(floor.stars || 0, stars)
+      __module_.core_Store.store.set(`tower.floors.${floorNum}.stars`, floor.stars)
+      if (!floor.completed && stars > 0) {
+        __module_.core_Store.store.set(`tower.floors.${floorNum}.completed`, true)
+      }
+    }
+  }
+
+  static getZones() { return ZONES }
+}
+
+window.__module_tower_Tower = window.__module_tower_Tower || {};
+window.__module_tower_Tower.TowerManager = class TowerManager;
+})();
+
+// ========== js/tower/Difficulty.js ==========
+(function() {
+
+
+class AdaptiveDifficulty {
+  constructor() {
+    this._history = []
+    this._lastAdjustment = 0
+  }
+
+  recordResult(category, correct, time) {
+    this._history.push({ category, correct, time, ts: Date.now() })
+    if (this._history.length > 100) this._history.shift()
+  }
+
+  getAdjustment() {
+    const recent = this._history.slice(-20)
+    if (recent.length < 5) return 0
+    const correct = recent.filter(r => r.correct).length / recent.length
+    const avgTime = recent.reduce((s, r) => s + r.time, 0) / recent.length
+    if (correct > 0.85 && avgTime < 8) return 1
+    if (correct < 0.45) return -1
+    return 0
+  }
+
+  getCategoryWeaknesses() {
+    const byCat = {}
+    for (const r of this._history) {
+      if (!byCat[r.category]) byCat[r.category] = { total: 0, correct: 0 }
+      byCat[r.category].total++
+      if (r.correct) byCat[r.category].correct++
+    }
+    const weaknesses = Object.entries(byCat)
+      .map(([cat, data]) => ({ category: cat, rate: data.correct / data.total, total: data.total }))
+      .sort((a, b) => a.rate - b.rate)
+    return weaknesses.filter(w => w.total >= 3)
+  }
+
+  getRecommendedDifficulty() {
+    const stats = __module_.core_Store.store.get('stats')
+    const adjust = this.getAdjustment()
+    const base = Math.min(10, Math.max(1, Math.floor(stats.puzzlesSolved / 20) + 1))
+    return Math.min(10, Math.max(1, base + adjust))
+  }
+}
+
+window.__module_tower_Difficulty = window.__module_tower_Difficulty || {};
+window.__module_tower_Difficulty.AdaptiveDifficulty = class AdaptiveDifficulty;
+})();
+
+// ========== js/systems/Progression.js ==========
+(function() {
+
+
+
+
+const XP_TABLE = [
+  0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700,
+  3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450,
+  11500, 12600, 13750, 14950, 16200, 17500, 18850, 20250, 21700, 23200,
+  24750, 26350, 28000, 29700, 31450, 33250, 35100, 37000, 38950, 40950,
+  43000, 45100, 47250, 49450, 51700, 54000, 56350, 58750, 61200, 63700,
+]
+
+const ABILITIES = [
+  { level: 2, id: 'hint_extra', name: 'Pista Extra', desc: '+1 pista por piso', icon: '💡' },
+  { level: 4, id: 'time_freeze', name: 'Congelar Tiempo', desc: '+5 segundos por puzzle', icon: '⏸️' },
+  { level: 6, id: 'skip_easy', name: 'Salto Fácil', desc: 'Saltar 1 puzzle por piso', icon: '⏭️' },
+  { level: 8, id: 'double_xp', name: 'Doble XP', desc: '×2 XP por 3 puzzles', icon: '⚡' },
+  { level: 10, id: 'wildcard', name: 'Comodín', desc: 'Revelar 1 respuesta por piso', icon: '🃏' },
+  { level: 13, id: 'auto_hint', name: 'Pista Automática', desc: 'Pista gratis tras 30s', icon: '🤖' },
+  { level: 16, id: 'triple_stars', name: 'Triple Estrellas', desc: 'Gana 3 estrellas más fácil', icon: '⭐' },
+  { level: 20, id: 'time_warp', name: 'Dilatación', desc: 'Tiempo se duplica en puzzles', icon: '⏳' },
+  { level: 25, id: 'master_hint', name: 'Maestro Pistas', desc: 'Pistas 2× más efectivas', icon: '🎓' },
+  { level: 30, id: 'god_mode', name: 'Modo Genio', desc: '+50% XP en todos los puzzles', icon: '🧬' },
+]
+
+class ProgressionSystem {
+  constructor() { __module_.core_EventBus.events.on('puzzle:solved', (r) => this._onSolve(r)) }
+
+  addXP(amount) {
+    const player = __module_.core_Store.store.get('player')
+    const newXP = player.xp + amount
+    __module_.core_Store.store.set('player.xp', newXP)
+    const oldLevel = player.level
+    const newLevel = this._calcLevel(newXP)
+    if (newLevel > oldLevel) {
+      __module_.core_Store.store.set('player.level', newLevel)
+      const ability = ABILITIES.find(a => a.level === newLevel)
+      if (ability) {
+        __module_.core_EventBus.events.emit('ability:unlocked', ability)
+        __module_.app.audio.levelUp()
+      }
+      __module_.core_EventBus.events.emit('player:levelUp', { level: newLevel, oldLevel })
+    }
+    __module_.core_Store.store.update('stats', s => { s.totalXP += amount; return s })
+  }
+
+  getXPForLevel(level) {
+    return XP_TABLE[Math.min(level, XP_TABLE.length - 1)]
+  }
+
+  getLevelProgress() {
+    const player = __module_.core_Store.store.get('player')
+    const currXP = player.xp
+    const currLevel = player.level
+    const currReq = this.getXPForLevel(currLevel)
+    const nextReq = this.getXPForLevel(currLevel + 1) || currReq + 500
+    return { current: currXP - currReq, required: nextReq - currReq, level: currLevel }
+  }
+
+  getAbilities() {
+    const level = __module_.core_Store.store.get('player.level')
+    return ABILITIES.filter(a => a.level <= level)
+  }
+
+  _onSolve(result) {
+    this.addXP(result.xp || 10)
+  }
+
+  _calcLevel(xp) {
+    for (let i = XP_TABLE.length - 1; i >= 0; i--) {
+      if (xp >= XP_TABLE[i]) return i
+    }
+    return 1
+  }
+}
+
+window.__module_systems_Progression = window.__module_systems_Progression || {};
+window.__module_systems_Progression.ProgressionSystem = class ProgressionSystem;
+})();
+
+// ========== js/systems/Achievements.js ==========
+(function() {
+
+
+
+
+const ACHIEVEMENTS = [
+  { id: 'first_puzzle', name: 'Primer Puzzle', desc: 'Resuelve tu primer puzzle', icon: '🎯', check: (s) => s.puzzlesSolved >= 1, xp: 50 },
+  { id: 'ten_puzzles', name: 'Novato', desc: 'Resuelve 10 puzzles', icon: '🔟', check: (s) => s.puzzlesSolved >= 10, xp: 100 },
+  { id: 'fifty_puzzles', name: 'Estudiante', desc: 'Resuelve 50 puzzles', icon: '📚', check: (s) => s.puzzlesSolved >= 50, xp: 250 },
+  { id: 'hundred_puzzles', name: 'Sabio', desc: 'Resuelve 100 puzzles', icon: '🧙', check: (s) => s.puzzlesSolved >= 100, xp: 500 },
+  { id: 'fivehundred_puzzles', name: 'Erudito', desc: 'Resuelve 500 puzzles', icon: '🎓', check: (s) => s.puzzlesSolved >= 500, xp: 1500 },
+  { id: 'thousand_puzzles', name: 'Genio Legendario', desc: 'Resuelve 1000 puzzles', icon: '🏆', check: (s) => s.puzzlesSolved >= 1000, xp: 5000 },
+  { id: 'floor_10', name: 'Piso 10', desc: 'Alcanza el piso 10', icon: '🏗️', check: (s) => s.maxFloor >= 10, xp: 100 },
+  { id: 'floor_25', name: 'Piso 25', desc: 'Alcanza el piso 25', icon: '🏢', check: (s) => s.maxFloor >= 25, xp: 250 },
+  { id: 'floor_50', name: 'Piso 50', desc: 'Alcanza el piso 50', icon: '🏬', check: (s) => s.maxFloor >= 50, xp: 500 },
+  { id: 'floor_75', name: 'Piso 75', desc: 'Alcanza el piso 75', icon: '🏰', check: (s) => s.maxFloor >= 75, xp: 750 },
+  { id: 'floor_100', name: 'Cima de la Torre', desc: 'Alcanza el piso 100', icon: '🗼', check: (s) => s.maxFloor >= 100, xp: 2000 },
+  { id: 'perfect_floor', name: 'Perfecto', desc: 'Completa un piso con 3 estrellas', icon: '⭐', check: (s) => s.perfectFloors >= 1, xp: 100 },
+  { id: 'ten_perfect', name: 'Impecable', desc: 'Completa 10 pisos perfectos', icon: '💫', check: (s) => s.perfectFloors >= 10, xp: 500 },
+  { id: 'speed_demon', name: 'Rayo', desc: 'Resuelve un puzzle en menos de 3s', icon: '⚡', check: (s) => s.fastestSolve <= 3 && s.fastestSolve > 0, xp: 150 },
+  { id: 'streak_3', name: 'Racha', desc: 'Juega 3 días seguidos', icon: '🔥', check: (s) => s.bestStreak >= 3, xp: 100 },
+  { id: 'streak_7', name: 'Semana', desc: 'Juega 7 días seguidos', icon: '🔥', check: (s) => s.bestStreak >= 7, xp: 300 },
+  { id: 'streak_30', name: 'Mes', desc: 'Juega 30 días seguidos', icon: '🔥', check: (s) => s.bestStreak >= 30, xp: 1500 },
+  { id: 'streak_100', name: 'Leyenda', desc: 'Juega 100 días seguidos', icon: '🔥', check: (s) => s.bestStreak >= 100, xp: 5000 },
+  { id: 'no_hints', name: 'Sin Ayuda', desc: 'Completa un piso sin usar pistas', icon: '💪', check: (s) => s.noHintFloors >= 1, xp: 100 },
+  { id: 'math_master', name: 'Matemático', desc: 'Resuelve 50 puzzles de matemáticas', icon: '🧮', check: (s) => s.byCategory.math >= 50, xp: 300 },
+  { id: 'logic_master', name: 'Lógico', desc: 'Resuelve 50 puzzles de lógica', icon: '🧠', check: (s) => s.byCategory.logic >= 50, xp: 300 },
+  { id: 'visual_master', name: 'Visual', desc: 'Resuelve 50 puzzles visuales', icon: '👁️', check: (s) => s.byCategory.visual >= 50, xp: 300 },
+  { id: 'strategy_master', name: 'Estratega', desc: 'Resuelve 50 puzzles de estrategia', icon: '♟️', check: (s) => s.byCategory.strategy >= 50, xp: 300 },
+  { id: 'memory_master', name: 'Memoria', desc: 'Resuelve 50 puzzles de memoria', icon: '🔄', check: (s) => s.byCategory.memory >= 50, xp: 300 },
+  { id: 'all_categories', name: 'Polímata', desc: 'Resuelve 10 puzzles de cada categoría', icon: '🌈', check: (s) => Object.values(s.byCategory).every(v => v >= 10), xp: 500 },
+  { id: 'level_10', name: 'Nivel 10', desc: 'Alcanza el nivel 10', icon: '⬆️', check: (s) => s.playerLevel >= 10, xp: 300 },
+  { id: 'level_25', name: 'Nivel 25', desc: 'Alcanza el nivel 25', icon: '⬆️', check: (s) => s.playerLevel >= 25, xp: 800 },
+  { id: 'level_50', name: 'Nivel 50', desc: 'Alcanza el nivel 50', icon: '⬆️', check: (s) => s.playerLevel >= 50, xp: 2000 },
+  { id: 'time_1h', name: 'Dedicación', desc: 'Juega durante 1 hora en total', icon: '⏰', check: (s) => s.totalTime >= 3600, xp: 200 },
+  { id: 'time_10h', name: 'Pasión', desc: 'Juega durante 10 horas en total', icon: '⏰', check: (s) => s.totalTime >= 36000, xp: 1000 },
+  { id: 'time_100h', name: 'Obsesión', desc: 'Juega durante 100 horas en total', icon: '⏰', check: (s) => s.totalTime >= 360000, xp: 5000 },
+  { id: 'combo_3', name: 'Racha de Aciertos', desc: 'Acierta 3 puzzles seguidos', icon: '🎯', check: (s) => s.bestCombo >= 3, xp: 50 },
+  { id: 'combo_10', name: 'Imparable', desc: 'Acierta 10 puzzles seguidos', icon: '🎯', check: (s) => s.bestCombo >= 10, xp: 300 },
+  { id: 'combo_20', name: 'Invencible', desc: 'Acierta 20 puzzles seguidos', icon: '🎯', check: (s) => s.bestCombo >= 20, xp: 800 },
+]
+
+class AchievementSystem {
+  constructor() {
+    this._unlocked = new Set(__module_.core_Store.store.get('achievements') || [])
+    __module_.core_EventBus.events.on('puzzle:solved', () => this.check())
+    __module_.core_EventBus.events.on('player:levelUp', () => this.check())
+    __module_.core_EventBus.events.on('tower:advance', () => this.check())
+  }
+
+  check() {
+    const stats = this._buildCheckContext()
+    for (const ach of ACHIEVEMENTS) {
+      if (this._unlocked.has(ach.id)) continue
+      if (ach.check(stats)) {
+        this._unlock(ach)
+      }
+    }
+  }
+
+  _unlock(ach) {
+    this._unlocked.add(ach.id)
+    __module_.core_Store.store.update('achievements', a => { a.push(ach.id); return a })
+    __module_.core_EventBus.events.emit('achievement:unlocked', ach)
+    __module_.app.audio.achieve()
+  }
+
+  _buildCheckContext() {
+    const player = __module_.core_Store.store.get('player')
+    const stats = __module_.core_Store.store.get('stats')
+    const tower = __module_.core_Store.store.get('tower')
+    return {
+      puzzlesSolved: stats.puzzlesSolved,
+      maxFloor: tower.currentFloor,
+      perfectFloors: stats.perfectFloors,
+      bestStreak: stats.bestStreak,
+      playerLevel: player.level,
+      totalTime: stats.totalTime,
+      fastestSolve: stats.fastestSolve || 99,
+      byCategory: stats.byCategory,
+      noHintFloors: stats.noHintFloors || 0,
+      bestCombo: stats.bestCombo || 0,
+    }
+  }
+
+  getAll() { return ACHIEVEMENTS }
+  getUnlocked() { return [...this._unlocked] }
+  getProgress() {
+    return { unlocked: this._unlocked.size, total: ACHIEVEMENTS.length }
+  }
+}
+
+window.__module_systems_Achievements = window.__module_systems_Achievements || {};
+window.__module_systems_Achievements.AchievementSystem = class AchievementSystem;
+})();
+
+// ========== js/systems/Streaks.js ==========
+(function() {
+
+
+
+class StreakSystem {
+  constructor() { __module_.core_EventBus.events.on('puzzle:solved', () => this._checkStreak()) }
+
+  _checkStreak() {
+    const player = __module_.core_Store.store.get('player')
+    const today = new Date().toDateString()
+    const lastPlayed = player.lastPlayed
+    if (lastPlayed === today) return
+    const yesterday = new Date(Date.now() - 86400000).toDateString()
+    let newStreak
+    if (lastPlayed === yesterday) {
+      newStreak = player.streak + 1
+    } else if (lastPlayed !== today) {
+      newStreak = 1
+    } else {
+      return
+    }
+    __module_.core_Store.store.set('player.streak', newStreak)
+    __module_.core_Store.store.set('player.lastPlayed', today)
+    __module_.core_Store.store.update('stats', s => {
+      if (newStreak > s.bestStreak) s.bestStreak = newStreak
+      return s
+    })
+    if (newStreak === 7 || newStreak === 30 || newStreak === 100 || newStreak % 10 === 0) {
+      __module_.core_EventBus.events.emit('streak:milestone', { streak: newStreak })
+    }
+  }
+
+  getStreak() { return __module_.core_Store.store.get('player.streak') || 0 }
+
+  getStreakBonus() {
+    const s = this.getStreak()
+    if (s >= 30) return 2.0
+    if (s >= 14) return 1.5
+    if (s >= 7) return 1.25
+    if (s >= 3) return 1.1
+    return 1.0
+  }
+}
+
+window.__module_systems_Streaks = window.__module_systems_Streaks || {};
+window.__module_systems_Streaks.StreakSystem = class StreakSystem;
+})();
+
+// ========== js/systems/Stats.js ==========
+(function() {
+
+
+
+class StatsTracker {
+  constructor() {
+    this._sessionStart = Date.now()
+    this._combo = 0
+    this._fastestSolve = 99
+    this._floorStars = 0
+    __module_.core_EventBus.events.on('puzzle:solved', (result) => this._onPuzzle(result))
+    __module_.core_EventBus.events.on('tower:advance', () => this._onFloorComplete())
+  }
+
+  _onPuzzle({ correct, category, time, xp, stars }) {
+    if (time === undefined) return
+    __module_.core_Store.store.update('stats.totalTime', t => t + time)
+    if (!correct) { this._combo = 0; return }
+    this._combo++
+    this._floorStars += stars || 0
+    __module_.core_Store.store.update('stats', s => {
+      s.puzzlesSolved++
+      s.totalXP += xp || 0
+      if (this._combo > (s.bestCombo || 0)) s.bestCombo = this._combo
+      if (time < this._fastestSolve) { this._fastestSolve = time; s.fastestSolve = time }
+      if (category && s.byCategory[category] !== undefined) s.byCategory[category]++
+      return s
+    })
+  }
+
+  _onFloorComplete() {
+    if (this._floorStars >= 9) {
+      __module_.core_Store.store.update('stats', s => {
+        s.perfectFloors = (s.perfectFloors || 0) + 1
+        return s
+      })
+    }
+    this._floorStars = 0
+  }
+
+  getSessionTime() {
+    return Math.floor((Date.now() - this._sessionStart) / 1000)
+  }
+
+  getRadarData() {
+    const stats = __module_.core_Store.store.get('stats')
+    const cat = stats.byCategory
+    const max = Math.max(1, ...Object.values(cat))
+    return Object.entries(cat).map(([key, val]) => ({
+      category: key,
+      value: val,
+      percent: Math.round(val / max * 100)
+    }))
+  }
+}
+
+window.__module_systems_Stats = window.__module_systems_Stats || {};
+window.__module_systems_Stats.StatsTracker = class StatsTracker;
+})();
+
+// ========== js/systems/Hints.js ==========
+(function() {
+
+
+class HintSystem {
+  constructor() { this._currentHints = [] }
+
+  generateHints(puzzle, category) {
+    this._currentHints = []
+    if (!puzzle || !puzzle.text) return this._currentHints
+    if (category === 'math') {
+      this._currentHints = [
+        'Lee el problema con atención. ¿Qué datos tienes?',
+        'Intenta resolver paso a paso. ¿Qué operación necesitas?',
+        'Revisa tu respuesta. ¿Tiene sentido?',
+      ]
+    } else if (category === 'logic') {
+      this._currentHints = [
+        'Identifica qué información es importante y qué no.',
+        'Elimina las opciones que sabes que son incorrectas.',
+        'Prueba cada opción una por una.',
+      ]
+    } else if (category === 'visual') {
+      this._currentHints = [
+        'Observa bien la posición y orientación de cada elemento.',
+        '¿Ves algún patrón que se repita?',
+        'Concéntrate en una parte pequeña a la vez.',
+      ]
+    } else if (category === 'strategy') {
+      this._currentHints = [
+        'Piensa en el objetivo final. ¿Qué necesitas lograr?',
+        '¿Hay algún atajo o truco?',
+        'Prueba con números pequeños primero y busca el patrón.',
+      ]
+    } else if (category === 'memory') {
+      this._currentHints = [
+        'Concéntrate en un elemento a la vez.',
+        'Agrupa los elementos en categorías.',
+        'Crea una historia mental con los elementos.',
+      ]
+    } else {
+      this._currentHints = [
+        'Tómate tu tiempo. No hay prisa.',
+        '¿Qué te pide exactamente el problema?',
+        'Confía en tu primera intuición.',
+      ]
+    }
+    return this._currentHints
+  }
+
+  getHint(index = 0) {
+    if (index < this._currentHints.length) {
+      __module_.core_Store.store.update('stats', s => { s.hintsUsed++; return s })
+      return this._currentHints[index]
+    }
+    return 'No hay más pistas disponibles.'
+  }
+
+  reset() { this._currentHints = [] }
+}
+
+window.__module_systems_Hints = window.__module_systems_Hints || {};
+window.__module_systems_Hints.HintSystem = class HintSystem;
+})();
+
+// ========== js/systems/Daily.js ==========
+(function() {
+
+
+function getDailySeed() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+}
+
+class DailyChallenge {
+  constructor() { this._today = null }
+
+  generate() {
+    const seed = getDailySeed()
+    if (this._today && this._today.seed === seed) return this._today
+    const catKeys = Object.keys(__module_.puzzles_Registry.CATEGORIES)
+    const category = catKeys[Math.abs(this._hash(seed)) % catKeys.length]
+    const engine = __module_.puzzles_Registry.getEngine(category)
+    const puzzle = engine.generate(5 + (Math.abs(this._hash(seed + '_diff')) % 5))
+    this._today = { seed, category, puzzle, date: seed }
+    return this._today
+  }
+
+  getScore() {
+    try {
+      const stored = localStorage.getItem('mentis_daily_' + getDailySeed())
+      return stored ? JSON.parse(stored) : null
+    } catch { return null }
+  }
+
+  saveScore(result) {
+    localStorage.setItem('mentis_daily_' + getDailySeed(), JSON.stringify({
+      ...result,
+      seed: getDailySeed(),
+      timestamp: Date.now()
+    }))
+  }
+
+  _hash(str) {
+    let h = 0
+    for (let i = 0; i < str.length; i++) {
+      h = ((h << 5) - h) + str.charCodeAt(i)
+      h |= 0
+    }
+    return h
+  }
+}
+
+window.__module_systems_Daily = window.__module_systems_Daily || {};
+window.__module_systems_Daily.DailyChallenge = class DailyChallenge;
+})();
+
+// ========== js/ui/ScreenManager.js ==========
+(function() {
+
+
+
+const SCREENS = ['title', 'menu', 'tower', 'floor', 'puzzle', 'daily', 'achievements', 'stats', 'settings']
+
+class ScreenManager {
+  constructor(container) {
+    this._container = container
+    this._screens = new Map()
+    this._history = []
+    this._current = null
+    __module_.core_EventBus.events.on('screen:change', (id) => this.show(id))
+    __module_.core_Store.store.observe('screen', (id) => this._transition(id))
+  }
+
+  register(id, html, initFn) {
+    this._screens.set(id, { html, initFn, element: null })
+  }
+
+  show(id, ...args) {
+    if (id === this._current) return
+    if (this._current) this._history.push(this._current)
+    __module_.core_Store.store.set('screen', id)
+    this._current = id
+    const screen = this._screens.get(id)
+    if (screen) {
+      if (!screen.element) {
+        const div = document.createElement('div')
+        div.className = `screen ${id}-screen`
+        div.innerHTML = screen.html
+        this._container.appendChild(div)
+        screen.element = div
+      }
+      document.querySelectorAll('.screen').forEach(el => el.classList.remove('active'))
+      screen.element.classList.add('active')
+      screen.initFn?.(...args)
+    }
+  }
+
+  back() {
+    const prev = this._history.pop()
+    if (prev) this.show(prev)
+  }
+
+  _transition(id) {
+    document.querySelectorAll('.screen').forEach(el => {
+      if (el.classList.contains(`${id}-screen`)) el.classList.add('active')
+      else el.classList.remove('active')
+    })
+  }
+
+  getCurrent() { return this._current }
+}
+
+window.__module_ui_ScreenManager = window.__module_ui_ScreenManager || {};
+window.__module_ui_ScreenManager.ScreenManager = class ScreenManager;
+})();
+
+// ========== js/ui/HUD.js ==========
+(function() {
+
+
+
+const XP_TABLE = [
+  0, 100, 250, 450, 700, 1000, 1350, 1750, 2200, 2700,
+  3250, 3850, 4500, 5200, 5950, 6750, 7600, 8500, 9450, 10450,
+  11500, 12600, 13750, 14950, 16200, 17500, 18850, 20250, 21700, 23200,
+  24750, 26350, 28000, 29700, 31450, 33250, 35100, 37000, 38950, 40950,
+  43000, 45100, 47250, 49450, 51700, 54000, 56350, 58750, 61200, 63700,
+]
+
+class HUD {
+  constructor(container, towerManager) {
+    this._el = null
+    this._tower = towerManager
+    this._visible = false
+    container.insertAdjacentHTML('beforeend', `
+      <div id="hud" style="display:none;position:fixed;top:0;left:0;right:0;z-index:100;padding:10px 16px;background:linear-gradient(180deg,rgba(10,10,26,0.9),transparent);pointer-__module_.core_EventBus.events:none">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div id="hud-floor" style="font-size:12px;color:#a090b0;font-weight:600">PISO 1</div>
+          <div id="hud-xp" style="flex:1;margin:0 8px">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#605070;margin-bottom:2px">
+              <span id="hud-xp-text">0 XP</span>
+              <span id="hud-level-text">Nv. 1</span>
+            </div>
+            <div class="progress-bar"><div id="hud-xp-bar" class="progress-fill" style="width:0%"></div></div>
+          </div>
+          <div id="hud-stars" style="font-size:16px;color:#ffd700">⭐ 0</div>
+          <button id="hud-menu-btn" style="background:none;border:none;color:#a090b0;font-size:18px;cursor:pointer;pointer-__module_.core_EventBus.events:auto;padding:4px">☰</button>
+        </div>
+      </div>
+    `)
+    this._el = document.getElementById('hud')
+    this._floorEl = document.getElementById('hud-floor')
+    this._xpText = document.getElementById('hud-xp-text')
+    this._levelText = document.getElementById('hud-level-text')
+    this._xpBar = document.getElementById('hud-xp-bar')
+    this._starsEl = document.getElementById('hud-stars')
+    document.getElementById('hud-menu-btn').onclick = () => __module_.core_EventBus.events.emit('screen:change', 'menu')
+    __module_.core_Store.store.observe('player', () => this.update())
+    __module_.core_Store.store.observe('tower.currentFloor', () => this.update())
+    __module_.core_Store.store.observe('tower.floors', () => this.update())
+  }
+
+  show() { if (this._el) this._el.style.display = 'block'; this._visible = true }
+  hide() { if (this._el) this._el.style.display = 'none'; this._visible = false }
+
+  update() {
+    if (!this._visible) return
+    const floor = __module_.core_Store.store.get('tower.currentFloor') || 1
+    const player = __module_.core_Store.store.get('player')
+    const tower = __module_.core_Store.store.get('tower')
+    this._floorEl.textContent = `PISO ${floor}`
+    this._starsEl.textContent = `⭐ ${tower.floors ? Object.values(tower.floors).reduce((s,f) => s+(f.stars||0),0) : 0}`
+    const zone = this._tower?.getZone(floor)
+    if (zone) this._floorEl.textContent = `PISO ${floor} · ${zone.name}`
+    this._xpText.textContent = `${player.xp} XP`
+    this._levelText.textContent = `Nv. ${player.level}`
+    const progress = this._getXPProgress()
+    this._xpBar.style.width = `${Math.min(100, progress)}%`
+  }
+
+  _getXPProgress() {
+    const player = __module_.core_Store.store.get('player')
+    const xp = player.xp
+    const level = player.level
+    const prevReq = level <= 1 ? 0 : this._xpForLevel(level - 1)
+    const nextReq = this._xpForLevel(level)
+    return ((xp - prevReq) / (nextReq - prevReq)) * 100
+  }
+
+  _xpForLevel(l) {
+    return XP_TABLE[Math.min(l, XP_TABLE.length - 1)]
+  }
+}
+
+window.__module_ui_HUD = window.__module_ui_HUD || {};
+window.__module_ui_HUD.HUD = class HUD;
+})();
+
+// ========== js/ui/Particles.js ==========
+(function() {
+class ParticleEngine {
+  constructor(canvas) {
+    this._canvas = canvas
+    this._ctx = canvas?.getContext('2d')
+    this._particles = []
+    this._running = false
+  }
+
+  emit(x, y, count = 10, config = {}) {
+    for (let i = 0; i < count; i++) {
+      this._particles.push({
+        x, y,
+        vx: (Math.random() - 0.5) * (config.speed || 4),
+        vy: (Math.random() - 0.5) * (config.speed || 4) - 2,
+        life: config.life || 40 + Math.random() * 30,
+        maxLife: config.life || 60,
+        size: config.size || 2 + Math.random() * 3,
+        color: config.color || this._randomColor(),
+        type: config.type || 'circle',
+        gravity: config.gravity ?? 0.08,
+        fade: config.fade ?? true,
+      })
+    }
+  }
+
+  emitStar(x, y) { this.emit(x, y, 15, { color: '#ffd700', size: 3, speed: 5 }) }
+  emitCorrect(x, y) { this.emit(x, y, 20, { color: '#4caf50', size: 4, speed: 6 }) }
+  emitWrong(x, y) { this.emit(x, y, 8, { color: '#ef5350', size: 3, speed: 3 }) }
+  emitLevelUp() {
+    const cx = this._canvas?.width / 2 || 200
+    const cy = this._canvas?.height / 2 || 200
+    this.emit(cx, cy, 40, { color: '#ffd700', size: 5, speed: 8, life: 60 })
+    this.emit(cx, cy, 20, { color: '#7c4dff', size: 4, speed: 6, life: 50 })
+  }
+  emitConfetti() {
+    for (let i = 0; i < 60; i++) {
+      this._particles.push({
+        x: Math.random() * (this._canvas?.width || 400),
+        y: -10 - Math.random() * 50,
+        vx: (Math.random() - 0.5) * 3,
+        vy: 1 + Math.random() * 2,
+        life: 120 + Math.random() * 60,
+        maxLife: 180,
+        size: 4 + Math.random() * 4,
+        color: ['#ffd700','#7c4dff','#448aff','#4caf50','#ef5350','#ff9800'][Math.floor(Math.random() * 6)],
+        type: 'rect',
+        gravity: 0.02,
+        fade: true,
+      })
+    }
+  }
+
+  _randomColor() {
+    return ['#ffd700','#7c4dff','#448aff','#4caf50','#00bcd4','#e91e63'][Math.floor(Math.random() * 6)]
+  }
+
+  update(dt) {
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i]
+      p.x += p.vx
+      p.y += p.vy
+      p.vy += p.gravity
+      p.vx *= 0.98
+      p.life--
+      if (p.life <= 0 || p.y > (this._canvas?.height || 600) + 20) {
+        this._particles.splice(i, 1)
+      }
+    }
+  }
+
+  render(ctx) {
+    if (!ctx) ctx = this._ctx
+    if (!ctx) return
+    for (const p of this._particles) {
+      ctx.save()
+      const alpha = p.fade ? Math.max(0, p.life / p.maxLife) : 1
+      ctx.globalAlpha = alpha
+      ctx.fillStyle = p.color
+      if (p.type === 'rect') {
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size)
+      } else {
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.size * alpha, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+    }
+  }
+
+  clear() { this._particles = [] }
+  get count() { return this._particles.length }
+}
+
+window.__module_ui_Particles = window.__module_ui_Particles || {};
+window.__module_ui_Particles.ParticleEngine = class ParticleEngine;
+})();
+
+// ========== js/ui/Modal.js ==========
+(function() {
+
+
+
+class ModalManager {
+  constructor(container) {
+    this._container = container
+    this._overlay = null
+    this._active = false
+  }
+
+  show({ title, body, buttons, onClose }) {
+    this.close()
+    this._overlay = document.createElement('div')
+    this._overlay.className = 'modal-overlay'
+    this._overlay.onclick = (e) => { if (e.target === this._overlay) this.close() }
+    const btnHTML = (buttons || [{ text: 'Cerrar', cls: 'btn-primary', action: () => this.close() }])
+      .map(b => `<button class="btn ${b.cls || 'btn-ghost'}" data-action="${b.text}">${b.text}</button>`).join('')
+    this._overlay.innerHTML = `
+      <div class="modal" style="text-align:center">
+        ${title ? `<h2 style="font-size:20px;margin-bottom:12px;color:var(--gold)">${title}</h2>` : ''}
+        ${body ? `<p style="font-size:14px;color:var(--text-secondary);margin-bottom:20px;line-height:1.6">${body}</p>` : ''}
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${btnHTML}</div>
+      </div>
+    `
+    this._container.appendChild(this._overlay)
+    requestAnimationFrame(() => this._overlay.classList.add('active'))
+    this._overlay.querySelectorAll('button[data-action]').forEach(btn => {
+      btn.onclick = () => {
+        const b = (buttons || []).find(b => b.text === btn.dataset.action)
+        if (b?.action) b.action()
+        else this.close()
+        __module_.app.audio.click()
+      }
+    })
+    this._active = true
+    this._onClose = onClose
+  }
+
+  confirm({ title, body, onConfirm, onCancel, confirmText = 'Sí', cancelText = 'Cancelar' }) {
+    this.show({
+      title, body,
+      buttons: [
+        { text: cancelText, cls: 'btn-ghost', action: () => { this.close(); onCancel?.() } },
+        { text: confirmText, cls: 'btn-gold', action: () => { this.close(); onConfirm?.() } },
+      ]
+    })
+  }
+
+  alert({ title, body }) {
+    this.show({ title, body, buttons: [{ text: 'OK', cls: 'btn-primary' }] })
+  }
+
+  close() {
+    if (this._overlay) {
+      this._overlay.classList.remove('active')
+      setTimeout(() => { this._overlay?.remove(); this._overlay = null }, 300)
+    }
+    this._active = false
+    this._onClose?.()
+  }
+
+  isActive() { return this._active }
+}
+
+class NotificationSystem {
+  constructor(container) {
+    this._container = container
+    const el = document.createElement('div')
+    el.className = 'toast-container'
+    this._container.appendChild(el)
+    this._el = el
+  }
+
+  show(message, type = 'info', duration = 3000) {
+    const toast = document.createElement('div')
+    toast.className = `toast toast-${type}`
+    const icons = { success: '✅ ', error: '❌ ', info: 'ℹ️ ' }
+    toast.textContent = (icons[type] || '') + message
+    this._el.appendChild(toast)
+    requestAnimationFrame(() => toast.classList.add('show'))
+    setTimeout(() => {
+      toast.classList.remove('show')
+      setTimeout(() => toast.remove(), 300)
+    }, duration)
+  }
+
+  success(msg, dur) { this.show(msg, 'success', dur) }
+  error(msg, dur) { this.show(msg, 'error', dur) }
+  info(msg, dur) { this.show(msg, 'info', dur) }
+}
+
+window.__module_ui_Modal = window.__module_ui_Modal || {};
+window.__module_ui_Modal.ModalManager = class ModalManager;
+window.__module_ui_Modal = window.__module_ui_Modal || {};
+window.__module_ui_Modal.NotificationSystem = class NotificationSystem;
+})();
+
+// ========== js/ui/Transitions.js ==========
+(function() {
+class TransitionEngine {
+  constructor(canvas) {
+    this._canvas = canvas
+    this._ctx = canvas?.getContext('2d')
+    this._active = null
+  }
+
+  fadeOut(duration = 300) {
+    return this._run('fade', 0, 1, duration)
+  }
+
+  fadeIn(duration = 300) {
+    return this._run('fade', 1, 0, duration)
+  }
+
+  wipe(direction = 'left', duration = 400) {
+    return this._run('wipe', 0, 1, duration, { direction })
+  }
+
+  _run(type, from, to, duration, opts = {}) {
+    return new Promise(resolve => {
+      const start = performance.now()
+      this._active = { type, from, to, duration, opts, start, resolve }
+      if (!this._canvas) { resolve(); return }
+    })
+  }
+
+  update(now) {
+    if (!this._active) return
+    const { from, to, duration, start, resolve } = this._active
+    const elapsed = now - start
+    const t = Math.min(1, elapsed / duration)
+    const eased = 1 - Math.pow(1 - t, 3)
+    this._active.progress = from + (to - from) * eased
+    if (t >= 1) {
+      this._active = null
+      resolve()
+    }
+  }
+
+  render(ctx) {
+    if (!this._active) return
+    const { type, direction, progress } = this._active
+    if (type === 'fade') {
+      ctx.fillStyle = `rgba(10,10,26,${progress})`
+      ctx.fillRect(0, 0, this._canvas.width, this._canvas.height)
+    } else if (type === 'wipe') {
+      const w = this._canvas.width * progress
+      ctx.fillStyle = '#0a0a1a'
+      if (direction === 'left') ctx.fillRect(this._canvas.width - w, 0, w, this._canvas.height)
+      else ctx.fillRect(0, 0, w, this._canvas.height)
+    }
+  }
+
+  isActive() { return !!this._active }
+}
+
+window.__module_ui_Transitions = window.__module_ui_Transitions || {};
+window.__module_ui_Transitions.TransitionEngine = class TransitionEngine;
+})();
+
+// ========== js/app.js ==========
+(function() {
+
+
+import GameLoop from './core/GameLoop.js'
+import InputManager from './core/Input.js'
+import AudioManager from './core/Audio.js'
+import SaveManager from './core/Save.js'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const canvas = document.getElementById('game-canvas')
+const ctx = canvas.getContext('2d')
+const VW = 400, VH = 600
+canvas.width = VW
+canvas.height = VH
+
+const COLORS = {
+  textPrimary: '#ffffff',
+  textSecondary: '#a090b0',
+  textMuted: '#605070',
+  gold: '#ffd700',
+  bgDark: '#0a0a1a',
+  bgMid: '#0f0f2a',
+  bgLight: '#1a0a2e',
+}
+
+function resize() {
+  const ww = window.innerWidth, wh = window.innerHeight
+  const s = Math.min(ww / VW, wh / VH)
+  canvas.style.width = Math.round(VW * s) + 'px'
+  canvas.style.height = Math.round(VH * s) + 'px'
+}
+window.addEventListener('resize', resize)
+resize()
+
+const input = new InputManager()
+const audio = new AudioManager()
+const loop = new GameLoop({ fps: 60 })
+const particles = new __module_ui_Particles.ParticleEngine(canvas)
+const transitions = new __module_ui_Transitions.TransitionEngine(canvas)
+const tower = new __module_tower_Tower.TowerManager()
+const difficulty = new __module_tower_Difficulty.AdaptiveDifficulty()
+const progression = new __module_systems_Progression.ProgressionSystem()
+const achievements = new __module_systems_Achievements.AchievementSystem()
+const streaks = new __module_systems_Streaks.StreakSystem()
+const stats = new __module_systems_Stats.StatsTracker()
+const hints = new __module_systems_Hints.HintSystem()
+const daily = new __module_systems_Daily.DailyChallenge()
+const screens = new __module_ui_ScreenManager.ScreenManager(document.getElementById('app'))
+const hud = new __module_ui_HUD.HUD(document.getElementById('app'), tower)
+const modal = new __module_ui_Modal.ModalManager(document.getElementById('app'))
+const notify = new __module_ui_Modal.NotificationSystem(document.getElementById('app'))
+
+let currentPuzzles = []
+let currentFloorData = null
+let solvedCount = 0
+let floorStartStars = 0
+
+function loadSave() {
+  const data = SaveManager.load()
+  if (data) {
+    Object.keys(data).forEach(k => {
+      if (k !== 'settings') __module_core_Store.store.set(k, data[k])
+    })
+    if (data.settings) __module_core_Store.store.set('settings', data.settings)
+  }
+}
+
+function saveGame() {
+  SaveManager.save(__module_core_Store.store.snapshot())
+}
+
+__module_core_Store.store.observe('*', () => saveGame())
+
+__module_core_EventBus.events.on('puzzle:solved', (result) => {
+  if (result.correct) {
+    solvedCount++
+    const floor = __module_core_Store.store.get('tower.currentFloor')
+    __module_core_EventBus.events.emit('tower:puzzleSolved', { floor, solvedCount, total: 3, stars: result.stars })
+  }
+})
+
+function loadFloor(num) {
+  const floor = tower.getFloor(num)
+  currentFloorData = floor
+  currentPuzzles = []
+  solvedCount = 0
+  floorStartStars = floor.stars || 0
+  const engine = __module_puzzles_Registry.getEngine(floor.category)
+  for (let i = 0; i < 3; i++) {
+    const puzzle = engine.generate(floor.difficulty)
+    currentPuzzles.push({ puzzle, solved: false, index: i })
+  }
+  hints.reset()
+  hud.show()
+  hud.update()
+  renderFloor()
+}
+
+function renderFloor() {
+  const f = currentFloorData
+  if (!f) return
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  const total = 3
+  const solved = solvedCount
+  const zone = tower.getZone(f.num)
+  ctx.fillStyle = 'rgba(255,255,255,0.05)'
+  roundRect(ctx, 10, 10, VW - 20, 70, 12)
+  ctx.fill()
+  ctx.fillStyle = zone?.color || '#ffd700'
+  ctx.font = 'bold 14px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(`${zone?.icon || '🏗️'} PISO ${f.num}: ${zone?.name || 'Torre'}`, VW / 2, 28)
+  ctx.fillStyle = COLORS.textSecondary
+  ctx.font = '12px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText(`${__module_puzzles_Registry.CATEGORIES[f.category]?.icon || '🧩'} ${__module_puzzles_Registry.CATEGORIES[f.category]?.name || 'Mixto'} · Dificultad ${f.difficulty}/10`, VW / 2, 52)
+  for (let i = 0; i < total; i++) {
+    const bx = 16 + i * ((VW - 32) / 3 + 4)
+    const bw = (VW - 32) / 3
+    const by = 95
+    const isSolved = i < solved
+    ctx.fillStyle = isSolved ? 'rgba(76,175,80,0.2)' : 'rgba(255,255,255,0.05)'
+    roundRect(ctx, bx, by, bw, 30, 6)
+    ctx.fill()
+    if (isSolved) {
+      ctx.strokeStyle = 'rgba(76,175,80,0.4)'
+      ctx.lineWidth = 1
+      ctx.stroke()
+    }
+    ctx.fillStyle = isSolved ? '#4caf50' : COLORS.textMuted
+    ctx.font = 'bold 12px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(isSolved ? '✓' : `${i + 1}`, bx + bw / 2, by + 15)
+  }
+  if (solved >= 2) {
+    const p = 0.5 + Math.sin(Date.now() * 0.005) * 0.5
+    ctx.globalAlpha = p
+    ctx.fillStyle = '#ffd700'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('⬆ ¡TOCA PARA SUBIR AL SIGUIENTE PISO! ⬆', VW / 2, 150)
+    ctx.globalAlpha = 1
+  } else if (solved < 2) {
+    ctx.fillStyle = COLORS.textMuted
+    ctx.font = '11px sans-serif'
+    ctx.fillText('Resuelve al menos 2 puzzles para avanzar', VW / 2, 150)
+  }
+  currentPuzzles.forEach((p, i) => {
+    if (p.solved || i < solved) return
+    const bx = 16, by = 170 + (i - solved) * 130
+    const bw = VW - 32
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, bx, by, bw, 120, 10)
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    ctx.fillStyle = COLORS.textPrimary
+    ctx.font = '12px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'top'
+    const lines = p.puzzle.text.split('\n')
+    for (let li = 0; li < Math.min(4, lines.length); li++) {
+      ctx.fillText(lines[li].substring(0, 35), bx + 12, by + 10 + li * 16)
+    }
+    ctx.fillStyle = '#7c4dff'
+    ctx.font = 'bold 11px sans-serif'
+    ctx.fillText('🔹 TOCA PARA RESOLVER', bx + 12, by + 90)
+  })
+}
+
+function showPuzzle(index) {
+  const actualIndex = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+  if (actualIndex < 0) return
+  const p = currentPuzzles[actualIndex]
+  if (!p) return
+  renderPuzzle(p, actualIndex)
+}
+
+let puzzleAnswered = false
+let puzzleSelectHandler = null
+
+function renderPuzzle(p, idx) {
+  const cats = __module_puzzles_Registry.CATEGORIES[p.puzzle.data?.category] || { icon: '🧩', name: 'Puzzle' }
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = 'rgba(255,255,255,0.04)'
+  roundRect(ctx, 10, 10, VW - 20, 70, 12)
+  ctx.fill()
+  ctx.fillStyle = COLORS.textMuted
+  ctx.font = '11px sans-serif'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(`${cats.icon} ${cats.name} · Puzzle ${solvedCount + 1}/3`, 20, 18)
+  ctx.fillStyle = COLORS.textSecondary
+  ctx.font = '10px sans-serif'
+  ctx.fillText(`Piso ${__module_core_Store.store.get('tower.currentFloor')}`, 20, 36)
+  const timer = Math.floor((Date.now() - (p._startTime || Date.now())) / 1000)
+  ctx.fillStyle = timer > 20 ? '#ef5350' : COLORS.textMuted
+  ctx.textAlign = 'right'
+  ctx.fillText(`${timer}s`, VW - 20, 18)
+  if (puzzleAnswered) {
+    ctx.fillStyle = COLORS.gold
+    ctx.font = 'bold 13px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('✓ Continuando...', VW / 2, 55)
+  }
+  const lines = p.puzzle.text.split('\n')
+  ctx.fillStyle = COLORS.textPrimary
+  ctx.font = '14px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'top'
+  let ty = 95
+  for (const line of lines) {
+    if (ctx.measureText(line).width > VW - 40) {
+      const mid = Math.floor(line.length / 2)
+      let split = mid
+      for (let s = mid; s < line.length; s++) { if (line[s] === ' ') { split = s; break } }
+      ctx.fillText(line.substring(0, split), VW / 2, ty)
+      ty += 20
+      ctx.fillText(line.substring(split + 1), VW / 2, ty)
+    } else {
+      ctx.fillText(line, VW / 2, ty)
+    }
+    ty += 20
+  }
+  const opts = p.puzzle.options || []
+  const totalOpts = opts.length
+  const cols = totalOpts <= 4 ? 2 : 2
+  const rows = Math.ceil(totalOpts / cols)
+  const bw = (VW - 40) / cols
+  const bh = 44
+  const startY = Math.max(ty + 20, 280)
+  for (let i = 0; i < totalOpts; i++) {
+    const col = i % cols, row = Math.floor(i / cols)
+    const bx = 14 + col * (bw + 6)
+    const by = startY + row * (bh + 6)
+    let bg = 'rgba(255,255,255,0.06)'
+    let tc = COLORS.textPrimary
+    if (puzzleAnswered) {
+      if (i === p.puzzle.answer) { bg = 'rgba(76,175,80,0.25)'; tc = '#4caf50' }
+      else if (i === p._selected) { bg = 'rgba(239,83,80,0.25)'; tc = '#ef5350' }
+    }
+    ctx.fillStyle = bg
+    roundRect(ctx, bx, by, bw, bh, 8)
+    ctx.fill()
+    ctx.fillStyle = tc
+    ctx.font = 'bold 13px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    const label = String.fromCharCode(65 + i)
+    ctx.fillText(`${label}. ${opts[i]}`, bx + bw / 2, by + bh / 2)
+  }
+  if (puzzleAnswered) {
+    const isCorrect = p._selected === p.puzzle.answer
+    ctx.fillStyle = isCorrect ? '#4caf50' : '#ef5350'
+    ctx.font = 'bold 14px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(isCorrect ? '✓ ¡Correcto!' : '✗ Incorrecto', VW / 2, startY + rows * (bh + 6) + 30)
+    const timeTaken = Math.floor((Date.now() - p._startTime) / 1000)
+    if (isCorrect) {
+      ctx.fillStyle = COLORS.gold
+      ctx.font = '11px sans-serif'
+      ctx.fillText(`+${25 + Math.max(0, 15 - timeTaken) * 2} XP · ${timeTaken}s`, VW / 2, startY + rows * (bh + 6) + 52)
+    }
+  }
+  if (!puzzleAnswered) {
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'
+    ctx.font = '10px sans-serif'
+    ctx.fillText('Toca una opción o presiona 1-4 / A-D', VW / 2, startY + rows * (bh + 6) + 26)
+  }
+  particles.render(ctx)
+}
+
+function drawBackground() {
+  const grad = ctx.createLinearGradient(0, 0, 0, VH)
+  grad.addColorStop(0, '#0a0a1a')
+  grad.addColorStop(0.5, '#0f0f2a')
+  grad.addColorStop(1, '#1a0a2e')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, 0, VW, VH)
+  ctx.fillStyle = 'rgba(124,77,255,0.04)'
+  for (let i = 0; i < 5; i++) {
+    const x = (Math.sin(Date.now() * 0.0001 + i * 1.5) * 0.5 + 0.5) * VW
+    const y = (Math.cos(Date.now() * 0.00008 + i * 2) * 0.5 + 0.5) * VH
+    ctx.beginPath()
+    ctx.arc(x, y, 30 + i * 10, 0, Math.PI * 2)
+    ctx.fill()
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath()
+  ctx.roundRect(x, y, w, h, r)
+}
+
+function handleCanvasClick(nx, ny) {
+  const screen = screens.getCurrent()
+  if (screen === 'title' || screen === null) {
+    screens.show('menu')
+    audio.click()
+    return
+  }
+  if (screen === 'menu') {
+    const opt = getMenuOption(nx, ny)
+    if (opt === 'play') { screens.show('tower'); hud.show() }
+    else if (opt === 'daily') { screens.show('daily') }
+    else if (opt === 'achievements') { screens.show('achievements') }
+    else if (opt === 'stats') { screens.show('stats') }
+    else if (opt === 'settings') { screens.show('settings') }
+    if (opt) audio.click()
+    return
+  }
+  if (screen === 'tower') {
+    loadFloor(__module_core_Store.store.get('tower.currentFloor'))
+    screens.show('floor')
+    return
+  }
+  if (screen === 'floor') {
+    if (solvedCount >= 2) {
+      tower.advance()
+      setTimeout(() => loadFloor(__module_core_Store.store.get('tower.currentFloor')), 100)
+      return
+    }
+    const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+    if (actualIdx >= 0) {
+      const p = currentPuzzles[actualIdx]
+      p._startTime = Date.now()
+      p._selected = -1
+      puzzleAnswered = false
+      screens.show('puzzle')
+    }
+    return
+  }
+  if (screen === 'puzzle') {
+    if (puzzleAnswered) {
+      puzzleAnswered = false
+      const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+      if (actualIdx >= 0) {
+        const p = currentPuzzles[actualIdx]
+        if (p._selected === p.puzzle.answer) {
+          p.solved = true
+          const cat = p.puzzle.data?.category
+          const time = (Date.now() - p._startTime) / 1000
+          const floor = __module_core_Store.store.get('tower.currentFloor')
+          __module_core_EventBus.events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - Math.floor(time)) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1, floor })
+          particles.emitCorrect(VW / 2, VH / 2)
+        } else {
+          const floor = __module_core_Store.store.get('tower.currentFloor')
+          __module_core_EventBus.events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: (Date.now() - p._startTime) / 1000, xp: 0, stars: 0, floor })
+          particles.emitWrong(VW / 2, VH / 2)
+        }
+      }
+      screens.show('floor')
+      return
+    }
+    const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+    if (actualIdx < 0) return
+    const p = currentPuzzles[actualIdx]
+    const opts = p.puzzle.options || []
+    const totalOpts = opts.length
+    const cols = 2, rows = Math.ceil(totalOpts / cols)
+    const lines = p.puzzle.text.split('\n')
+    let ty = 95
+    for (const line of lines) {
+      if (ctx.measureText(line).width > VW - 40) ty += 20
+      ty += 20
+    }
+    const bw = (VW - 40) / cols, bh = 44
+    const startY = Math.max(ty + 20, 280)
+    for (let i = 0; i < totalOpts; i++) {
+      const col = i % cols, row = Math.floor(i / cols)
+      const bx = 14 + col * (bw + 6)
+      const by = startY + row * (bh + 6)
+      if (nx >= bx && nx <= bx + bw && ny >= by && ny <= by + bh) {
+        p._selected = i
+        puzzleAnswered = true
+        audio.click()
+        return
+      }
+    }
+  }
+}
+
+function getMenuOption(nx, ny) {
+  const opts = [
+    { id: 'play', x: 20, y: 200, w: VW - 40, h: 60 },
+    { id: 'daily', x: 20, y: 275, w: VW - 40, h: 50 },
+    { id: 'achievements', x: 20, y: 338, w: (VW - 50) / 2, h: 44 },
+    { id: 'stats', x: VW / 2 + 5, y: 338, w: (VW - 50) / 2, h: 44 },
+    { id: 'settings', x: 20, y: 395, w: VW - 40, h: 44 },
+  ]
+  for (const o of opts) {
+    if (nx >= o.x && nx <= o.x + o.w && ny >= o.y && ny <= o.y + o.h) return o.id
+  }
+  return null
+}
+
+document.addEventListener('keydown', (e) => {
+  const k = e.key
+  const screen = screens.getCurrent()
+  if ((screen === 'title' || screen === null) && (k === 'Enter' || k === ' ')) {
+    screens.show('menu'); audio.click(); return
+  }
+  if (screen === 'puzzle' && !puzzleAnswered) {
+    const m = { '1': 0, '2': 1, '3': 2, '4': 3, 'a': 0, 'b': 1, 'c': 2, 'd': 3 }
+    if (k in m) {
+      const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+      if (actualIdx >= 0) {
+        const p = currentPuzzles[actualIdx]
+        p._selected = m[k]
+        puzzleAnswered = true
+        audio.click()
+      }
+    }
+  }
+  if (k === 'Escape' && screen !== 'title' && screen !== 'menu' && screen !== null) {
+    screens.show('menu')
+  }
+})
+
+function renderTitle() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = '#ffd700'
+  ctx.font = 'bold 32px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const p = 0.5 + Math.sin(Date.now() * 0.003) * 0.5
+  ctx.fillText('🧠 MENTIS', VW / 2, 180)
+  ctx.fillStyle = '#a090b0'
+  ctx.font = '16px sans-serif'
+  ctx.fillText('El Desafío del Saber', VW / 2, 225)
+  ctx.fillStyle = 'rgba(124,77,255,0.5)'
+  ctx.font = '12px sans-serif'
+  ctx.fillText('100 pisos de puzzles · 5 categorías', VW / 2, 260)
+  ctx.globalAlpha = p
+  ctx.fillStyle = '#ffd700'
+  ctx.font = 'bold 15px sans-serif'
+  ctx.fillText('TOCA PARA COMENZAR', VW / 2, 350)
+  ctx.globalAlpha = 1
+  ctx.fillStyle = 'rgba(255,255,255,0.15)'
+  ctx.font = '10px sans-serif'
+  ctx.fillText('v1.0 · Hecho con ❤️ para mentes curiosas', VW / 2, 550)
+  const best = __module_core_Store.store.get('player.xp') || 0
+  if (best > 0) {
+    ctx.fillStyle = '#ffd700'
+    ctx.font = '12px sans-serif'
+    ctx.fillText(`🏆 ${__module_core_Store.store.get('player.level') || 1} · ${__module_core_Store.store.get('stats')?.puzzlesSolved || 0} puzzles`, VW / 2, 400)
+  }
+}
+
+function renderMenu() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  hud.update()
+  ctx.fillStyle = '#ffd700'
+  ctx.font = 'bold 24px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('🧠 MENTIS', VW / 2, 50)
+  const streak = streaks.getStreak()
+  if (streak > 0) {
+    ctx.fillStyle = '#ff9800'
+    ctx.font = '12px sans-serif'
+    ctx.fillText(`🔥 Racha: ${streak} días · ×${streaks.getStreakBonus()} XP`, VW / 2, 82)
+  }
+  const towerData = __module_core_Store.store.get('tower')
+  const completed = towerData?.floors ? Object.values(towerData.floors).filter(f => f.completed).length : 0
+  ctx.fillStyle = '#a090b0'
+  ctx.font = '13px sans-serif'
+  ctx.fillText(`Torre: Piso ${towerData?.currentFloor || 1} · ${completed} completados`, VW / 2, 112)
+  const buttons = [
+    { text: '▶  JUGAR', sub: `Piso ${towerData?.currentFloor || 1}`, y: 200, h: 60, color: '#7c4dff' },
+    { text: '📅  Puzzle Diario', sub: 'Un puzzle nuevo cada día', y: 275, h: 50, color: '#448aff' },
+    { text: '🏆  Logros', sub: '', y: 338, w: (VW - 50) / 2, color: '#ffd700' },
+    { text: '📊  Estadísticas', sub: '', y: 338, x: VW / 2 + 5, w: (VW - 50) / 2, color: '#00bcd4' },
+    { text: '⚙️  Ajustes', sub: '', y: 395, h: 44, color: '#a090b0' },
+  ]
+  for (const b of buttons) {
+    const bx = b.x || 20
+    const bw = b.w || (VW - 40)
+    ctx.fillStyle = b.color + '22'
+    roundRect(ctx, bx, b.y, bw, b.h || 50, 10)
+    ctx.fill()
+    ctx.strokeStyle = b.color + '44'
+    ctx.lineWidth = 1
+    ctx.stroke()
+    ctx.fillStyle = b.color
+    ctx.font = 'bold ' + (b.h > 50 ? '16' : '14') + 'px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(b.text, bx + bw / 2, b.y + (b.h || 50) / 2 - (b.sub ? 6 : 0))
+    if (b.sub) {
+    ctx.fillStyle = COLORS.textMuted
+      ctx.font = '10px sans-serif'
+      ctx.fillText(b.sub, bx + bw / 2, b.y + (b.h || 50) / 2 + 12)
+    }
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.1)'
+  ctx.font = '10px sans-serif'
+  ctx.fillText('[ESC] Menú  ·  Pulsa 1-4 o toca para responder', VW / 2, VH - 20)
+}
+
+function renderAchievements() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = '#ffd700'
+  ctx.font = 'bold 20px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  const all = achievements.getAll()
+  const unlocked = achievements.getUnlocked()
+  ctx.fillText(`🏆 Logros (${unlocked.length}/${all.length})`, VW / 2, 30)
+  ctx.fillStyle = COLORS.textMuted
+  ctx.font = '10px sans-serif'
+  ctx.fillText('Toca cualquier parte para volver', VW / 2, 56)
+  const startY = 75
+  const visible = all.slice(0, 14)
+  for (let i = 0; i < visible.length; i++) {
+    const a = visible[i]
+    const isUnlocked = unlocked.includes(a.id)
+    const y = startY + i * 35
+    ctx.fillStyle = isUnlocked ? 'rgba(255,215,0,0.08)' : 'rgba(255,255,255,0.03)'
+    roundRect(ctx, 10, y, VW - 20, 30, 6)
+    ctx.fill()
+    ctx.fillStyle = isUnlocked ? '#ffd700' : COLORS.textMuted
+    ctx.font = '14px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(`${a.icon} ${a.name}`, 20, y + 15)
+    ctx.textAlign = 'right'
+    ctx.font = '9px sans-serif'
+    ctx.fillText(isUnlocked ? '✓' : `+${a.xp} XP`, VW - 18, y + 15)
+  }
+  if (all.length > 14) {
+    ctx.fillStyle = COLORS.textMuted
+    ctx.font = '10px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('... y más logros por descubrir', VW / 2, startY + 14 * 35 + 10)
+  }
+}
+
+function renderStats() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = '#00bcd4'
+  ctx.font = 'bold 20px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('📊 Estadísticas', VW / 2, 30)
+  ctx.fillStyle = COLORS.textMuted
+  ctx.font = '10px sans-serif'
+  ctx.fillText('Toca para volver', VW / 2, 55)
+  const st = __module_core_Store.store.get('stats')
+  const player = __module_core_Store.store.get('player')
+  const items = [
+    ['🧩 Puzzles resueltos', st.puzzlesSolved],
+    ['⭐ XP total', st.totalXP],
+    ['⬆️ Nivel', player.level],
+    ['🗼 Pisos completados', Object.values(__module_core_Store.store.get('tower')?.floors || {}).filter(f => f.completed).length],
+    ['🔥 Mejor racha', `${st.bestStreak} días`],
+    ['⏱️ Tiempo total', `${Math.floor((st.totalTime || 0) / 60)} min`],
+    ['🎯 Mejor combo', st.bestCombo || 0],
+    ['⚡ Más rápido', st.fastestSolve ? `${st.fastestSolve.toFixed(1)}s` : '—'],
+    ['💡 Pistas usadas', st.hintsUsed || 0],
+  ]
+  const startY = 80
+  for (let i = 0; i < items.length; i++) {
+    const y = startY + i * 34
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, 20, y, VW - 40, 28, 6)
+    ctx.fill()
+    ctx.fillStyle = COLORS.textSecondary
+    ctx.font = '12px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(items[i][0], 30, y + 14)
+    ctx.fillStyle = COLORS.textPrimary
+    ctx.textAlign = 'right'
+    ctx.font = 'bold 12px sans-serif'
+    ctx.fillText(String(items[i][1]), VW - 28, y + 14)
+  }
+  const radarY = startY + items.length * 34 + 10
+  ctx.fillStyle = COLORS.textMuted
+  ctx.font = '11px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('Fortalezas por categoría', VW / 2, radarY)
+  const cats = st.byCategory || {}
+  const max = Math.max(1, ...Object.values(cats))
+  const catColors = { math: '#448aff', logic: '#7c4dff', visual: '#00bcd4', strategy: '#ff9800', memory: '#e91e63' }
+  const catLabels = { math: '🧮', logic: '🧠', visual: '👁️', strategy: '♟️', memory: '🔄' }
+  let cx = 30
+  for (const [key, val] of Object.entries(cats)) {
+    const pct = Math.min(100, Math.round(val / max * 100))
+    const color = catColors[key] || '#fff'
+    ctx.fillStyle = color + '33'
+    roundRect(ctx, cx, radarY + 20, 60, 60, 6)
+    ctx.fill()
+    ctx.fillStyle = color
+    ctx.font = 'bold 20px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(catLabels[key] || key, cx + 30, radarY + 40)
+    ctx.fillStyle = COLORS.textSecondary
+    ctx.font = '10px sans-serif'
+    ctx.fillText(`${val}`, cx + 30, radarY + 62)
+    cx += 68
+  }
+}
+
+function renderSettings() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = '#a090b0'
+  ctx.font = 'bold 20px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('⚙️ Ajustes', VW / 2, 40)
+  ctx.fillStyle = COLORS.textMuted
+  ctx.font = '10px sans-serif'
+  ctx.fillText('Toca para alternar · Toca fuera para volver', VW / 2, 65)
+  const settings = __module_core_Store.store.get('settings')
+  const items = [
+    { id: 'sound', label: '🔊 Sonido', value: settings.sound },
+    { id: 'music', label: '🎵 Música ambiente', value: settings.music },
+    { id: 'particles', label: '✨ Partículas', value: settings.particles },
+  ]
+  for (let i = 0; i < items.length; i++) {
+    const y = 100 + i * 50
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, 20, y, VW - 40, 40, 8)
+    ctx.fill()
+    ctx.fillStyle = COLORS.textPrimary
+    ctx.font = '14px sans-serif'
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(items[i].label, 32, y + 20)
+    ctx.fillStyle = items[i].value ? '#4caf50' : COLORS.textMuted
+    ctx.textAlign = 'right'
+    ctx.font = 'bold 13px sans-serif'
+    ctx.fillText(items[i].value ? '✓ ON' : '○ OFF', VW - 30, y + 20)
+  }
+}
+
+function renderDaily() {
+  ctx.clearRect(0, 0, VW, VH)
+  drawBackground()
+  ctx.fillStyle = '#448aff'
+  ctx.font = 'bold 18px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('📅 Puzzle Diario', VW / 2, 40)
+  const dailyData = daily.generate()
+  const prevScore = daily.getScore()
+  if (prevScore) {
+    ctx.fillStyle = '#ffd700'
+    ctx.font = '14px sans-serif'
+    ctx.fillText(`✓ Completado: ${prevScore.correct ? '✅' : '❌'}`, VW / 2, 80)
+    ctx.fillStyle = COLORS.textMuted
+    ctx.font = '11px sans-serif'
+    ctx.fillText(`Tiempo: ${Math.floor(prevScore.time)}s`, VW / 2, 105)
+  } else {
+    ctx.fillStyle = COLORS.textSecondary
+    ctx.font = '13px sans-serif'
+    ctx.fillText('Un puzzle especial para hoy', VW / 2, 80)
+    ctx.fillStyle = 'rgba(255,255,255,0.04)'
+    roundRect(ctx, 20, 110, VW - 40, 120, 10)
+    ctx.fill()
+    ctx.fillStyle = COLORS.textPrimary
+    ctx.font = '13px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    const lines = dailyData.puzzle.text.split('\n')
+    let ty = 125
+    for (const line of lines) {
+      ctx.fillText(line, VW / 2, ty)
+      ty += 18
+    }
+    ctx.fillStyle = '#7c4dff'
+    ctx.font = 'bold 13px sans-serif'
+    ctx.textBaseline = 'middle'
+    ctx.fillText('🔹 Toca para resolver', VW / 2, ty + 20)
+  }
+}
+
+screens.register('title', '', () => {})
+screens.register('menu', '', () => {})
+screens.register('tower', '', () => {})
+screens.register('floor', '', () => {})
+screens.register('puzzle', '', () => {})
+screens.register('daily', '', () => {})
+screens.register('achievements', '', () => {})
+screens.register('stats', '', () => {})
+screens.register('settings', '', () => {})
+
+let currentRenderer = 'title'
+__module_core_EventBus.events.on('screen:change', (id) => {
+  currentRenderer = id
+  if (id === 'floor') hud.show()
+  else if (id === 'puzzle') { puzzleAnswered = false }
+  else if (id === 'title') hud.hide()
+  audio.click()
+})
+
+function handleInput(nx, ny) {
+  const screen = screens.getCurrent()
+  if (screen !== 'puzzle') handleCanvasClick(nx, ny)
+  else if (!puzzleAnswered) handleCanvasClick(nx, ny)
+  else {
+    puzzleAnswered = false
+    const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+    if (actualIdx >= 0) {
+      const p = currentPuzzles[actualIdx]
+      if (p._selected === p.puzzle.answer) {
+        p.solved = true
+        const cat = p.puzzle.data?.category
+        const time = Math.floor((Date.now() - p._startTime) / 1000)
+        const floor = __module_core_Store.store.get('tower.currentFloor')
+        __module_core_EventBus.events.emit('puzzle:solved', { correct: true, category: cat, time, xp: 25 + Math.max(0, 15 - time) * 2, stars: time < 8 ? 3 : time < 15 ? 2 : 1, floor })
+        particles.emitCorrect(VW / 2, VH / 2)
+        audio.correct()
+      } else {
+        const floor = __module_core_Store.store.get('tower.currentFloor')
+        __module_core_EventBus.events.emit('puzzle:solved', { correct: false, category: p.puzzle.data?.category, time: Math.floor((Date.now() - p._startTime) / 1000), xp: 0, stars: 0, floor })
+        particles.emitWrong(VW / 2, VH / 2)
+        audio.wrong()
+      }
+    }
+    screens.show('floor')
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect()
+  const nx = ((e.clientX - rect.left) / rect.width) * VW
+  const ny = ((e.clientY - rect.top) / rect.height) * VH
+  console.log('[MENTIS-CLICK]', { nx, ny, screen: screens.getCurrent() })
+  handleInput(nx, ny)
+})
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault()
+  const t = e.changedTouches[0]
+  const rect = canvas.getBoundingClientRect()
+  const nx = ((t.clientX - rect.left) / rect.width) * VW
+  const ny = ((t.clientY - rect.top) / rect.height) * VH
+  console.log('[MENTIS-TOUCH]', { nx, ny, screen: screens.getCurrent() })
+  handleInput(nx, ny)
+}, { passive: false })
+
+loop.update = (dt) => {
+  particles.update(dt)
+  transitions.update(performance.now())
+}
+
+loop.render = () => {
+  if (currentRenderer === 'title') renderTitle()
+  else if (currentRenderer === 'menu') renderMenu()
+  else if (currentRenderer === 'floor') renderFloor()
+  else if (currentRenderer === 'puzzle') {
+    const actualIdx = currentPuzzles.findIndex((p, i) => !p.solved && i >= solvedCount)
+    if (actualIdx >= 0) renderPuzzle(currentPuzzles[actualIdx], actualIdx)
+    else screens.show('floor')
+  }
+  else if (currentRenderer === 'achievements') renderAchievements()
+  else if (currentRenderer === 'stats') renderStats()
+  else if (currentRenderer === 'settings') renderSettings()
+  else if (currentRenderer === 'daily') renderDaily()
+  transitions.render(ctx)
+}
+
+loadSave()
+tower.init()
+loop.start()
+console.log('[MENTIS] Game initialized. Current screen:', screens.getCurrent())
+
+window.__module_app = window.__module_app || {};
+window.__module_app.audio = audio;
+})();
+
+  </script>
+</body>
+</html>

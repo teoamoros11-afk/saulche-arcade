@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧠 MENTIS - Iniciar</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      background: #0a0a1a; 
+      color: #f0e8d0; 
+      font-family: system-ui, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .container {
+      text-align: center;
+      max-width: 500px;
+    }
+    h1 { 
+      font-size: 48px; 
+      margin-bottom: 20px;
+      color: #ffd700;
+    }
+    .subtitle {
+      color: #a090b0;
+      margin-bottom: 40px;
+      font-size: 18px;
+    }
+    .option {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .option:hover {
+      background: rgba(255,255,255,0.08);
+      border-color: rgba(255,215,0,0.3);
+      transform: translateY(-2px);
+    }
+    .option h2 {
+      color: #ffd700;
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+    .option p {
+      color: #a090b0;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .option .command {
+      background: rgba(0,0,0,0.3);
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      color: #4caf50;
+      margin-top: 12px;
+      word-break: break-all;
+    }
+    .icon { font-size: 32px; margin-bottom: 12px; }
+    .footer {
+      margin-top: 40px;
+      color: #605070;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧠 MENTIS</h1>
+    <p class="subtitle">El Desafío del Saber</p>
+    
+    <div class="option" onclick="window.location.href='mentis-standalone.html'">
+      <div class="icon">🚀</div>
+      <h2>Jugar (Versión Standalone)</h2>
+      <p>Versión empaquetada que funciona directamente. Haz clic aquí para jugar.</p>
+    </div>
+    
+    <div class="option" onclick="startServer()">
+      <div class="icon">🌐</div>
+      <h2>Iniciar Servidor Local</h2>
+      <p>Para la versión completa con todas las funciones, ejecuta este comando en tu terminal:</p>
+      <div class="command">python3 launch-mentis.py</div>
+      <p style="margin-top: 12px;">O haz clic aquí para ver instrucciones.</p>
+    </div>
+    
+    <div class="option" onclick="window.location.href='mentis/index.html'">
+      <div class="icon">📁</div>
+      <h2>Versión Original (Requiere Servidor)</h2>
+      <p>Si ya tienes un servidor ejecutándose, accede a la versión original.</p>
+    </div>
+    
+    <p class="footer">
+      🐻 Hecho con ❤️ para mentes curiosas · 100 pisos de puzzles
+    </p>
+  </div>
+  
+  <script>
+    function startServer() {
+      alert('Para iniciar el servidor, ejecuta en tu terminal:\\n\\ncd /home/teo/Projects/arcade-grizzy\\npython3 launch-mentis.py\\n\\nLuego abre http://localhost:8080 en tu navegador.');
+    }
+  </script>
+</body>
+</html>
