@@ -5,10 +5,11 @@
 
 ## Summary
 
-During a systematic codebase diagnosis, two significant bugs were identified and fixed:
+During a systematic codebase diagnosis, three significant bugs were identified and fixed:
 
 1. **Flappy Grizzy Pipe Generation Bug** - Pipes could spawn outside valid screen boundaries
 2. **Come Cocos Power Pellet Bug** - Fewer power pellets were placed than intended
+3. **MENTIS Z-Index Bug** - Canvas was covering all app content, showing only dark blue screen
 
 ## Bug Details
 
@@ -90,6 +91,36 @@ for (let r = 0; r < ROWS; r++) {
 - All 4 power pellets now appear correctly
 - Normal pellet count remains accurate
 
+### Bug 3: MENTIS Z-Index Issue
+
+**File:** `mentis/css/layout.css`
+**Severity:** High (game completely unplayable)
+
+**Description:**
+The MENTIS game was showing only a dark blue screen. The canvas element had a higher z-index than the app container, causing the canvas to cover all UI content.
+
+**Root Cause:**
+The CSS had incorrect z-index values:
+- `#app` had `z-index: 1`
+- `#game-canvas` had `z-index: 2`
+
+The canvas was being filled with a dark gradient (`#0a0a1a` → `#1a0a2e`) in the `drawBackground()` function, which covered the entire screen.
+
+**Reproduction:**
+1. Open MENTIS from the game menu
+2. Only a dark blue screen appears
+3. No UI elements are visible
+
+**Fix:**
+Swapped the z-index values:
+- `#app` now has `z-index: 10`
+- `#game-canvas` now has `z-index: 1`
+
+**Testing:**
+- Verified the fix by opening MENTIS
+- UI content now renders on top of the canvas
+- Game is now playable
+
 ## Additional Observations
 
 ### Code Quality Issues
@@ -110,6 +141,7 @@ for (let r = 0; r < ROWS; r++) {
 
 - `flappygrizzy.html` - Fixed pipe generation logic
 - `comecocos.html` - Fixed power pellet placement logic
+- `mentis/css/layout.css` - Fixed z-index layering issue
 
 ## Testing
 
